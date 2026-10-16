@@ -57,3 +57,4 @@ precompile leaf 6 => 3
 kan evPi => 5
 kan evPair => 3
 kan evTrans => 3
+trunc truncMapped => trunc1 Nat 0

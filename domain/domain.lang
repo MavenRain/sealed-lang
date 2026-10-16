@@ -21,7 +21,17 @@ def JRefl : (A : Type 0) -> (x : A) -> (P : (y : A) -> Path A x y -> Type 0) -> 
 def trans : (A : Type 0) -> (x : A) -> (y : A) -> (z : A) -> Path A x y -> Path A y z -> Path A x z :=
   fun (A : Type 0) => fun (x : A) => fun (y : A) => fun (z : A) => fun (p : Path A x y) => fun (q : Path A y z) =>
     fun (j : I) => hcomp A (~j \/ j) (fun (i : I) => [ ~j -> x, j -> q @ i ]) (p @ j)
+-- Propositions and sets (S4b): the squash1 fold case has the type
+-- isProp RES, the squash0 and quotSquash fold cases the type isSet RES.
+def isProp : (A : Type 0) -> Type 0 :=
+  fun (A : Type 0) => (x : A) -> (y : A) -> Path A x y
+def isSet : (A : Type 0) -> Type 0 :=
+  fun (A : Type 0) => (x : A) -> (y : A) -> isProp (Path A x y)
 
 -- The circle, a higher inductive family (S4a, R1 (a)). The path
 -- constructor loop goes from base to base.
 family S1 := base | loop (i : I) [ ~i -> base, i -> base ]
+-- The propositional truncation (S4b, R5 (a)): squash1 is a path between
+-- any two points, so the squash1 fold case has the type isProp RES. A
+-- field name is a core name (rule R4), so the names have a family prefix.
+family Trunc1 (A : Type 0) := trunc1 (truncOf : A) | squash1 (squashFrom : Trunc1 A) (squashTo : Trunc1 A) (i : I) [ ~i -> squashFrom, i -> squashTo ]

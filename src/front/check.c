@@ -2099,12 +2099,24 @@ static int name_free(Checker *c, const char *name) {
   return why == NULL ? 1 : FAIL(c, "REFUSE_NAME", "%s is %s (rule R4)", name, why);
 }
 
-/* A recursive field must be the whole field type, in a family with no
+/* T is the family FAM at its own parameter variables `F p1 .. pn`, in
+   the context of the parameters (S4 item 9). */
+static int own_family(const Machine *m, uint32_t fam, const Core *t) {
+  uint32_t p = m->families[fam].param_count;
+  uint32_t k;
+  if (t->kind != CORE_OP || t->op != OP_FAMILY || t->inst != fam || t->argc != p)
+    return 0;
+  for (k = 0; k < p; k++)
+    if (t->args[k]->kind != CORE_VAR || t->args[k]->index != p - 1u - k)
+      return 0;
+  return 1;
+}
+
+/* A recursive field must be the whole field type, the family at its own
    parameters. */
 static int check_field(Checker *c, uint32_t fam, const Field *field, FieldInfo *out) {
   uint64_t level = 0;
   const Core *t;
-  int whole;
   if (!name_free(c, field->name))
     return 0;
   c->self_uses = 0;
@@ -2113,13 +2125,12 @@ static int check_field(Checker *c, uint32_t fam, const Field *field, FieldInfo *
     return 0;
   if (level > c->m->families[fam].universe)
     c->m->families[fam].universe = level;
-  whole = t->kind == CORE_OP && t->op == OP_FAMILY && t->inst == fam && c->m->families[fam].param_count == 0u;
   out->name = field->name;
   out->type = t;
   out->recursive = c->self_uses > 0u;
   out->history = field->history;
-  if (out->recursive && !whole)
-    return FAIL(c, "DOMAIN_FAMILY", "the recursive field %s must have the type %s itself, in a family with no parameters", field->name, c->m->families[fam].name);
+  if (out->recursive && !own_family(c->m, fam, t))
+    return FAIL(c, "DOMAIN_FAMILY", "the recursive field %s must have the type %s at its own parameters", field->name, c->m->families[fam].name);
   return 1;
 }
 

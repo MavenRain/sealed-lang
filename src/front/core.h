@@ -187,7 +187,10 @@ typedef enum {
   CLOS_TRANSP_PATHP,   /* PLAM: r |-> comp of p0 @ r (rule 7); args: L, phi, p0 */
   CLOS_PATHP_LINE,     /* PLAM: i |-> L(i) at r; args: L, r */
   CLOS_PATHP_END,      /* PLAM: i |-> the end FIELD of L(i); args: L */
-  CLOS_SYS_FOLD        /* PLAM: j |-> fold (b j) with the cases and RES of F; args: b, F (a stuck fold); field: the family */
+  CLOS_SYS_FOLD,       /* PLAM: j |-> fold (b j) with the cases and RES of F; args: b, F (a stuck fold); field: the family */
+  /* transp at a family with parameters (S4 item 11). */
+  CLOS_FAMILY_FIELD,   /* PLAM: r |-> the type of the point field FIELD of the constructor of v at the parameters of L(r); args: L, v */
+  CLOS_SYS_TRANSP      /* PLAM: j |-> transp L phi (b j); args: b, L, phi */
 } ClosTag;
 
 typedef struct Value Value;

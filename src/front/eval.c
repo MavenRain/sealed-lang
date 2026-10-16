@@ -1422,6 +1422,24 @@ static const Value *sigma_up(Machine *m, const Value *line, const Value *phi, co
   return transp(m, kan_closure(m, VAL_PLAM, CLOS_SIGMA_DOM, 0, 2, line, r, NULL), ival_join(m, phi, ival_neg(m, r)), u);
 }
 
+/* The type of the point field FIELD of the constructor INST at the
+   parameters of the family value T (S4 item 11). The field type is over
+   the parameters: the last one is index 0. */
+static const Value *field_type_at(Machine *m, uint32_t inst, uint32_t field, const Value *t) {
+  const Env *env = NULL;
+  uint32_t i;
+  if (t == NULL)
+    return NULL;
+  if (!val_is(t, OP_FAMILY) || inst >= m->ctor_count || t->inst != m->ctors[inst].family || field >= m->ctors[inst].field_count)
+    return internal(m, "a line that changes its type former");
+  for (i = 0; i < t->argc; i++) {
+    env = env_push(m, env, t->args[i]);
+    if (env == NULL)
+      return NULL;
+  }
+  return eval_core(m, env, m->ctors[inst].fields[field].type);
+}
+
 static const Value *kan_apply(Machine *m, const Value *k, const Value *r) {
   const Value *const *a = k->args;
   const Value *t;
@@ -1484,6 +1502,10 @@ static const Value *kan_apply(Machine *m, const Value *k, const Value *r) {
     if (a[1]->argc < 2u)
       return internal(m, "a fold branch without its cases");
     return fold_family(m, k->field, a[1]->args, a[1]->argc - 2u, closure_apply(m, a[0], r));
+  case CLOS_FAMILY_FIELD:
+    return field_type_at(m, a[1]->inst, k->field, line_former(m, line_at(m, a[0], r), VAL_OP));
+  case CLOS_SYS_TRANSP:
+    return transp(m, a[1], a[2], closure_apply(m, a[0], r));
   case CLOS_CORE:
     break;
   }
@@ -1507,6 +1529,89 @@ static const Value *transp_list(Machine *m, const Value *line, const Value *phi,
   }
   tail = scrut_of(sp.tail) == SCRUT_NEUTRAL ? transp_stuck(m, line, phi, sp.tail) : sp.tail;
   return build_list(m, items, sp.count, tail);
+}
+
+/* A boundary face may use the constructor's interval fields, but not a
+   family parameter that can change along transport. */
+static int ctor_interval_face(const Core *t, uint32_t dimensions) {
+  if (t->kind == CORE_VAR)
+    return t->index < dimensions;
+  if (t->kind == CORE_IZERO || t->kind == CORE_IONE)
+    return 1;
+  if (t->kind == CORE_INEG)
+    return ctor_interval_face(t->a, dimensions);
+  if (t->kind == CORE_IMEET || t->kind == CORE_IJOIN)
+    return ctor_interval_face(t->a, dimensions) && ctor_interval_face(t->b, dimensions);
+  return 0;
+}
+
+/* Rebuilding a path constructor commutes with its boundary when each
+   branch is a recursive field: both sides transport that field along L.
+   General boundary terms need a boundary correction. Until that rule is
+   implemented, retain the transport rather than change its endpoints. */
+static int field_transport_boundary(const CtorInfo *ctor) {
+  const Core *sys = ctor->boundary;
+  uint32_t k;
+  if (sys == NULL)
+    return 1;
+  if (sys->kind != CORE_OP || sys->op != OP_SYSTEM)
+    return 0;
+  for (k = 0; k + 1u < sys->argc; k += 2u) {
+    const Core *branch = sys->args[k + 1u];
+    uint32_t index;
+    if (!ctor_interval_face(sys->args[k], ctor->interval_count)
+        || branch->kind != CORE_PLAM || branch->b->kind != CORE_VAR
+        || branch->b->index <= ctor->interval_count)
+      return 0;
+    /* A branch is under one extra, unused path binder. */
+    index = branch->b->index - ctor->interval_count - 1u;
+    if (index >= ctor->field_count || !ctor->fields[ctor->field_count - 1u - index].recursive)
+      return 0;
+  }
+  return 1;
+}
+
+/* S4 item 11 (R7 (a)): L(i) = F (p i), a family with parameters. A
+   constructor goes into its point fields, each along its field type at the
+   parameters of L (a recursive field along L itself); the interval fields
+   do not change, and the parameters are those of L(i1). A formal hcomp
+   goes into its tubes and its base (CCHM):
+   transp L phi (hcomp F(p i0) psi u u0)
+     = hcomp F(p i1) psi (fun j => [ k -> transp L phi (u j) ]) (transp L phi u0). */
+static const Value *transp_family(Machine *m, const Value *line, const Value *phi, const Value *base) {
+  const Value *end = line_former(m, line_at(m, line, val_iend(m, 1)), VAL_OP);
+  const CtorInfo *ctor;
+  const Value **args;
+  const Value *sys;
+  uint32_t q;
+  uint32_t i;
+  if (end == NULL)
+    return NULL;
+  if (val_is(base, OP_HCOMP) && base->argc == 4u) {
+    sys = sys_map(m, base->args[2], CLOS_SYS_TRANSP, 0, 2, line, phi, NULL);
+    return sys == NULL ? NULL : hcomp(m, end, base->args[1], sys, transp(m, line, phi, base->args[3]));
+  }
+  if (!val_is(base, OP_CTOR) || base->inst >= m->ctor_count || !val_is(end, OP_FAMILY))
+    return not_typed(m);
+  ctor = &m->ctors[base->inst];
+  q = end->argc + ctor->field_count;
+  if (end->inst != ctor->family || base->argc != q + ctor->interval_count)
+    return not_typed(m);
+  if (!field_transport_boundary(ctor))
+    return transp_stuck(m, line, phi, base);
+  args = arena_alloc(m->arena, ((size_t)base->argc + 1u) * sizeof *args);
+  if (args == NULL)
+    return oom(m);
+  for (i = 0; i < end->argc; i++)
+    args[i] = end->args[i];
+  for (i = end->argc; i < q; i++) {
+    args[i] = transp(m, ctor->fields[i - end->argc].recursive ? line : kan_closure(m, VAL_PLAM, CLOS_FAMILY_FIELD, i - end->argc, 2, line, base, NULL), phi, base->args[i]);
+    if (args[i] == NULL)
+      return NULL;
+  }
+  for (i = q; i < base->argc; i++)
+    args[i] = base->args[i];
+  return val_ctor(m, base->inst, args, base->argc);
 }
 
 /* Rules 3, 4 and 8 (R4 (a)): L(i) is the data type FORMER at a fresh i. A
@@ -1552,7 +1657,9 @@ static const Value *transp_data(Machine *m, const Value *head, const Value *line
        stays, also a neutral base or a formal hcomp. */
     if (head->inst < m->family_count && m->families[head->inst].param_count == 0u)
       return base;
-    break;
+    if (neutral)
+      break;
+    return transp_family(m, line, phi, base);
   case OP_INTERVAL:
   case OP_UNIT_VAL:
   case OP_FLAG_YES:
