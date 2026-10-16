@@ -76,3 +76,6 @@ hcomp-cap.lang HCOMP_CAP
 hcomp-universe.lang HCOMP_UNIVERSE
 trans-unit.lang PATH_UIP
 state-boundary.lang DOMAIN_FAMILY
+fold-missing-path.lang TYPE_MISMATCH
+fold-path-boundary.lang PATH_END
+loop-not-refl.lang PATH_UIP

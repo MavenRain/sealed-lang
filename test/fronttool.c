@@ -59,6 +59,11 @@ int main(void) {
   ok &= domain("", NULL);
   ok &= domain("family F := makeF [ i1 -> missing ]", "DOMAIN_FAMILY");
   ok &= domain("family F := makeF [ ]", "DOMAIN_FAMILY");
+  ok &= domain("family T := pt (value : Nat) | arc (previous : T) (i : I) "
+               "[ ~i -> pt (fold (fun n => n) 1 previous), i -> pt (fold (fun n => n) 1 previous) ]", "HIT_BOUNDARY");
+  ok &= domain("family U := u\n"
+               "family T := pt (value : Nat) | arc (i : I) "
+               "[ ~i -> pt (fold 0 u), i -> pt (fold 0 u) ]", NULL);
   ok &= domain("family F := makeF (field : Nat) (field : Flag)", "REFUSE_NAME");
   ok &= domain("family F := makeF (makeF : Nat)", "REFUSE_NAME");
   ok &= domain("family F := makeF (firstField : Nat) (secondField : Flag)", NULL);

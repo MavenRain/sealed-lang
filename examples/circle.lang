@@ -1,0 +1,13 @@
+-- The circle S1 (S4a, rulings R1, R2, R3, R4): a path constructor, a fold
+-- with a path case, a formal hcomp at a HIT, and transport at a family with
+-- no parameters. The coin-lang defs code2, loopT, loopAt0, code3, loop2T
+-- and loop2At0 use Fin and ua; sealed-lang has neither (R36), so they are
+-- not here.
+def loopPath : Path S1 base base := fun (i : I) => loop i
+-- A family with no parameters transports a value to itself.
+def transpBase : Path S1 (transp (fun (_ : I) => S1) i0 base) base := refl
+-- The fold sends the base to 0 and the loop to the constant path at 0.
+def toNat : S1 -> Nat := fun (x : S1) => fold 0 (fun (i : I) => 0) x
+-- The composite of loop with loop is a formal hcomp (a canonical value).
+def loop2 : Path S1 base base :=
+  fun (j : I) => hcomp S1 (~j \/ j) (fun (i : I) => [ ~j -> base, j -> loop i ]) (loop j)

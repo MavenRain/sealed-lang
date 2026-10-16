@@ -196,6 +196,11 @@ static const Core *nul(int failed) {
   return NULL;
 }
 
+static const Value *vnul(int failed) {
+  (void)failed;
+  return NULL;
+}
+
 static Core *new_core(Checker *c, CoreKind kind) {
   Core *k = arena_alloc(c->m->arena, sizeof *k);
   if (k == NULL) {
@@ -867,6 +872,64 @@ static const Value *case_type(Checker *c, const CtorInfo *ctor, const Env *env, 
   return t;
 }
 
+/* The fold image of V, a boundary value of a path constructor of FAM at the
+   field variables (S4 R4 (a)). A field variable (a level from c->level up)
+   is its folded variable; a point constructor is its case, one of the DONE
+   cases in CORES, at the images of its fields. */
+static const Value *fold_image(Checker *c, uint32_t fam, const Core *const *cores, uint32_t done, const Value *v) {
+  Machine *m = c->m;
+  const FamilyInfo *f = &m->families[fam];
+  const CtorInfo *ci;
+  const Value *acc;
+  uint32_t i;
+  if (v == NULL)
+    return NULL;
+  if (v->kind == VAL_VAR && v->nat >= c->level)
+    return v;
+  if (!val_is(v, OP_CTOR) || v->inst < f->first_ctor || v->inst - f->first_ctor >= done || m->ctors[v->inst].interval_count != 0u)
+    return vnul(FAIL(c, "HIT_BOUNDARY", "the fold cannot map the boundary term %s: a boundary term must be a field or an earlier point constructor (path fields come in S4c)", show(c, v)));
+  ci = &m->ctors[v->inst];
+  acc = here(c, cores[v->inst - f->first_ctor]);
+  for (i = 0; i < ci->field_count && acc != NULL; i++)
+    acc = apply_value(m, acc, ci->fields[i].recursive ? fold_image(c, fam, cores, done, v->args[f->param_count + i]) : v->args[f->param_count + i]);
+  return acc;
+}
+
+/* The type of the fold case of the path constructor INST (dimension 1):
+   (folded fields) -> PathP (fun (_ : I) => RES) B0 B1, with B0 and B1 the
+   fold images of the boundary at i0 and i1. Field k is the variable at
+   level c->level + k: the field in the boundary, its folded value in the
+   image. */
+static const Value *path_case_type(Checker *c, uint32_t inst, const Value *st, const Value *res, const Core *const *cores, uint32_t done) {
+  Machine *m = c->m;
+  const CtorInfo *ctor = &m->ctors[inst];
+  const Env *env = env_of(c, st->args, st->argc);
+  uint32_t p = st->argc;
+  uint32_t n = ctor->field_count;
+  const Core *ends[2];
+  const Core *t;
+  const Value **a;
+  uint32_t i;
+  int side;
+  if (ctor->interval_count != 1u)
+    return vnul(FAIL(c, "HIT_BOUNDARY", "a fold of %s, a constructor with %u interval fields, comes in S4c: S4a folds dimension 1 only", ctor->name, (unsigned)ctor->interval_count));
+  for (side = 0; side < 2; side++) {
+    a = arena_alloc(m->arena, ((size_t)p + n + 1u) * sizeof *a);
+    if (a == NULL)
+      return vnul(FAIL(c, "OOM", "out of memory"));
+    for (i = 0; i < p; i++)
+      a[i] = st->args[i];
+    for (i = 0; i < n; i++)
+      a[p + i] = val_var(m, c->level + i);
+    a[p + n] = val_iend(m, side);
+    ends[side] = quote_value(m, c->level + n, fold_image(c, ctor->family, cores, done, val_ctor(m, inst, a, p + n + 1u)));
+  }
+  t = ends[0] == NULL || ends[1] == NULL ? NULL : core_ends(c, CORE_PATHP, "_", NULL, quote_value(m, c->level + n + 1u, res), ends[0], ends[1]);
+  for (i = n; i > 0u && t != NULL; i--)
+    t = core_bind(c, CORE_PI, ctor->fields[i - 1u].name, quote_value(m, c->level + i - 1u, ctor->fields[i - 1u].recursive ? res : eval_core(m, env, ctor->fields[i - 1u].type)), t);
+  return here(c, t);
+}
+
 /* fold case... x over a domain family: one case for each constructor. */
 static const Core *fold_family(Call *k, const Core *s, const Value *st) {
   Checker *c = k->c;
@@ -878,12 +941,14 @@ static const Core *fold_family(Call *k, const Core *s, const Value *st) {
   uint32_t j;
   if (cores == NULL)
     return nul(FAIL(c, "OOM", "out of memory"));
-  if (res == NULL && m->ctors[f->first_ctor].field_count == 0u)
+  const Value *ct;
+  if (res == NULL && m->ctors[f->first_ctor].field_count == 0u && m->ctors[f->first_ctor].interval_count == 0u)
     cores[0] = infer(c, k->args[0], &res);
   if (res == NULL)
     return nul(FAIL(c, "TYPE_INFER", "fold over %s needs a declared result type here", f->name));
   for (j = 0; j < f->ctor_count; j++) {
-    cores[j] = cores[j] != NULL ? cores[j] : check(c, k->args[j], case_type(c, &m->ctors[f->first_ctor + j], env, res));
+    ct = cores[j] != NULL ? NULL : m->ctors[f->first_ctor + j].interval_count == 0u ? case_type(c, &m->ctors[f->first_ctor + j], env, res) : path_case_type(c, f->first_ctor + j, st, res, cores, j);
+    cores[j] = cores[j] != NULL ? cores[j] : ct == NULL ? NULL : check(c, k->args[j], ct);
     if (cores[j] == NULL)
       return NULL;
   }
@@ -909,6 +974,8 @@ static const Core *rule_fold(Call *k) {
   const Core *s = try_infer(c, k->args[k->argc - 1u], &st);
   uint32_t fam = val_is(st, OP_FAMILY) ? st->inst : NO_FAMILY;
   if (s != NULL && fam != NO_FAMILY && c->m->families[fam].ctor_count + 1u == k->argc) {
+    if (c->m->families[fam].first_ctor + c->m->families[fam].ctor_count > c->m->ctor_count)
+      return nul(FAIL(c, "HIT_BOUNDARY", "a constructor boundary cannot fold %s before all of its constructors are checked", c->m->families[fam].name));
     k->hint = k->outer;
     return fold_family(k, s, st);
   }
@@ -1236,6 +1303,65 @@ static int hcomp_cap(Checker *c, const Core *u0, const Branch *b) {
   return 1;
 }
 
+/* The branches of the system body of TUBE. Each key is checked against I
+   and face-normalized. The join of the keys must be the face PHI
+   (SYSTEM_COVER). A disjunctive key gives a branch for each conjunction
+   (split_branches). *COUNT gets the number of branches. hcomp, Glue and
+   glue use this. */
+static Branch *system_branches(Checker *c, const Term *tube, const Value *phi, uint32_t *count) {
+  uint32_t n = system_size(tube->right);
+  Branch *bs = arena_alloc(c->m->arena, ((size_t)n + 1u) * sizeof *bs);
+  const Value *join = val_iend(c->m, 0);
+  const Value *pf;
+  const Term *cell;
+  uint32_t i;
+  if (bs == NULL) {
+    FAIL(c, "OOM", "out of memory");
+    return NULL;
+  }
+  for (cell = tube->right, i = 0; i < n; cell = cell->right, i++) {
+    bs[i].term = cell->left;
+    bs[i].key = check(c, cell->left->left, interval_type(c));
+    bs[i].face = face_norm(c->m, here(c, bs[i].key));
+    if (bs[i].face == NULL)
+      return NULL;
+    join = face_join(c->m, join, bs[i].face);
+  }
+  pf = face_norm(c->m, phi);
+  if (join == NULL || pf == NULL)
+    return NULL;
+  if (!conv_values(c->m, c->level, join, pf)) {
+    FAIL(c, "SYSTEM_COVER", "the keys of the system must cover %s, but their join is %s", show(c, pf), show(c, join));
+    return NULL;
+  }
+  return split_branches(c, bs, n, count);
+}
+
+/* SYSTEM_OVERLAP for each pair of the N checked branches BS. */
+static int system_overlaps(Checker *c, const char *name, const Branch *bs, uint32_t n) {
+  uint32_t i;
+  uint32_t j;
+  for (i = 0; i < n; i++)
+    for (j = i + 1u; j < n; j++)
+      if (!hcomp_overlap(c, name, face_meet(c->m, bs[i].face, bs[j].face), &bs[i], &bs[j]))
+        return 0;
+  return 1;
+}
+
+/* The OP_SYSTEM core of the N checked branches BS: each key, then its body
+   under the path binder NAME. */
+static const Core *system_core(Checker *c, const char *name, const Branch *bs, uint32_t n) {
+  const Core **sys = arena_alloc(c->m->arena, (2u * (size_t)n + 1u) * sizeof *sys);
+  uint32_t i;
+  if (sys == NULL)
+    return nul(FAIL(c, "OOM", "out of memory"));
+  for (i = 0; i < n; i++) {
+    sys[2u * i] = bs[i].key;
+    sys[2u * i + 1u] = core_bind(c, CORE_PLAM, name, NULL, bs[i].body);
+  }
+  return core_op(c, OP_SYSTEM, 0, 0, sys, 2u * n);
+}
+
 /* hcomp A phi (fun i => [ k0 -> t0, ... ]) u0, with phi : I, each key
    k : I in the outer context, u0 : A and each branch t : A for i : I where
    its key holds (S2 R2 (a)), of type A. The keys cover phi (SYSTEM_COVER),
@@ -1523,13 +1649,15 @@ static const Core *family_app(Call *k, uint32_t fam) {
   return core_op(c, OP_FAMILY, fam, 0, cores, f->param_count);
 }
 
-/* A constructor takes the family parameters (the indices), then its fields. */
+/* A constructor takes the family parameters (the indices), then its fields,
+   then its interval arguments (a path constructor). */
 static const Core *ctor_app(Call *k, uint32_t ctor) {
   Checker *c = k->c;
   const CtorInfo *ci = &c->m->ctors[ctor];
   const FamilyInfo *f = &c->m->families[ci->family];
   uint32_t p = f->param_count;
-  uint32_t n = p + ci->field_count;
+  uint32_t q = p + ci->field_count;
+  uint32_t n = q + ci->interval_count;
   const Core **cores = arena_alloc(c->m->arena, ((size_t)n + 1u) * sizeof *cores);
   const Value **vals = arena_alloc(c->m->arena, ((size_t)p + 1u) * sizeof *vals);
   const Env *env;
@@ -1542,6 +1670,11 @@ static const Core *ctor_app(Call *k, uint32_t ctor) {
   for (j = 0; j < ci->field_count; j++) {
     cores[p + j] = check(c, k->args[p + j], eval_core(c->m, env, ci->fields[j].type));
     if (cores[p + j] == NULL)
+      return NULL;
+  }
+  for (j = q; j < n; j++) {
+    cores[j] = check(c, k->args[j], interval_type(c));
+    if (cores[j] == NULL)
       return NULL;
   }
   k->type = val_op(c->m, VAL_OP, OP_FAMILY, ci->family, 0, vals, p);
@@ -1630,7 +1763,7 @@ static uint32_t known_arity(const Checker *c, const Head *h) {
   case HEAD_FAMILY:
     return c->m->families[h->index].param_count;
   case HEAD_CTOR:
-    return ci == NULL ? 0u : c->m->families[ci->family].param_count + ci->field_count;
+    return ci == NULL ? 0u : c->m->families[ci->family].param_count + ci->field_count + ci->interval_count;
   case HEAD_PROJ:
     return 1u;
   case HEAD_BUILTIN:
@@ -1990,33 +2123,151 @@ static int check_field(Checker *c, uint32_t fam, const Field *field, FieldInfo *
   return 1;
 }
 
+/* A term that the checker makes, at the place of CTOR. */
+static Term *made_term(Checker *c, const Ctor *ctor, TermKind kind, const char *name, const Term *left, const Term *right) {
+  Term *t = arena_alloc(c->m->arena, sizeof *t);
+  if (t == NULL) {
+    FAIL(c, "OOM", "out of memory");
+    return NULL;
+  }
+  t->kind = kind;
+  t->line = ctor->line;
+  t->col = ctor->col;
+  t->name = name;
+  t->nat = 0;
+  t->left = left;
+  t->right = right;
+  return t;
+}
+
+/* COVER \/ (~NAME \/ NAME), or ~NAME \/ NAME when COVER is NULL. */
+static const Term *cover_term(Checker *c, const Ctor *ctor, const Term *cover, const char *name) {
+  const Term *v = made_term(c, ctor, TERM_VAR, name, NULL, NULL);
+  const Term *neg = v == NULL ? NULL : made_term(c, ctor, TERM_INEG, NULL, v, NULL);
+  const Term *ends = neg == NULL ? NULL : made_term(c, ctor, TERM_IJOIN, NULL, neg, v);
+  return cover == NULL || ends == NULL ? ends : made_term(c, ctor, TERM_IJOIN, NULL, cover, ends);
+}
+
+/* The boundary of CTOR under its fields: the first POINTS fields of CTOR
+   (with FIELDS their checked types) and then its interval fields are
+   locals. The family parameters are already locals (check_family). */
+static const Core *boundary_core(Checker *c, uint32_t fam, const Ctor *ctor, const FieldInfo *fields, size_t points) {
+  Machine *m = c->m;
+  uint32_t p = m->families[fam].param_count;
+  const Value **params = arena_alloc(m->arena, ((size_t)p + 1u) * sizeof *params);
+  const Value **types = arena_alloc(m->arena, (points + 1u) * sizeof *types);
+  Term *tube = arena_alloc(m->arena, sizeof *tube);
+  const Term *cover = NULL;
+  const Core *phi;
+  const Core *a;
+  Branch *bs;
+  uint32_t n = 0;
+  uint32_t i;
+  size_t j;
+  if (params == NULL || types == NULL || tube == NULL)
+    return nul(FAIL(c, "OOM", "out of memory"));
+  for (i = 0; i < p; i++)
+    params[i] = val_var(m, c->level - p + i);
+  for (j = 0; j < points; j++)
+    types[j] = here(c, fields[j].type);
+  for (j = 0; j < points; j++)
+    if (!push(c, fields[j].name, types[j]))
+      return NULL;
+  for (j = points; j < ctor->field_count; j++) {
+    cover = cover_term(c, ctor, cover, ctor->fields[j].name);
+    if (cover == NULL || !push_interval(c, ctor->fields[j].name))
+      return NULL;
+  }
+  phi = check(c, cover, interval_type(c));
+  a = quote_value(m, c->level, val_op(m, VAL_OP, OP_FAMILY, fam, 0, params, p));
+  if (phi == NULL || a == NULL)
+    return NULL;
+  tube->kind = TERM_LAM;
+  tube->line = ctor->line;
+  tube->col = ctor->col;
+  tube->name = NULL;
+  tube->nat = 0;
+  tube->left = NULL;
+  tube->right = ctor->boundary;
+  bs = system_branches(c, tube, here(c, phi), &n);
+  if (bs == NULL)
+    return NULL;
+  for (i = 0; i < n; i++) {
+    bs[i].body = hcomp_branch(c, NULL, a, &bs[i]);
+    if (bs[i].body == NULL)
+      return NULL;
+  }
+  if (!system_overlaps(c, "_", bs, n))
+    return NULL;
+  return system_core(c, "_", bs, n);
+}
+
+/* The boundary `[ k1 -> t1, ... ]` of a path constructor (S4 R1 (a)),
+   checked as the tube of an hcomp at the family: each branch has the
+   family type at the parameters, the keys cover ~i \/ i (and ~j \/ j)
+   (SYSTEM_COVER) and two branches agree where both keys hold
+   (SYSTEM_OVERLAP). The core is OP_SYSTEM, each body under a path binder
+   that no term can use, as an hcomp tube. The context comes back as it
+   was. */
+static const Core *check_boundary(Checker *c, uint32_t fam, const Ctor *ctor, const FieldInfo *fields, size_t points) {
+  const Scope *scope = c->scope;
+  const Env *env = c->env;
+  uint32_t level = c->level;
+  const Core *sys = boundary_core(c, fam, ctor, fields, points);
+  c->scope = scope;
+  c->env = env;
+  c->level = level;
+  return sys;
+}
+
+/* A constructor takes point fields, then (a path constructor) 1 or 2
+   interval fields `(i : I)` and a boundary. */
 static int check_ctor(Checker *c, uint32_t fam, const Ctor *ctor) {
   Machine *m = c->m;
   FieldInfo *fields = arena_alloc(m->arena, (ctor->field_count + 1u) * sizeof *fields);
   CtorInfo *ci = &m->ctors[m->ctor_count];
+  const Core *boundary = NULL;
+  size_t points = 0;
   size_t j;
-  if (ctor->boundary != NULL)
-    return FAIL(c, "DOMAIN_FAMILY", "the constructor %s has a boundary; path constructors are not supported yet", ctor->name);
   if (fields == NULL)
     return FAIL(c, "OOM", "out of memory");
   if (!name_free(c, ctor->name))
     return 0;
   for (j = 0; j < ctor->field_count; j++) {
+    int interval = is_interval(c, ctor->fields[j].type);
     if (strcmp(ctor->fields[j].name, ctor->name) == 0)
       return FAIL(c, "REFUSE_NAME", "%s is this domain constructor (rule R4)", ctor->name);
     for (size_t k = 0; k < j; k++)
       if (strcmp(ctor->fields[j].name, ctor->fields[k].name) == 0)
         return FAIL(c, "REFUSE_NAME", "%s is already a field of this domain constructor (rule R4)", ctor->fields[j].name);
-    if (!check_field(c, fam, &ctor->fields[j], &fields[j]))
+    if (!interval && points < j)
+      return FAIL(c, "HIT_BOUNDARY", "the point field %s of %s must come before the interval fields", ctor->fields[j].name, ctor->name);
+    if (interval && !name_free(c, ctor->fields[j].name))
+      return 0;
+    if (!interval && !check_field(c, fam, &ctor->fields[j], &fields[j]))
+      return 0;
+    points += !interval;
+  }
+  if (ctor->field_count - points > 2u)
+    return FAIL(c, "HIT_BOUNDARY", "%s has %u interval fields; a path constructor has 1 or 2", ctor->name, (unsigned)(ctor->field_count - points));
+  if (points < ctor->field_count && ctor->boundary == NULL)
+    return FAIL(c, "HIT_BOUNDARY", "the path constructor %s needs a boundary [ ~i -> t0, i -> t1 ] after its interval fields", ctor->name);
+  /* A boundary with no interval field (a point constructor or a state)
+     gives DOMAIN_FAMILY, as the USER guard of cdfc751 did. */
+  if (points == ctor->field_count && ctor->boundary != NULL)
+    return FAIL(c, "DOMAIN_FAMILY", "%s has a boundary but no interval field; only a path constructor has a boundary", ctor->name);
+  if (ctor->boundary != NULL) {
+    boundary = check_boundary(c, fam, ctor, fields, points);
+    if (boundary == NULL)
       return 0;
   }
   ci->name = ctor->name;
   ci->family = fam;
   ci->fields = fields;
-  ci->field_count = (uint32_t)ctor->field_count;
+  ci->field_count = (uint32_t)points;
   ci->event = 0;
-  ci->interval_count = 0u;
-  ci->boundary = NULL;
+  ci->interval_count = (uint32_t)(ctor->field_count - points);
+  ci->boundary = boundary;
   m->ctor_count++;
   return 1;
 }
