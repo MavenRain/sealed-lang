@@ -1,0 +1,52 @@
+# examples/contract.lang --text
+0xb6b55f25 deposit(uint256) entry
+0x2e1a7d4d withdraw(uint256) entry
+0xc85e07b9 stamp() entry
+0xb69ef8a8 balance() view
+0x9164655e6c1ed2c62a693cae2f91873ec650468904b9a1897a627be3c334dd8d Stamped(uint256,uint256) event
+exit 0
+# examples/map.lang --text
+0x9da55d8c setBook(uint64,uint256) entry
+0x59430209 book(uint64) view
+exit 0
+# examples/residuals.lang --text
+0x62c69b80 refuse() entry
+0x366e539e crash() entry
+0xe65a0117 earn(uint256) entry
+0x39d3eeec file(uint64,uint256,uint64) entry
+0x99cdee0e own() entry
+0x328a42e6 mark(address,bool) entry
+exit 0
+# examples/events.lang --text
+0xb6b55f25 deposit(uint256) entry
+0xd1dcd00534373f20882b79e6ab6875a5c358c5bd576448757ed50e63069ab518 Opened() event
+0x737c69225d647e5994eab1a6c301bf6d9232beb2759ae1e27a8966b4732bc489 Paid(address,uint256) event
+exit 0
+# test/lower/emit.lang --text
+langc: REFUSE_LOWER: stamp: emit has no EVM form; use a named event
+exit 1
+# examples/contract.lang
+[
+{"type":"function","name":"deposit","inputs":[{"name":"","type":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},
+{"type":"function","name":"withdraw","inputs":[{"name":"","type":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},
+{"type":"function","name":"stamp","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
+{"type":"function","name":"balance","inputs":[],"outputs":[{"name":"","type":"uint256"}],"stateMutability":"view"},
+{"type":"event","name":"Stamped","inputs":[{"name":"held","type":"uint256","indexed":false},{"name":"earned","type":"uint256","indexed":false}],"anonymous":false}
+]
+exit 0
+# examples/events.lang
+[
+{"type":"function","name":"deposit","inputs":[{"name":"","type":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},
+{"type":"event","name":"Opened","inputs":[],"anonymous":false},
+{"type":"event","name":"Paid","inputs":[{"name":"to","type":"address","indexed":false},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false}
+]
+exit 0
+# examples/events.lang --json
+langc: USAGE: -: abi takes only --text after the program
+usage: langc check PROG
+       langc eval PROG NAME [ARGS...]
+       langc run PROG SCRIPT
+       langc ir PROG
+       langc abi PROG [--text]
+       langc build PROG [-o OUT] [--runtime]
+exit 2

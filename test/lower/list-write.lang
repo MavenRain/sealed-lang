@@ -1,0 +1,6 @@
+-- REFUSE_LOWER (slice K4c): a List field value that is not a chain of cons over the old field, or nil.
+state State := makeState (items : List Nat) (count : Nat)
+def init : State := makeState nil 0
+
+def replace : (env : Env) -> (s : State) -> (x : Nat) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (x : Nat) => some (pair (makeState (cons x (cons 1 nil)) (count s)) nil)

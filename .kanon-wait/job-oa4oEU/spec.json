@@ -1,0 +1,1 @@
+{"version":1,"job":"/Users/oobi/Documents/lang-template/hosts/tcc-evm-contract/.kanon-wait/job-oa4oEU","cwd":"/Users/oobi/Documents/lang-template/hosts/tcc-evm-contract","argv":["kanon-exec","run","--budget","4000","--","make","check"]}

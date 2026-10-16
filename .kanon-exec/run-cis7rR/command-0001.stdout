@@ -1,0 +1,44 @@
+cc -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc src/main.c src/front/base.c src/front/u256.c src/front/lexer.c src/front/parser.c src/front/front.c src/front/contract.c src/front/eval.c src/front/check.c src/evm.c src/asm.c src/keccak.c src/lower.c build/domain.c
+cc -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc test/asmtool.c src/evm.c src/asm.c src/keccak.c
+cc -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc test/fronttool.c src/front/base.c src/front/u256.c src/front/lexer.c src/front/parser.c src/front/contract.c src/front/eval.c src/front/check.c
+cc -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc test/runtool.c src/front/base.c src/front/u256.c src/front/lexer.c src/front/parser.c src/front/front.c src/front/contract.c src/front/eval.c src/front/check.c build/domain.c
+cc -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc test/slottool.c src/keccak.c
+cc -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc test/buildtool.c src/evm.c src/asm.c src/keccak.c
+cc -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc test/lowertool.c src/front/base.c src/front/u256.c src/front/lexer.c src/front/parser.c src/front/front.c src/front/contract.c src/front/eval.c src/front/check.c src/evm.c src/asm.c src/keccak.c build/domain.c
+cc -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc test/emittool.c src/asm.c src/keccak.c
+cc -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc test/evmtool.c src/asm.c src/keccak.c
+sh test/gate.sh
+examples: 18 checked, 0 failed
+parse refusals: 13 checked
+check refusals: 57 checked
+evals: 55 checked
+gate: 0 failures
+sh test/run.sh
+runs: 4 checked
+run refusals: 10 checked
+run gate: 0 failures
+sh test/asm.sh
+asmtool: 8 of 8 checks passed
+asm gate: 0 failures
+sh test/build.sh
+builds: 3 checked, lower refusals: 9 checked, checks: 22
+build gate: 0 failures
+sh test/dispatch.sh
+dispatch: 20 checks passed
+sh test/evm.sh
+evm steps: 21 checked
+evm gate: 0 failures
+sh test/review.sh
+review regressions: passed
+build/fronttool
+domain regressions: passed
+build/runtool
+run fuel regressions: passed
+build/buildtool
+build output regressions: passed
+build/lowertool
+lower regressions: passed
+build/emittool
+emit: 22 execution regressions passed
+build/evmtool
+evm hashing regressions: passed
