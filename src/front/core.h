@@ -186,7 +186,8 @@ typedef enum {
   CLOS_SIGMA_FILL_COD, /* PLAM: i |-> B (hfill A phi sys u i); args: A, phi, sys, u */
   CLOS_TRANSP_PATHP,   /* PLAM: r |-> comp of p0 @ r (rule 7); args: L, phi, p0 */
   CLOS_PATHP_LINE,     /* PLAM: i |-> L(i) at r; args: L, r */
-  CLOS_PATHP_END       /* PLAM: i |-> the end FIELD of L(i); args: L */
+  CLOS_PATHP_END,      /* PLAM: i |-> the end FIELD of L(i); args: L */
+  CLOS_SYS_FOLD        /* PLAM: j |-> fold (b j) with the cases and RES of F; args: b, F (a stuck fold); field: the family */
 } ClosTag;
 
 typedef struct Value Value;
@@ -231,8 +232,14 @@ typedef struct {
   const char *name;
   uint32_t family;
   const FieldInfo *fields;
-  uint32_t field_count;
+  uint32_t field_count; /* the point fields only */
   int event; /* an event of the program, a constructor of Out (slice K4a1) */
+  /* A path constructor (S4 R1 (a)): 1 or 2 interval fields after the
+     point fields, and the boundary, an OP_SYSTEM core over the
+     parameters, the point fields and the interval fields. A point
+     constructor has 0 and NULL. */
+  uint32_t interval_count;
+  const Core *boundary;
 } CtorInfo;
 
 /* A domain family. Its constructors are ctors[first_ctor ...]. A family
@@ -307,6 +314,9 @@ const Value *path_apply(Machine *m, const Value *p, const Value *r, const Value 
 const Value *val_univ(Machine *m, uint64_t level);
 const Value *val_op(Machine *m, ValKind kind, Op op, uint32_t inst, uint32_t field, const Value *const *args, uint32_t argc);
 const Value *val_make(Machine *m, Op op, uint32_t inst, uint32_t argc, const Value *a, const Value *b, const Value *c);
+/* The constructor INST at the arguments A (S4 R2 (a)): a path constructor
+   at a true face of its boundary is the branch. */
+const Value *val_ctor(Machine *m, uint32_t inst, const Value *const *a, uint32_t n);
 /* A non-dependent function type. */
 const Value *val_arrow(Machine *m, const Value *dom, const Value *cod);
 const Value *val_closure(Machine *m, ValKind kind, const char *name, const Value *dom, const Env *env, const Core *body);

@@ -1990,6 +1990,8 @@ static int check_ctor(Checker *c, uint32_t fam, const Ctor *ctor) {
   FieldInfo *fields = arena_alloc(m->arena, (ctor->field_count + 1u) * sizeof *fields);
   CtorInfo *ci = &m->ctors[m->ctor_count];
   size_t j;
+  if (ctor->boundary != NULL)
+    return FAIL(c, "DOMAIN_FAMILY", "the constructor %s has a boundary; path constructors are not supported yet", ctor->name);
   if (fields == NULL)
     return FAIL(c, "OOM", "out of memory");
   if (!name_free(c, ctor->name))

@@ -1445,6 +1445,10 @@ static const Value *kan_apply(Machine *m, const Value *k, const Value *r) {
   case CLOS_PATHP_END:
     t = line_former(m, line_at(m, a[0], r), VAL_PATHP);
     return t == NULL ? NULL : t->args[k->field];
+  case CLOS_SYS_FOLD:
+    if (a[1]->argc < 2u)
+      return internal(m, "a fold branch without its cases");
+    return fold_family(m, k->field, a[1]->args, a[1]->argc - 2u, closure_apply(m, a[0], r));
   case CLOS_CORE:
     break;
   }

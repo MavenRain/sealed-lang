@@ -75,3 +75,4 @@ system-overlap.lang SYSTEM_OVERLAP
 hcomp-cap.lang HCOMP_CAP
 hcomp-universe.lang HCOMP_UNIVERSE
 trans-unit.lang PATH_UIP
+state-boundary.lang DOMAIN_FAMILY

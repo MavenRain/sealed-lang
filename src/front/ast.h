@@ -52,6 +52,9 @@ typedef struct {
   const char *name;
   const Field *fields;
   size_t field_count;
+  /* The boundary `[ k1 -> t1, ... ]` of a path constructor (a TERM_SYSTEM
+     list), or NULL. */
+  const Term *boundary;
   int line;
   int col;
 } Ctor;
