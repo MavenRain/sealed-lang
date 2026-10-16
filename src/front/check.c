@@ -887,10 +887,15 @@ static const Core *fold_family(Call *k, const Core *s, const Value *st) {
     if (cores[j] == NULL)
       return NULL;
   }
-  cores[f->ctor_count] = s;
+  /* The result type RES goes before the scrutinee: the fold of a formal
+     hcomp is an hcomp in RES (S4 R3 (a)). */
+  cores[f->ctor_count] = quote_value(m, c->level, res);
+  cores[f->ctor_count + 1u] = s;
+  if (cores[f->ctor_count] == NULL)
+    return NULL;
   k->used = f->ctor_count + 1u;
   k->type = res;
-  return core_op(c, OP_FOLD_FAMILY, st->inst, 0, cores, f->ctor_count + 1u);
+  return core_op(c, OP_FOLD_FAMILY, st->inst, 0, cores, f->ctor_count + 2u);
 }
 
 static int simple_scrutinee(const Value *t) {
@@ -2010,6 +2015,8 @@ static int check_ctor(Checker *c, uint32_t fam, const Ctor *ctor) {
   ci->fields = fields;
   ci->field_count = (uint32_t)ctor->field_count;
   ci->event = 0;
+  ci->interval_count = 0u;
+  ci->boundary = NULL;
   m->ctor_count++;
   return 1;
 }
@@ -2051,6 +2058,8 @@ static int check_event(Checker *c, uint32_t fam, const Decl *d) {
   ci->fields = fields;
   ci->field_count = (uint32_t)ctor->field_count;
   ci->event = 1;
+  ci->interval_count = 0u;
+  ci->boundary = NULL;
   m->ctor_count++;
   m->families[fam].ctor_count++;
   return 1;

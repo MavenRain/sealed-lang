@@ -856,19 +856,25 @@ static const Value *reduce_fold_list(Machine *m, const Value *const *a) {
   return acc;
 }
 
+/* CASES holds NCASES cases, then the result type RES at CASES[NCASES]. */
 static const Value *stuck_fold(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x) {
-  const Value **args = arena_alloc(m->arena, ((size_t)ncases + 1u) * sizeof *args);
+  const Value **args = arena_alloc(m->arena, ((size_t)ncases + 2u) * sizeof *args);
   uint32_t i;
   if (args == NULL)
     return oom(m);
-  for (i = 0; i < ncases; i++)
+  for (i = 0; i <= ncases; i++)
     args[i] = cases[i];
-  args[ncases] = x;
-  return val_op(m, VAL_STUCK, OP_FOLD_FAMILY, family, 0, args, ncases + 1u);
+  args[ncases + 1u] = x;
+  return val_op(m, VAL_STUCK, OP_FOLD_FAMILY, family, 0, args, ncases + 2u);
 }
 
+static const Value *fold_path(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x, const Value *p);
+static const Value *fold_hcomp(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x);
+
 /* fold case... x over a domain family: the case of the constructor of X,
-   applied to its fields. A recursive field arrives folded. */
+   applied to its fields. A recursive field arrives folded. CASES holds
+   NCASES cases, then the result type RES. A formal hcomp goes to
+   fold_hcomp. */
 static const Value *fold_family(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x) {
   const FamilyInfo *fam;
   const CtorInfo *ctor;
@@ -885,12 +891,16 @@ static const Value *fold_family(Machine *m, uint32_t family, const Value *const 
   case SCRUT_VALUE:
     break;
   }
+  if (val_is(x, OP_HCOMP) && x->argc == 4u)
+    return fold_hcomp(m, family, cases, ncases, x);
   if (!val_is(x, OP_CTOR) || x->inst >= m->ctor_count || family >= m->family_count)
     return internal(m, "a fold of a value that is not in the family");
   fam = &m->families[family];
   ctor = &m->ctors[x->inst];
-  if (x->inst < fam->first_ctor || x->inst - fam->first_ctor >= ncases || x->argc != fam->param_count + ctor->field_count)
+  if (x->inst < fam->first_ctor || x->inst - fam->first_ctor >= ncases || x->argc != fam->param_count + ctor->field_count + ctor->interval_count)
     return internal(m, "a fold of a constructor of another family");
+  if (ctor->interval_count > 1u)
+    return internal(m, "a fold of a constructor with 2 interval fields (S4c)");
   if (!enter(m))
     return NULL;
   acc = cases[x->inst - fam->first_ctor];
@@ -898,8 +908,30 @@ static const Value *fold_family(Machine *m, uint32_t family, const Value *const 
     field = x->args[fam->param_count + i];
     acc = apply_value(m, acc, ctor->fields[i].recursive ? fold_family(m, family, cases, ncases, field) : field);
   }
+  if (ctor->interval_count == 1u && acc != NULL)
+    acc = fold_path(m, family, cases, ncases, x, acc);
   m->depth--;
   return acc;
+}
+
+/* (case args') @ r for the path constructor value X at the interval R (S4
+   R4 (a)). P is the case at the folded fields. The ends are the folds of
+   X at i0 and i1, for a neutral P. */
+static const Value *fold_path(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x, const Value *p) {
+  const Value *ends[2];
+  const Value **a;
+  uint32_t i;
+  int side;
+  for (side = 0; side < 2; side++) {
+    a = arena_alloc(m->arena, (size_t)x->argc * sizeof *a);
+    if (a == NULL)
+      return oom(m);
+    for (i = 0; i + 1u < x->argc; i++)
+      a[i] = x->args[i];
+    a[x->argc - 1u] = val_iend(m, side);
+    ends[side] = fold_family(m, family, cases, ncases, val_ctor(m, x->inst, a, x->argc));
+  }
+  return path_apply(m, p, x->args[x->argc - 1u], ends[0], ends[1]);
 }
 
 /* 1 when the step result R ends the list. *TAIL is then the end. */
@@ -1181,6 +1213,9 @@ static const Value *reduce_proj(Machine *m, uint32_t inst, uint32_t field, const
   uint32_t at;
   if (blocked(m, x, OP_PROJ, inst, field, a, n, &out))
     return out;
+  /* A formal hcomp has no fields: the projection is stuck (S4 R3 (a)). */
+  if (val_is(x, OP_HCOMP))
+    return val_op(m, VAL_STUCK, OP_PROJ, inst, field, a, n);
   if (!val_is(x, OP_CTOR) || x->inst != inst || inst >= m->ctor_count || m->ctors[inst].family >= m->family_count)
     return internal(m, "a projection of a value of the wrong family");
   at = m->families[m->ctors[inst].family].param_count + field;
@@ -1265,11 +1300,11 @@ static uint32_t varied_arity(const Machine *m, Op op, uint32_t inst) {
   const CtorInfo *c = inst < m->ctor_count ? &m->ctors[inst] : NULL;
   const FamilyInfo *f = inst < m->family_count ? &m->families[inst] : NULL;
   if (op == OP_CTOR && c != NULL && c->family < m->family_count)
-    return m->families[c->family].param_count + c->field_count;
+    return m->families[c->family].param_count + c->field_count + c->interval_count;
   if (op == OP_FAMILY && f != NULL)
     return f->param_count;
   if (op == OP_FOLD_FAMILY && f != NULL)
-    return f->ctor_count + 1u;
+    return f->ctor_count + 2u;
   return UINT32_MAX;
 }
 
@@ -1477,9 +1512,9 @@ static const Value *transp_list(Machine *m, const Value *line, const Value *phi,
 /* Rules 3, 4 and 8 (R4 (a)): L(i) is the data type FORMER at a fresh i. A
    closed type gives the base; a constructor base goes into its arguments;
    a neutral base and a domain family are stuck. */
-static const Value *transp_data(Machine *m, Op former, const Value *line, const Value *phi, const Value *base) {
+static const Value *transp_data(Machine *m, const Value *head, const Value *line, const Value *phi, const Value *base) {
   int neutral = scrut_of(base) == SCRUT_NEUTRAL;
-  switch (former) {
+  switch (head->op) {
   case OP_NAT: /* R27: a base former has no path structure */
   case OP_FLAG:
   case OP_UNIT:
@@ -1512,6 +1547,11 @@ static const Value *transp_data(Machine *m, Op former, const Value *line, const 
       break;
     return transp_list(m, line, phi, base);
   case OP_FAMILY:
+    /* S4 item 6 (R7 (a)): a family with no parameters is the same type at
+       each point of the line by its form (not by regularity), so the base
+       stays, also a neutral base or a formal hcomp. */
+    if (head->inst < m->family_count && m->families[head->inst].param_count == 0u)
+      return base;
     break;
   case OP_INTERVAL:
   case OP_UNIT_VAL:
@@ -1602,7 +1642,7 @@ static const Value *transp(Machine *m, const Value *line, const Value *phi, cons
   case VAL_UNIV: /* rule 2 */
     return base;
   case VAL_OP: /* rules 3, 4, 8 */
-    return transp_data(m, head->op, line, face, base);
+    return transp_data(m, head, line, face, base);
   case VAL_PI: /* rule 5 */
     return kan_closure(m, VAL_LAM, CLOS_TRANSP_PI, 0, 3, line, face, base);
   case VAL_SIGMA: /* rule 6 */
@@ -1699,14 +1739,58 @@ static const Value *hcomp_stuck(Machine *m, const Value *ty, const Value *phi, c
   return val_op(m, VAL_STUCK, OP_HCOMP, 0, 0, args, 4);
 }
 
-/* phi is true, so the join of the keys is true and one key is i1: the
-   result is its branch at i1. */
-static const Value *hcomp_true(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base) {
+/* 1 when TY is a domain family with a path constructor (a HIT). */
+static int hit_type(const Machine *m, const Value *ty) {
+  const FamilyInfo *f;
+  uint32_t k;
+  if (!val_is(ty, OP_FAMILY) || ty->inst >= m->family_count)
+    return 0;
+  f = &m->families[ty->inst];
+  for (k = 0; k < f->ctor_count; k++)
+    if (f->first_ctor + k < m->ctor_count && m->ctors[f->first_ctor + k].interval_count > 0u)
+      return 1;
+  return 0;
+}
+
+/* hcomp at a HIT with no true key (S4 R3 (a)): a canonical value, never
+   VAL_STUCK (conv_loop rejects VAL_OP against VAL_STUCK). There is no
+   regularity, so this holds also at i0 and with a neutral base. */
+static const Value *hcomp_formal(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base) {
+  const Value *args[4];
+  args[0] = ty;
+  args[1] = phi;
+  args[2] = sys;
+  args[3] = base;
+  return val_op(m, VAL_OP, OP_HCOMP, 0, 0, args, 4);
+}
+
+/* fold (hcomp F phi u u0) = hcomp RES phi (fun i => [ k -> fold (u i) ])
+   (fold u0). CASES holds NCASES cases, then RES. The branches read the
+   cases from a stuck fold of X (CLOS_SYS_FOLD). */
+static const Value *fold_hcomp(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x) {
+  const Value *pack = stuck_fold(m, family, cases, ncases, x);
+  const Value *sys = pack == NULL ? NULL : sys_map(m, x->args[2], CLOS_SYS_FOLD, family, 1, pack, NULL, NULL);
+  const Value *base = sys == NULL ? NULL : fold_family(m, family, cases, ncases, x->args[3]);
+  return base == NULL ? NULL : hcomp(m, cases[ncases], x->args[1], sys, base);
+}
+
+/* The index of the branch of SYS under the first true (i1) key, or
+   sys->argc when no key is true. hcomp and Glue use this search. */
+static uint32_t true_branch(Machine *m, const Value *sys) {
   uint32_t k;
   for (k = 0; k + 1u < sys->argc; k += 2u)
     if (ival_is_end(face_norm(m, sys->args[k]), 1))
-      return closure_apply(m, sys->args[k + 1u], val_iend(m, 1));
-  return hcomp_stuck(m, ty, phi, sys, base);
+      return k + 1u;
+  return sys->argc;
+}
+
+/* phi is true, so the join of the keys is true and one key is i1: the
+   result is its branch at i1. */
+static const Value *hcomp_true(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base) {
+  uint32_t k = true_branch(m, sys);
+  if (k < sys->argc)
+    return closure_apply(m, sys->args[k], val_iend(m, 1));
+  return hit_type(m, ty) ? hcomp_formal(m, ty, phi, sys, base) : hcomp_stuck(m, ty, phi, sys, base);
 }
 
 /* The type of the argument FIELD of the constructor value V in the data
@@ -1742,6 +1826,8 @@ static const Value *hcomp_data(Machine *m, const Value *ty, const Value *phi, co
   const Value **args;
   const Value *field;
   uint32_t k;
+  if (hit_type(m, ty))
+    return hcomp_formal(m, ty, phi, sys, base);
   if (val_is(ty, OP_FAMILY) || scrut_of(base) == SCRUT_NEUTRAL || (base->kind != VAL_NAT && base->kind != VAL_WORD && base->kind != VAL_OP))
     return hcomp_stuck(m, ty, phi, sys, base);
   for (k = 0; k + 1u < sys->argc; k += 2u)
@@ -1870,6 +1956,33 @@ static const Value *hcomp(Machine *m, const Value *ty, const Value *phi, const V
   return hcomp_stuck(m, ty, face, sys, base);
 }
 
+/* A constructor value (S4 R2 (a)). The boundary of a path constructor is
+   over the parameters, the point fields and the interval fields, in that
+   order: at a true face the value is the branch, else it is the OP_CTOR
+   value. `loop i0` is `base`. A point constructor has no boundary. */
+static const Value *reduce_ctor(Machine *m, uint32_t inst, uint32_t field, const Value *const *a, uint32_t n) {
+  const Env *env = NULL;
+  const Value *sys;
+  uint32_t i;
+  uint32_t k;
+  if (inst >= m->ctor_count || m->ctors[inst].boundary == NULL)
+    return val_op(m, VAL_OP, OP_CTOR, inst, field, a, n);
+  for (i = 0; i < n; i++) {
+    env = env_push(m, env, a[i]);
+    if (env == NULL)
+      return NULL;
+  }
+  sys = eval_core(m, env, m->ctors[inst].boundary);
+  if (sys == NULL)
+    return NULL;
+  k = true_branch(m, sys);
+  return k < sys->argc ? closure_apply(m, sys->args[k], val_iend(m, 1)) : val_op(m, VAL_OP, OP_CTOR, inst, field, a, n);
+}
+
+const Value *val_ctor(Machine *m, uint32_t inst, const Value *const *a, uint32_t n) {
+  return reduce_ctor(m, inst, 0, a, n);
+}
+
 static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, const Value *const *a, uint32_t n) {
   if (!arity_ok(m, op, inst, n))
     return internal(m, "an operation with the wrong number of arguments");
@@ -1896,10 +2009,11 @@ static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, 
   case OP_NIL:
   case OP_CONS:
   case OP_PACK:
-  case OP_CTOR:
   case OP_KMAP:
   case OP_KMAP_OF:
     return val_op(m, VAL_OP, op, inst, field, a, n);
+  case OP_CTOR:
+    return reduce_ctor(m, inst, field, a, n);
   case OP_SYSTEM:
     return system_value(m, a, n);
   case OP_KMAP_GET:
@@ -1929,7 +2043,7 @@ static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, 
   case OP_FOLD_LIST:
     return reduce_fold_list(m, a);
   case OP_FOLD_FAMILY:
-    return fold_family(m, inst, a, n - 1u, a[n - 1u]);
+    return fold_family(m, inst, a, n - 2u, a[n - 1u]);
   case OP_UNFOLD:
     return reduce_unfold(m, a, n);
   case OP_FILTER:
@@ -2692,7 +2806,11 @@ static void print_value(Printer *p, const Value *v, int atom) {
       open++;
     }
     put(p, op_name(p->m, v->op, v->inst, v->field));
+    /* A fold over a family does not print its result type RES (the
+       argument before the scrutinee): the source form has no RES. */
     for (i = 0; i + 1u < v->argc; i++) {
+      if (v->op == OP_FOLD_FAMILY && i + 2u == v->argc)
+        continue;
       put(p, " ");
       print_value(p, v->args[i], 1);
     }
