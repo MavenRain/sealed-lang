@@ -15,7 +15,16 @@ typedef enum {
   TERM_LAM,   /* fun (name : left) => right; left is NULL for a bare binder */
   TERM_PI,    /* (name : left) -> right; name is NULL for left -> right */
   TERM_SIGMA, /* Sigma (name : left) right, or (name : left) * right */
-  TERM_UNIV   /* Type nat */
+  TERM_UNIV,  /* Type nat */
+  TERM_PAPP,  /* left @ right: a path applied to an interval term */
+  TERM_INEG,  /* ~left */
+  TERM_IMEET, /* left /\ right */
+  TERM_IJOIN, /* left \/ right */
+  /* [ k1 -> t1, ... ]: a list of TERM_SYSTEM cells. Left is a TERM_BRANCH
+     (NULL in the cell of `[ ]`), right the next cell or NULL. Only the
+     body of a `fun` can be a system (the tube of hcomp, S2 R2 (a)). */
+  TERM_SYSTEM,
+  TERM_BRANCH /* left -> right: left the key, right the branch */
 } TermKind;
 
 typedef struct Term Term;

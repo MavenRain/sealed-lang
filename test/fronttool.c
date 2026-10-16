@@ -26,6 +26,33 @@ static int domain(const char *text, const char *want) {
   return passed;
 }
 
+static int normal_roundtrip(const char *type, const char *body) {
+  char source[4096];
+  char normal[2048];
+  Arena arena;
+  Diag diag;
+  TokenList tokens = {0};
+  DeclList decls = {0};
+  Machine machine;
+  snprintf(source, sizeof source, "def value : %s := %s", type, body);
+  arena_init(&arena, (size_t)1 << 24);
+  diag_init(&diag);
+  int ok = lex_source(&arena, "test-roundtrip", source, strlen(source), &tokens, &diag)
+    && parse_source(&arena, "test-roundtrip", ORIGIN_DOMAIN, &tokens, &decls, &diag)
+    && check_program(&arena, &decls, &machine, &diag);
+  if (ok)
+    ok = value_print(&machine, NULL, 0, def_value(&machine, 0), normal, sizeof normal);
+  if (!ok) {
+    fputs("FAIL normal roundtrip: ", stderr);
+    diag_print(&diag, stderr);
+  }
+  arena_release(&arena);
+  if (!ok)
+    return 0;
+  snprintf(source, sizeof source, "def value : %s := %s", type, normal);
+  return domain(source, NULL);
+}
+
 int main(void) {
   int ok = 1;
   /* The empty domain (sealed-lang S2, R21) lexes, parses and checks. */
@@ -45,20 +72,22 @@ int main(void) {
   ok &= domain("family U := makeU (decode : Type 0)\nfamily W := makeW (wrapped : U)\ndef bad : Type 0 := W", "TYPE_MISMATCH");
   ok &= domain("family Box (A : Type 1) := box (unbox : A)\ndef bad : Type 0 := Box (Type 0)", "TYPE_MISMATCH");
   ok &= domain("family U := makeU (decode : Type 0)\ndef good : Type 1 := U", NULL);
-  ok &= domain("def bad : Type 0 := Eq (Type 0) Nat Nat", "TYPE_MISMATCH");
-  ok &= domain("def good : Type 1 := Eq (Type 0) Nat Nat", NULL);
+  ok &= domain("def bad : Type 0 := Path (Type 0) Nat Nat", "TYPE_MISMATCH");
+  ok &= domain("def good : Type 1 := Path (Type 0) Nat Nat", NULL);
   ok &= domain("family U := makeU (decode : Type 0)\n"
-               "def bad : Type 0 := Eq U (makeU Nat) (makeU Nat)", "TYPE_MISMATCH");
+               "def bad : Type 0 := Path U (makeU Nat) (makeU Nat)", "TYPE_MISMATCH");
   ok &= domain("family U := makeU (decode : Type 0)\n"
-               "def good : Type 1 := Eq U (makeU Nat) (makeU Nat)", NULL);
+               "def good : Type 1 := Path U (makeU Nat) (makeU Nat)", NULL);
   ok &= domain("family U := makeU (decode : Type 0)\n"
-               "family W := makeW (proof : Eq U (makeU Nat) (makeU Nat))\n"
+               "family W := makeW (proof : Path U (makeU Nat) (makeU Nat))\n"
                "def bad : Type 0 := W", "TYPE_MISMATCH");
   ok &= domain("family U := makeU (decode : Type 0)\n"
-               "family W := makeW (proof : Eq U (makeU Nat) (makeU Nat))\n"
+               "family W := makeW (proof : Path U (makeU Nat) (makeU Nat))\n"
                "def good : Type 1 := W", NULL);
-  ok &= domain("def eta : (p : Prod Nat Nat) -> Eq (Prod Nat Nat) (pair (first p) (second p)) p := fun p => refl", NULL);
-  ok &= domain("def eta : (p : Sigma (n : Nat) (Eq Nat n n)) -> Eq (Sigma (n : Nat) (Eq Nat n n)) (pack (witness p) (payload p)) p := fun p => refl", NULL);
+  ok &= domain("def eta : (p : Prod Nat Nat) -> Path (Prod Nat Nat) (pair (first p) (second p)) p := fun p => refl", NULL);
+  ok &= domain("def eta : (p : Sigma (n : Nat) (Path Nat n n)) -> Path (Sigma (n : Nat) (Path Nat n n)) (pack (witness p) (payload p)) p := fun p => refl", NULL);
+  ok &= normal_roundtrip("Nat -> (A : Type 0) -> A -> A",
+    "fun (i0 : Nat) (A : Type 0) (a : A) => transp (fun (i : I) => A) (~i1) a");
   if (ok) puts("domain regressions: passed");
   return ok ? 0 : 1;
 }

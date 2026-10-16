@@ -11,3 +11,5 @@ addr-digits.lang LEX_HEX
 hex-digits.lang LEX_HEX
 u256-range.lang LEX_U256_RANGE
 state-no-ctor.lang PARSE_EXPECT
+dangling-at.lang PARSE_EXPECT
+system-top.lang PARSE_EXPECT

@@ -7,9 +7,13 @@
      group   := '(' NAME+ ':' term ')'
      term    := 'fun' (NAME | group)+ '=>' term
               | group ('->' | '*') term
-              | app ('->' term)?
+              | join ('->' term)?
+     join    := meet ('\/' meet)*
+     meet    := papp ('/\' papp)*
+     papp    := app ('@' app)*
      app     := atom atom*
-     atom    := NAME | NAT | WORD | 'Type' NAT | 'Sigma' group atom | '(' term ')' */
+     atom    := NAME | NAT | WORD | 'Type' NAT | 'Sigma' group atom | '(' term ')'
+              | '~' atom */
 #include <string.h>
 
 #include "front/parser.h"
@@ -132,6 +136,7 @@ static int starts_atom(TokKind kind) {
     case TOK_LPAREN:
     case TOK_KW_TYPE:
     case TOK_KW_SIGMA:
+    case TOK_TILDE:
       return 1;
     case TOK_EOF:
     case TOK_RPAREN:
@@ -141,6 +146,12 @@ static int starts_atom(TokKind kind) {
     case TOK_FATARROW:
     case TOK_STAR:
     case TOK_BAR:
+    case TOK_AT:
+    case TOK_MEET:
+    case TOK_JOIN:
+    case TOK_LBRACKET:
+    case TOK_RBRACKET:
+    case TOK_COMMA:
     case TOK_KW_DEF:
     case TOK_KW_REC:
     case TOK_KW_FUN:
@@ -204,8 +215,60 @@ static const Term *wrap(Parser *p, TermKind kind, const Binders *b, const Term *
   return acc;
 }
 
+static const Term *parse_join(Parser *p);
+
+/* One branch `k -> t` of a system. The key is at the join level, so `->`
+   ends it. */
+static const Term *parse_branch(Parser *p) {
+  const Token *tok = cur(p);
+  const Term *key = parse_join(p);
+  const Term *body = key != NULL && expect(p, TOK_ARROW, "'->' after a key") ? parse_term(p) : NULL;
+  Term *branch = body == NULL ? NULL : make_term(p, TERM_BRANCH, tok->line, tok->col);
+  if (branch == NULL) return NULL;
+  branch->left = key;
+  branch->right = body;
+  return branch;
+}
+
+/* The cells of a system after its first branch: `, k -> t ... ]`. */
+static const Term *parse_cells(Parser *p, const Token *tok) {
+  const Term *branch = NULL;
+  const Term *rest = NULL;
+  Term *cell;
+  if (at(p, TOK_RBRACKET)) {
+    bump(p);
+  } else {
+    branch = parse_branch(p);
+    if (branch == NULL) return NULL;
+    if (eat(p, TOK_COMMA)) {
+      if (at(p, TOK_RBRACKET)) {
+        fail_at(p, cur(p), "a branch after ','");
+        return NULL;
+      }
+      if (!enter(p)) return NULL;
+      rest = parse_cells(p, cur(p));
+      p->depth--;
+      if (rest == NULL) return NULL;
+    } else if (!expect(p, TOK_RBRACKET, "',' or ']'")) {
+      return NULL;
+    }
+  }
+  cell = make_term(p, TERM_SYSTEM, tok->line, tok->col);
+  if (cell == NULL) return NULL;
+  cell->left = branch;
+  cell->right = rest;
+  return cell;
+}
+
+/* `[ k1 -> t1, ... ]`, only as the body of a `fun`. */
+static const Term *parse_system(Parser *p) {
+  const Token *tok = cur(p);
+  bump(p);
+  return parse_cells(p, tok);
+}
+
 static const Term *parse_lambda_tail(Parser *p) {
-  if (eat(p, TOK_FATARROW)) return parse_term(p);
+  if (eat(p, TOK_FATARROW)) return at(p, TOK_LBRACKET) ? parse_system(p) : parse_term(p);
   Binders b;
   int ok = at(p, TOK_IDENT) ? parse_bare(p, &b) : parse_group(p, &b);
   if (!ok || !enter(p)) return NULL;
@@ -287,6 +350,18 @@ static const Term *parse_leaf(Parser *p, TermKind kind) {
   return kind == TERM_VAR && term->name == NULL ? NULL : term;
 }
 
+/* `~r` binds tighter than application: `~(i /\ j)`. */
+static const Term *parse_neg(Parser *p) {
+  const Token *tok = cur(p);
+  bump(p);
+  const Term *inner = enter(p) ? parse_atom(p) : NULL;
+  p->depth--;
+  Term *term = inner == NULL ? NULL : make_term(p, TERM_INEG, tok->line, tok->col);
+  if (term == NULL) return NULL;
+  term->left = inner;
+  return term;
+}
+
 static const Term *parse_atom(Parser *p) {
   const Token *tok = cur(p);
   switch (tok->kind) {
@@ -296,6 +371,7 @@ static const Term *parse_atom(Parser *p) {
     case TOK_LPAREN: return parse_paren(p);
     case TOK_KW_TYPE: return parse_universe(p);
     case TOK_KW_SIGMA: return parse_sigma(p);
+    case TOK_TILDE: return parse_neg(p);
     case TOK_EOF:
     case TOK_RPAREN:
     case TOK_COLON:
@@ -304,6 +380,12 @@ static const Term *parse_atom(Parser *p) {
     case TOK_FATARROW:
     case TOK_STAR:
     case TOK_BAR:
+    case TOK_AT:
+    case TOK_MEET:
+    case TOK_JOIN:
+    case TOK_LBRACKET:
+    case TOK_RBRACKET:
+    case TOK_COMMA:
     case TOK_KW_DEF:
     case TOK_KW_REC:
     case TOK_KW_FUN:
@@ -330,10 +412,40 @@ static const Term *parse_app(Parser *p) {
   return head;
 }
 
+/* A left-associative chain `x OP y OP z` of the operands that SUB parses. */
+static const Term *parse_chain(Parser *p, TokKind op, TermKind kind, const Term *(*sub)(Parser *)) {
+  const Term *head = sub(p);
+  while (head != NULL && at(p, op)) {
+    const Token *tok = cur(p);
+    bump(p);
+    const Term *rhs = sub(p);
+    Term *node = rhs == NULL ? NULL : make_term(p, kind, tok->line, tok->col);
+    if (node == NULL) return NULL;
+    node->left = head;
+    node->right = rhs;
+    head = node;
+  }
+  return head;
+}
+
+/* `p @ r` is looser than application: `f x @ i` is `(f x) @ i`. */
+static const Term *parse_papp(Parser *p) {
+  return parse_chain(p, TOK_AT, TERM_PAPP, parse_app);
+}
+
+static const Term *parse_meet(Parser *p) {
+  return parse_chain(p, TOK_MEET, TERM_IMEET, parse_papp);
+}
+
+/* `/\` binds tighter than `\/`. */
+static const Term *parse_join(Parser *p) {
+  return parse_chain(p, TOK_JOIN, TERM_IJOIN, parse_meet);
+}
+
 static const Term *parse_term_body(Parser *p) {
   if (at(p, TOK_KW_FUN)) return parse_fun(p);
   if (at_binder_group(p)) return parse_binder_type(p);
-  const Term *head = parse_app(p);
+  const Term *head = parse_join(p);
   if (head == NULL || !at(p, TOK_ARROW)) return head;
   const Token *arrow = cur(p);
   bump(p);
@@ -487,6 +599,13 @@ static int parse_decl(Parser *p, Decl *d) {
     case TOK_FATARROW:
     case TOK_STAR:
     case TOK_BAR:
+    case TOK_AT:
+    case TOK_TILDE:
+    case TOK_MEET:
+    case TOK_JOIN:
+    case TOK_LBRACKET:
+    case TOK_RBRACKET:
+    case TOK_COMMA:
     case TOK_KW_REC:
     case TOK_KW_FUN:
     case TOK_KW_TYPE:

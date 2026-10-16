@@ -370,6 +370,10 @@ static const char *value_name(const Low *l, const Value *v) {
     case VAL_SIGMA: return "a Sigma type";
     case VAL_APP: return "an application of a variable (recursion that is not a List fold)";
     case VAL_VAR: return "the Env or the state as one value";
+    case VAL_PLAM:
+    case VAL_PAPP: return "a path";
+    case VAL_IVAL: return "an interval";
+    case VAL_PATHP: return "a path type";
     case VAL_NAT:
     case VAL_WORD:
     case VAL_TRAP: return "a word";

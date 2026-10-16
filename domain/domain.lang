@@ -2,3 +2,22 @@
 -- contract of docs/PLAN.md section 6 comes in S5.
 -- Each family, constructor, field and def name here becomes a core name
 -- (rule R4). Only this file can declare a family (rule R1).
+
+-- Kan library (S2a, R6 (a)): transport, subst, J and the J rule as a path
+-- (JRefl, O11), all by transp.
+def transport : (X : Type 0) -> (Y : Type 0) -> Path (Type 0) X Y -> X -> Y :=
+  fun (X : Type 0) => fun (Y : Type 0) => fun (p : Path (Type 0) X Y) => fun (a : X) => transp (fun (i : I) => p @ i) i0 a
+def subst : (A : Type 0) -> (B : A -> Type 0) -> (x : A) -> (y : A) -> Path A x y -> B x -> B y :=
+  fun (A : Type 0) => fun (B : A -> Type 0) => fun (x : A) => fun (y : A) => fun (p : Path A x y) => fun (b : B x) =>
+    transp (fun (i : I) => B (p @ i)) i0 b
+def J : (A : Type 0) -> (x : A) -> (P : (y : A) -> Path A x y -> Type 0) -> P x refl -> (y : A) -> (p : Path A x y) -> P y p :=
+  fun (A : Type 0) => fun (x : A) => fun (P : (y : A) -> Path A x y -> Type 0) => fun (d : P x refl) => fun (y : A) => fun (p : Path A x y) =>
+    transp (fun (i : I) => P (p @ i) (fun (j : I) => p @ (i /\ j))) i0 d
+def JRefl : (A : Type 0) -> (x : A) -> (P : (y : A) -> Path A x y -> Type 0) -> (d : P x refl) -> Path (P x refl) (J A x P d x refl) d :=
+  fun (A : Type 0) => fun (x : A) => fun (P : (y : A) -> Path A x y -> Type 0) => fun (d : P x refl) =>
+    fun (i : I) => transp (fun (_ : I) => P x refl) i d
+-- Path composition (S2b, R2 (a)): trans by hcomp, with the tube x on ~j
+-- and q on j, and the base p.
+def trans : (A : Type 0) -> (x : A) -> (y : A) -> (z : A) -> Path A x y -> Path A y z -> Path A x z :=
+  fun (A : Type 0) => fun (x : A) => fun (y : A) => fun (z : A) => fun (p : Path A x y) => fun (q : Path A y z) =>
+    fun (j : I) => hcomp A (~j \/ j) (fun (i : I) => [ ~j -> x, j -> q @ i ]) (p @ j)

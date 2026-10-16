@@ -13,8 +13,10 @@ entries pick 0 4 9 => 9
 formers picked => 5
 formers right => 1
 formers xs => cons 1 (cons 2 (cons 3 nil))
-sigma offer => pack 1200 refl
-equality moved => fun P => fun u => u
+sigma offer => pack 1200 (fun _ => 1200)
+equality back => fun i => 1200
+equality start => 1200
+equality backEnd => 1200
 universes Endo => (A : Type 0) -> (x : A) -> A
 algebra down => cons 5 (cons 4 (cons 3 nil))
 algebra stop => nil
@@ -52,3 +54,6 @@ precompile twoG => ecAdd (pair 1u 2u) (pair 1u 2u)
 precompile ownerWord => 170u
 precompile leaf 7 => 4
 precompile leaf 6 => 3
+kan evPi => 5
+kan evPair => 3
+kan evTrans => 3

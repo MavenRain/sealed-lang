@@ -11,17 +11,16 @@
 
 static const char *const OP_NAMES[] = {
   [OP_NAT] = "Nat", [OP_FLAG] = "Flag", [OP_U256] = "U256", [OP_ADDR] = "Addr", [OP_UNIT] = "Unit", [OP_PROD] = "Prod",
-  [OP_SUM] = "Sum", [OP_OPTION] = "Option", [OP_LIST] = "List", [OP_EQ] = "Eq",
+  [OP_SUM] = "Sum", [OP_OPTION] = "Option", [OP_LIST] = "List",
   [OP_FAMILY] = "?", [OP_UNIT_VAL] = "unit", [OP_FLAG_YES] = "flagYes",
   [OP_FLAG_NO] = "flagNo", [OP_PAIR] = "pair", [OP_INL] = "inl", [OP_INR] = "inr",
   [OP_NONE] = "none", [OP_SOME] = "some", [OP_NIL] = "nil", [OP_CONS] = "cons",
-  [OP_PACK] = "pack", [OP_REFL] = "refl", [OP_CTOR] = "?", [OP_FIRST] = "first",
+  [OP_PACK] = "pack", [OP_CTOR] = "?", [OP_FIRST] = "first",
   [OP_SECOND] = "second", [OP_EITHER] = "either", [OP_OPTION_ELIM] = "option",
   [OP_PURE] = "pure", [OP_MAP] = "map", [OP_BIND] = "bind", [OP_FOLD_NAT] = "fold",
   [OP_FOLD_LIST] = "fold", [OP_FOLD_FAMILY] = "fold", [OP_UNFOLD] = "unfold",
   [OP_FILTER] = "filter", [OP_WITNESS] = "witness", [OP_PAYLOAD] = "payload",
-  [OP_SYMM] = "symm", [OP_TRANS] = "trans", [OP_TRANSPORT] = "transport",
-  [OP_CONG] = "cong", [OP_NAT_ADD] = "natAdd", [OP_NAT_SUB] = "natSub",
+  [OP_NAT_ADD] = "natAdd", [OP_NAT_SUB] = "natSub",
   [OP_NAT_EQ] = "natEq", [OP_NAT_LE] = "natLe",
   [OP_FLAG_IF] = "flagIf", [OP_U256_ADD] = "u256Add", [OP_U256_SUB] = "u256Sub",
   [OP_U256_LE] = "u256Le",
@@ -29,28 +28,31 @@ static const char *const OP_NAMES[] = {
   [OP_NAT_DIV] = "natDiv", [OP_NAT_MOD] = "natMod", [OP_HASH] = "hash", [OP_ECRECOVER] = "ecrecover",
   [OP_EC_ADD] = "ecAdd", [OP_EC_MUL] = "ecMul", [OP_EC_PAIRING] = "ecPairing", [OP_ADDR_TO_U256] = "addrToU256",
   [OP_ADDR_EQ] = "addrEq", [OP_PROJ] = "?", [OP_KMAP] = "Map", [OP_KMAP_OF] = "mapOf",
-  [OP_KMAP_GET] = "mapGet", [OP_KMAP_SET] = "mapSet"
+  [OP_KMAP_GET] = "mapGet", [OP_KMAP_SET] = "mapSet",
+  [OP_INTERVAL] = "I", [OP_TRANSP] = "transp",
+  [OP_SYSTEM] = "system", [OP_HCOMP] = "hcomp"
 };
 
 /* The number of arguments of each operation. VARIES: it comes from the
    family tables. */
 static const unsigned char OP_ARITY[] = {
   [OP_NAT] = 0, [OP_FLAG] = 0, [OP_U256] = 0, [OP_ADDR] = 0, [OP_UNIT] = 0, [OP_PROD] = 2, [OP_SUM] = 2,
-  [OP_OPTION] = 1, [OP_LIST] = 1, [OP_EQ] = 3, [OP_FAMILY] = VARIES,
+  [OP_OPTION] = 1, [OP_LIST] = 1, [OP_FAMILY] = VARIES,
   [OP_UNIT_VAL] = 0, [OP_FLAG_YES] = 0, [OP_FLAG_NO] = 0, [OP_PAIR] = 2,
   [OP_INL] = 1, [OP_INR] = 1, [OP_NONE] = 0, [OP_SOME] = 1, [OP_NIL] = 0,
-  [OP_CONS] = 2, [OP_PACK] = 2, [OP_REFL] = 0, [OP_CTOR] = VARIES, [OP_FIRST] = 1,
+  [OP_CONS] = 2, [OP_PACK] = 2, [OP_CTOR] = VARIES, [OP_FIRST] = 1,
   [OP_SECOND] = 1, [OP_EITHER] = 3, [OP_OPTION_ELIM] = 3, [OP_PURE] = 1,
   [OP_MAP] = 2, [OP_BIND] = 2, [OP_FOLD_NAT] = 3, [OP_FOLD_LIST] = 3,
   [OP_FOLD_FAMILY] = VARIES, [OP_UNFOLD] = 3, [OP_FILTER] = 2, [OP_WITNESS] = 1,
-  [OP_PAYLOAD] = 1, [OP_SYMM] = 1, [OP_TRANS] = 2, [OP_TRANSPORT] = 3,
-  [OP_CONG] = 2, [OP_NAT_ADD] = 2, [OP_NAT_SUB] = 2,
+  [OP_PAYLOAD] = 1, [OP_NAT_ADD] = 2, [OP_NAT_SUB] = 2,
   [OP_NAT_EQ] = 2, [OP_NAT_LE] = 2, [OP_FLAG_IF] = 3, [OP_U256_ADD] = 2,
   [OP_U256_SUB] = 2, [OP_U256_LE] = 2,
   [OP_U256_EQ] = 2, [OP_TO_U256] = 1, [OP_ADDR_EQ] = 2,
   [OP_NAT_DIV] = 2, [OP_NAT_MOD] = 2, [OP_HASH] = 2, [OP_ECRECOVER] = 4,
   [OP_EC_ADD] = 2, [OP_EC_MUL] = 2, [OP_EC_PAIRING] = 1, [OP_ADDR_TO_U256] = 1,
-  [OP_PROJ] = 1, [OP_KMAP] = 2, [OP_KMAP_OF] = VARIES, [OP_KMAP_GET] = 3, [OP_KMAP_SET] = 4
+  [OP_PROJ] = 1, [OP_KMAP] = 2, [OP_KMAP_OF] = VARIES, [OP_KMAP_GET] = 3, [OP_KMAP_SET] = 4,
+  [OP_INTERVAL] = 0, [OP_TRANSP] = 3,
+  [OP_SYSTEM] = VARIES, [OP_HCOMP] = 4
 };
 
 typedef enum {
@@ -106,6 +108,7 @@ static Value *new_value(Machine *m, ValKind kind) {
     return NULL;
   }
   v->kind = kind;
+  v->tag = CLOS_CORE;
   return v;
 }
 
@@ -146,6 +149,265 @@ const Value *val_univ(Machine *m, uint64_t level) {
   if (v != NULL)
     v->nat = level;
   return v;
+}
+
+/* The interval is the free De Morgan algebra (R4 (a)). A value is a join
+   of conjunctions of literals, in a canonical order (length, then the
+   literals), with absorption. ~~i = i, and ~ swaps meet and join. There is
+   no rule i /\ ~i = i0: the interval is not Boolean. */
+
+/* 1 when each literal of A is in B. */
+static int conj_subset(const IConj *a, const IConj *b) {
+  uint32_t i = 0;
+  uint32_t j = 0;
+  while (i < a->count && j < b->count && a->lits[i] >= b->lits[j]) {
+    i += a->lits[i] == b->lits[j];
+    j++;
+  }
+  return i == a->count;
+}
+
+static int conj_cmp(const IConj *a, const IConj *b) {
+  uint32_t i;
+  if (a->count != b->count)
+    return a->count < b->count ? -1 : 1;
+  for (i = 0; i < a->count; i++)
+    if (a->lits[i] != b->lits[i])
+      return a->lits[i] < b->lits[i] ? -1 : 1;
+  return 0;
+}
+
+static int conj_union(Machine *m, const IConj *a, const IConj *b, IConj *out) {
+  uint32_t *lits = arena_alloc(m->arena, ((size_t)a->count + b->count + 1u) * sizeof *lits);
+  uint32_t i = 0;
+  uint32_t j = 0;
+  uint32_t k = 0;
+  if (lits == NULL) {
+    oom(m);
+    return 0;
+  }
+  while (i < a->count || j < b->count) {
+    int take_a = j == b->count || (i < a->count && a->lits[i] <= b->lits[j]);
+    int take_b = i == a->count || (j < b->count && b->lits[j] <= a->lits[i]);
+    lits[k++] = take_a ? a->lits[i] : b->lits[j];
+    i += take_a;
+    j += take_b;
+  }
+  out->lits = lits;
+  out->count = k;
+  return 1;
+}
+
+/* The normal form of the join of the N conjunctions CS: absorption, then
+   the canonical order. */
+static const Value *ival_make(Machine *m, const IConj *cs, uint32_t n) {
+  IConj *out = arena_alloc(m->arena, ((size_t)n + 1u) * sizeof *out);
+  Value *v;
+  uint32_t i;
+  uint32_t j;
+  uint32_t k = 0;
+  int drop;
+  if (out == NULL)
+    return oom(m);
+  for (i = 0; i < n; i++) {
+    drop = 0;
+    for (j = 0; j < n && !drop; j++)
+      drop = j != i && conj_subset(&cs[j], &cs[i]) && (cs[j].count < cs[i].count || j < i);
+    for (j = k; j > 0 && !drop && conj_cmp(&out[j - 1u], &cs[i]) > 0; j--)
+      out[j] = out[j - 1u];
+    out[j] = drop ? out[j] : cs[i];
+    k += !drop;
+  }
+  v = new_value(m, VAL_IVAL);
+  if (v == NULL)
+    return NULL;
+  v->conj = out;
+  v->conj_count = k;
+  return v;
+}
+
+static const Value *ival_lit(Machine *m, uint32_t lit) {
+  uint32_t *lits = arena_alloc(m->arena, sizeof *lits);
+  IConj c;
+  if (lits == NULL)
+    return oom(m);
+  lits[0] = lit;
+  c.lits = lits;
+  c.count = 1;
+  return ival_make(m, &c, 1);
+}
+
+const Value *val_ivar(Machine *m, uint32_t level) {
+  return ival_lit(m, level * 2u);
+}
+
+const Value *val_iend(Machine *m, int side) {
+  IConj c;
+  c.lits = NULL;
+  c.count = 0;
+  return ival_make(m, &c, side != 0 ? 1u : 0u);
+}
+
+static const Value *ival_join(Machine *m, const Value *a, const Value *b) {
+  IConj *cs;
+  uint32_t i;
+  if (a == NULL || b == NULL)
+    return NULL;
+  cs = arena_alloc(m->arena, ((size_t)a->conj_count + b->conj_count + 1u) * sizeof *cs);
+  if (cs == NULL)
+    return oom(m);
+  for (i = 0; i < a->conj_count; i++)
+    cs[i] = a->conj[i];
+  for (i = 0; i < b->conj_count; i++)
+    cs[a->conj_count + i] = b->conj[i];
+  return ival_make(m, cs, a->conj_count + b->conj_count);
+}
+
+static const Value *ival_meet(Machine *m, const Value *a, const Value *b) {
+  IConj *cs;
+  uint32_t i;
+  uint32_t j;
+  if (a == NULL || b == NULL)
+    return NULL;
+  cs = arena_alloc(m->arena, ((size_t)a->conj_count * b->conj_count + 1u) * sizeof *cs);
+  if (cs == NULL)
+    return oom(m);
+  for (i = 0; i < a->conj_count; i++)
+    for (j = 0; j < b->conj_count; j++)
+      if (!conj_union(m, &a->conj[i], &b->conj[j], &cs[i * b->conj_count + j]))
+        return NULL;
+  return ival_make(m, cs, a->conj_count * b->conj_count);
+}
+
+/* De Morgan: ~(c1 \/ c2) = ~c1 /\ ~c2 and ~(l1 /\ l2) = ~l1 \/ ~l2. */
+static const Value *ival_neg(Machine *m, const Value *a) {
+  const Value *out = val_iend(m, 1);
+  const Value *flipped;
+  uint32_t i;
+  uint32_t j;
+  if (a == NULL)
+    return NULL;
+  for (i = 0; i < a->conj_count && out != NULL; i++) {
+    flipped = val_iend(m, 0);
+    for (j = 0; j < a->conj[i].count; j++)
+      flipped = ival_join(m, flipped, ival_lit(m, a->conj[i].lits[j] ^ 1u));
+    out = ival_meet(m, out, flipped);
+  }
+  return out;
+}
+
+static int ival_equal(const Value *a, const Value *b) {
+  uint32_t i;
+  if (a->conj_count != b->conj_count)
+    return 0;
+  for (i = 0; i < a->conj_count; i++)
+    if (conj_cmp(&a->conj[i], &b->conj[i]) != 0)
+      return 0;
+  return 1;
+}
+
+int ival_is_end(const Value *v, int side) {
+  if (v == NULL || v->kind != VAL_IVAL)
+    return 0;
+  return side != 0 ? v->conj_count == 1 && v->conj[0].count == 0 : v->conj_count == 0;
+}
+
+/* A literal and its negation are adjacent in a sorted conjunction, and the
+   literal is the even one. */
+static int conj_empty_face(const IConj *c) {
+  uint32_t j;
+  for (j = 1; j < c->count; j++)
+    if ((c->lits[j - 1u] ^ 1u) == c->lits[j])
+      return 1;
+  return 0;
+}
+
+const Value *face_norm(Machine *m, const Value *phi) {
+  IConj *cs;
+  uint32_t i;
+  uint32_t k = 0;
+  if (phi == NULL)
+    return NULL;
+  cs = arena_alloc(m->arena, ((size_t)phi->conj_count + 1u) * sizeof *cs);
+  if (cs == NULL)
+    return oom(m);
+  for (i = 0; i < phi->conj_count; i++)
+    if (!conj_empty_face(&phi->conj[i]))
+      cs[k++] = phi->conj[i];
+  return ival_make(m, cs, k);
+}
+
+const Value *face_join(Machine *m, const Value *a, const Value *b) {
+  return face_norm(m, ival_join(m, a, b));
+}
+
+const Value *face_meet(Machine *m, const Value *a, const Value *b) {
+  return face_norm(m, ival_meet(m, a, b));
+}
+
+const Value *ival_face(Machine *m, const Value *r, uint32_t level, int side) {
+  /* The literal that the map makes true, and the one it makes false. */
+  uint32_t keep = level * 2u + (side != 0 ? 0u : 1u);
+  uint32_t kill = keep ^ 1u;
+  IConj *cs;
+  uint32_t *lits;
+  uint32_t i;
+  uint32_t j;
+  uint32_t n;
+  uint32_t k = 0;
+  int dead;
+  if (r == NULL)
+    return NULL;
+  cs = arena_alloc(m->arena, ((size_t)r->conj_count + 1u) * sizeof *cs);
+  if (cs == NULL)
+    return oom(m);
+  for (i = 0; i < r->conj_count; i++) {
+    lits = arena_alloc(m->arena, ((size_t)r->conj[i].count + 1u) * sizeof *lits);
+    if (lits == NULL)
+      return oom(m);
+    dead = 0;
+    n = 0;
+    for (j = 0; j < r->conj[i].count; j++) {
+      dead |= r->conj[i].lits[j] == kill;
+      lits[n] = r->conj[i].lits[j];
+      n += r->conj[i].lits[j] != keep && r->conj[i].lits[j] != kill;
+    }
+    cs[k].lits = lits;
+    cs[k].count = n;
+    k += !dead;
+  }
+  return ival_make(m, cs, k);
+}
+
+int env_face(Machine *m, const Env *env, const IConj *c, const Env **out) {
+  const Value **vals;
+  const Value *v;
+  const Env *e;
+  uint32_t n = 0;
+  uint32_t i;
+  uint32_t j;
+  for (e = env; e != NULL; e = e->next)
+    n++;
+  vals = arena_alloc(m->arena, ((size_t)n + 1u) * sizeof *vals);
+  if (vals == NULL) {
+    oom(m);
+    return 0;
+  }
+  for (e = env, i = 0; e != NULL; e = e->next, i++) {
+    v = e->value;
+    for (j = 0; j < c->count && v != NULL && v->kind == VAL_IVAL; j++)
+      v = ival_face(m, v, c->lits[j] >> 1u, (c->lits[j] & 1u) == 0u);
+    if (v == NULL)
+      return 0;
+    vals[i] = v;
+  }
+  *out = NULL;
+  for (i = n; i > 0; i--) {
+    *out = env_push(m, *out, vals[i - 1u]);
+    if (*out == NULL)
+      return 0;
+  }
+  return 1;
 }
 
 const Value *val_op(Machine *m, ValKind kind, Op op, uint32_t inst, uint32_t field, const Value *const *args, uint32_t argc) {
@@ -205,7 +467,7 @@ const Value *val_arrow(Machine *m, const Value *dom, const Value *cod) {
 
 const Value *val_closure(Machine *m, ValKind kind, const char *name, const Value *dom, const Env *env, const Core *body) {
   Value *v;
-  if (body == NULL || (dom == NULL && kind != VAL_LAM))
+  if (body == NULL || (dom == NULL && kind != VAL_LAM && kind != VAL_PLAM))
     return NULL;
   v = new_value(m, kind);
   if (v == NULL)
@@ -261,6 +523,7 @@ static Scrut scrut_of(const Value *v) {
   case VAL_VAR:
   case VAL_APP:
   case VAL_STUCK:
+  case VAL_PAPP:
     return SCRUT_NEUTRAL;
   case VAL_NAT:
   case VAL_WORD:
@@ -269,6 +532,9 @@ static Scrut scrut_of(const Value *v) {
   case VAL_PI:
   case VAL_SIGMA:
   case VAL_OP:
+  case VAL_PLAM:
+  case VAL_PATHP:
+  case VAL_IVAL:
     return SCRUT_VALUE;
   }
   return SCRUT_VALUE;
@@ -368,6 +634,7 @@ const Value *apply_value(Machine *m, const Value *fn, const Value *arg) {
   case VAL_VAR:
   case VAL_APP:
   case VAL_STUCK:
+  case VAL_PAPP:
     v = new_value(m, VAL_APP);
     if (v == NULL)
       return NULL;
@@ -380,21 +647,57 @@ const Value *apply_value(Machine *m, const Value *fn, const Value *arg) {
   case VAL_PI:
   case VAL_SIGMA:
   case VAL_OP:
+  case VAL_PLAM:
+  case VAL_PATHP:
+  case VAL_IVAL:
     break;
   }
   return internal(m, "an application of a value that is not a function");
 }
 
+static const Value *kan_apply(Machine *m, const Value *k, const Value *r);
+
 const Value *closure_apply(Machine *m, const Value *binder, const Value *arg) {
   const Env *env;
   if (binder == NULL || arg == NULL)
     return NULL;
+  if (binder->tag != CLOS_CORE)
+    return kan_apply(m, binder, arg);
   if (binder->body == NULL)
     return binder->arg;
   env = env_push(m, binder->env, arg);
   if (env == NULL)
     return NULL;
   return eval_core(m, env, binder->body);
+}
+
+const Value *path_apply(Machine *m, const Value *p, const Value *r, const Value *a, const Value *b) {
+  Value *v;
+  const Value **ends;
+  if (p == NULL || r == NULL)
+    return NULL;
+  if (p->kind == VAL_PLAM)
+    return closure_apply(m, p, r);
+  if (p->kind == VAL_TRAP)
+    return p;
+  if (scrut_of(p) != SCRUT_NEUTRAL)
+    return internal(m, "a path application of a value that is not a path");
+  /* The end point rule: a neutral path at i0 or i1 is its end. */
+  if (ival_is_end(r, 0) && a != NULL)
+    return a;
+  if (ival_is_end(r, 1) && b != NULL)
+    return b;
+  ends = arena_alloc(m->arena, 2u * sizeof *ends);
+  v = new_value(m, VAL_PAPP);
+  if (ends == NULL || v == NULL)
+    return oom(m);
+  ends[0] = a;
+  ends[1] = b;
+  v->dom = p;
+  v->arg = r;
+  v->args = ends;
+  v->argc = 2;
+  return v;
 }
 
 static const Value *reduce_part(Machine *m, Op op, const Value *const *a, uint32_t n, Op ctor, uint32_t index) {
@@ -702,16 +1005,6 @@ static const Value *reduce_filter(Machine *m, uint32_t inst, const Value *const 
   return internal(m, "a filter with no instance");
 }
 
-/* symm, trans, cong and transport compute when each proof argument is refl. */
-static const Value *reduce_proof(Machine *m, Op op, const Value *const *a, uint32_t n, uint32_t first, uint32_t count, const Value *result) {
-  const Value *out;
-  uint32_t i;
-  for (i = first; i < first + count; i++)
-    if (blocked(m, a[i], op, 0, 0, a, n, &out))
-      return out;
-  return result;
-}
-
 /* 1 when both arguments are numbers. Else *OUT is the trap or the stuck
    operation. */
 static int nat_args(Machine *m, Op op, const Value *const *a, uint32_t n, uint64_t *x, uint64_t *y, const Value **out) {
@@ -985,9 +1278,592 @@ static int arity_ok(const Machine *m, Op op, uint32_t inst, uint32_t n) {
     return 0;
   if (op == OP_KMAP_OF)
     return n % 2u == 0u;
+  if (op == OP_SYSTEM)
+    return n % 2u == 0u;
   if (OP_ARITY[op] != VARIES)
     return n == (uint32_t)OP_ARITY[op];
   return n == varied_arity(m, op, inst);
+}
+
+/* The Kan operations (S2, R11 (a)). A line L is a path value in U, and
+   L(r) is L at the interval value r. A Kan rule gives a value at once; a
+   rule that needs a function of an interval value gives a closure tag. */
+
+#define KAN_FRESH_BASE 0x20000000u
+#define KAN_FRESH_MASK 0x0fffffffu
+
+static const Value *line_at(Machine *m, const Value *line, const Value *r) {
+  return path_apply(m, line, r, NULL, NULL);
+}
+
+/* L at a fresh interval variable, never at i0: a neutral line can be a
+   type former at i0. Eval has no level, so the Machine gives a level above
+   each context level. A Kan rule reads only the head kind. */
+static const Value *fresh_ivar(Machine *m) {
+  uint32_t level = KAN_FRESH_BASE + (m->fresh & KAN_FRESH_MASK);
+  m->fresh++;
+  return val_ivar(m, level);
+}
+
+static const Value *line_head(Machine *m, const Value *line) {
+  return line_at(m, line, fresh_ivar(m));
+}
+
+/* T when it is a KIND value (the former of a line at each point), else an
+   internal error. */
+static const Value *line_former(Machine *m, const Value *t, ValKind kind) {
+  if (t == NULL || t->kind == kind)
+    return t;
+  return internal(m, "a line that changes its type former");
+}
+
+static const Value *kan_closure4(Machine *m, ValKind kind, ClosTag tag, uint32_t field, uint32_t argc, const Value *x, const Value *y, const Value *z, const Value *w) {
+  const Value **args;
+  Value *v;
+  if (x == NULL || (argc > 1u && y == NULL) || (argc > 2u && z == NULL) || (argc > 3u && w == NULL))
+    return NULL;
+  args = arena_alloc(m->arena, 4u * sizeof *args);
+  if (args == NULL)
+    return oom(m);
+  v = new_value(m, kind);
+  if (v == NULL)
+    return NULL;
+  args[0] = x;
+  args[1] = y;
+  args[2] = z;
+  args[3] = w;
+  v->name = kind == VAL_PLAM ? "i" : "x";
+  v->tag = tag;
+  v->field = field;
+  v->args = args;
+  v->argc = argc;
+  return v;
+}
+
+static const Value *kan_closure(Machine *m, ValKind kind, ClosTag tag, uint32_t field, uint32_t argc, const Value *x, const Value *y, const Value *z) {
+  return kan_closure4(m, kind, tag, field, argc, x, y, z, NULL);
+}
+
+static const Value *transp(Machine *m, const Value *line, const Value *phi, const Value *base);
+static const Value *hcomp(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base);
+/* Structural rules that reach a universe retain the outer operation:
+   composing in the universe needs Glue, and surface hcomp refuses it. */
+static const Value *hcomp_stuck(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base);
+static const Value *comp(Machine *m, const Value *line, const Value *phi, const Value *sys, const Value *base);
+static const Value *hfill(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base, const Value *r);
+static const Value *sys_map(Machine *m, const Value *sys, ClosTag tag, uint32_t field, uint32_t extra, const Value *x, const Value *y, const Value *z);
+static const Value *hcomp_pathp_at(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base, const Value *j);
+static const Value *transp_pathp_at(Machine *m, const Value *line, const Value *phi, const Value *base, const Value *r);
+
+/* The part FIELD (0: witness, 1: payload) of the Sigma value U. */
+static const Value *sigma_part(Machine *m, const Value *u, uint32_t field) {
+  const Value *one[1];
+  one[0] = u;
+  return u == NULL ? NULL : reduce_part(m, field == 0u ? OP_WITNESS : OP_PAYLOAD, one, 1, OP_PACK, field);
+}
+
+static const Value *transp_stuck(Machine *m, const Value *line, const Value *phi, const Value *base) {
+  return make(m, VAL_STUCK, OP_TRANSP, 0, 3, line, phi, base);
+}
+
+static const Value *not_typed(Machine *m) {
+  return internal(m, "a transport of a value of the wrong type");
+}
+
+/* transp along the type argument FIELD of the data line L. */
+static const Value *transp_part(Machine *m, const Value *line, uint32_t field, const Value *phi, const Value *x) {
+  return transp(m, kan_closure(m, VAL_PLAM, CLOS_LINE_PART, field, 1, line, NULL, NULL), phi, x);
+}
+
+/* x'(r) = transp (fun j => A (r \/ ~j)) (phi \/ r) x: X in A(i1), moved
+   back to A(r). */
+static const Value *pi_back(Machine *m, const Value *line, const Value *phi, const Value *x, const Value *r) {
+  return transp(m, kan_closure(m, VAL_PLAM, CLOS_PI_DOM, 0, 2, line, r, NULL), ival_join(m, phi, r), x);
+}
+
+/* a'(r) = transp (fun j => A (r /\ j)) (phi \/ ~r) u: U in A(i0), moved
+   up to A(r). */
+static const Value *sigma_up(Machine *m, const Value *line, const Value *phi, const Value *u, const Value *r) {
+  return transp(m, kan_closure(m, VAL_PLAM, CLOS_SIGMA_DOM, 0, 2, line, r, NULL), ival_join(m, phi, ival_neg(m, r)), u);
+}
+
+static const Value *kan_apply(Machine *m, const Value *k, const Value *r) {
+  const Value *const *a = k->args;
+  const Value *t;
+  switch (k->tag) {
+  case CLOS_LINE_PART:
+    t = line_former(m, line_at(m, a[0], r), VAL_OP);
+    if (t != NULL && k->field >= t->argc)
+      return internal(m, "a line that changes its type former");
+    return t == NULL ? NULL : t->args[k->field];
+  case CLOS_PI_DOM:
+    t = line_former(m, line_at(m, a[0], ival_join(m, a[1], ival_neg(m, r))), VAL_PI);
+    return t == NULL ? NULL : t->dom;
+  case CLOS_SIGMA_DOM:
+    t = line_former(m, line_at(m, a[0], ival_meet(m, a[1], r)), VAL_SIGMA);
+    return t == NULL ? NULL : t->dom;
+  case CLOS_PI_COD:
+    return closure_apply(m, line_former(m, line_at(m, a[0], r), VAL_PI), pi_back(m, a[0], a[1], a[2], r));
+  case CLOS_SIGMA_COD:
+    return closure_apply(m, line_former(m, line_at(m, a[0], r), VAL_SIGMA), sigma_up(m, a[0], a[1], a[2], r));
+  case CLOS_TRANSP_PI:
+    return transp(m, kan_closure(m, VAL_PLAM, CLOS_PI_COD, 0, 3, a[0], a[1], r), a[1], apply_value(m, a[2], pi_back(m, a[0], a[1], r, val_iend(m, 0))));
+  case CLOS_CONST:
+    return a[0];
+  case CLOS_SYS_APP:
+    return apply_value(m, closure_apply(m, a[0], r), a[1]);
+  case CLOS_SYS_PAPP:
+    return path_apply(m, closure_apply(m, a[0], r), a[1], a[2], a[3]);
+  case CLOS_SYS_SIGMA:
+    return sigma_part(m, closure_apply(m, a[0], r), k->field);
+  case CLOS_SYS_ARG:
+    t = closure_apply(m, a[0], r);
+    if (t != NULL && (t->kind != VAL_OP || k->field >= t->argc))
+      return internal(m, "a system branch that changes its constructor");
+    return t == NULL ? NULL : t->args[k->field];
+  case CLOS_SYS_MEET:
+    return closure_apply(m, a[0], ival_meet(m, a[1], r));
+  case CLOS_COMP_BRANCH:
+    return transp(m, kan_closure(m, VAL_PLAM, CLOS_LINE_JOIN, 0, 2, a[1], r, NULL), r, closure_apply(m, a[0], r));
+  case CLOS_LINE_JOIN:
+    return line_at(m, a[0], ival_join(m, a[1], r));
+  case CLOS_HCOMP_PI:
+    t = closure_apply(m, a[0], r);
+    if (t == NULL)
+      return NULL;
+    if (t->kind == VAL_UNIV)
+      return apply_value(m, hcomp_stuck(m, a[0], a[1], a[2], a[3]), r);
+    return hcomp(m, t, a[1], sys_map(m, a[2], CLOS_SYS_APP, 0, 1, r, NULL, NULL), apply_value(m, a[3], r));
+  case CLOS_HCOMP_PATHP:
+    return hcomp_pathp_at(m, a[0], a[1], a[2], a[3], r);
+  case CLOS_SIGMA_FILL_COD:
+    return closure_apply(m, a[0], hfill(m, a[0]->dom, a[1], a[2], a[3], r));
+  case CLOS_TRANSP_PATHP:
+    return transp_pathp_at(m, a[0], a[1], a[2], r);
+  case CLOS_PATHP_LINE:
+    return closure_apply(m, line_former(m, line_at(m, a[0], r), VAL_PATHP), a[1]);
+  case CLOS_PATHP_END:
+    t = line_former(m, line_at(m, a[0], r), VAL_PATHP);
+    return t == NULL ? NULL : t->args[k->field];
+  case CLOS_CORE:
+    break;
+  }
+  return internal(m, "a closure with an unknown tag");
+}
+
+static const Value *transp_list(Machine *m, const Value *line, const Value *phi, const Value *base) {
+  Spine sp;
+  const Value **items;
+  const Value *tail;
+  uint32_t i;
+  if (!spine_of(m, base, &sp))
+    return NULL;
+  items = arena_alloc(m->arena, ((size_t)sp.count + 1u) * sizeof *items);
+  if (items == NULL)
+    return oom(m);
+  for (i = 0; i < sp.count; i++) {
+    items[i] = transp_part(m, line, 0, phi, sp.cells[i]->args[0]);
+    if (items[i] == NULL)
+      return NULL;
+  }
+  tail = scrut_of(sp.tail) == SCRUT_NEUTRAL ? transp_stuck(m, line, phi, sp.tail) : sp.tail;
+  return build_list(m, items, sp.count, tail);
+}
+
+/* Rules 3, 4 and 8 (R4 (a)): L(i) is the data type FORMER at a fresh i. A
+   closed type gives the base; a constructor base goes into its arguments;
+   a neutral base and a domain family are stuck. */
+static const Value *transp_data(Machine *m, Op former, const Value *line, const Value *phi, const Value *base) {
+  int neutral = scrut_of(base) == SCRUT_NEUTRAL;
+  switch (former) {
+  case OP_NAT: /* R27: a base former has no path structure */
+  case OP_FLAG:
+  case OP_UNIT:
+  case OP_U256:
+  case OP_ADDR:
+  case OP_KMAP:
+    return base;
+  case OP_PROD:
+    if (neutral)
+      break;
+    if (!val_is(base, OP_PAIR))
+      return not_typed(m);
+    return make(m, VAL_OP, OP_PAIR, 0, 2, transp_part(m, line, 0, phi, base->args[0]), transp_part(m, line, 1, phi, base->args[1]), NULL);
+  case OP_SUM:
+    if (neutral)
+      break;
+    if (!val_is(base, OP_INL) && !val_is(base, OP_INR))
+      return not_typed(m);
+    return make(m, VAL_OP, base->op, 0, 1, transp_part(m, line, val_is(base, OP_INL) ? 0u : 1u, phi, base->args[0]), NULL, NULL);
+  case OP_OPTION:
+    if (neutral)
+      break;
+    if (val_is(base, OP_NONE))
+      return base;
+    if (!val_is(base, OP_SOME))
+      return not_typed(m);
+    return make(m, VAL_OP, OP_SOME, 0, 1, transp_part(m, line, 0, phi, base->args[0]), NULL, NULL);
+  case OP_LIST:
+    if (neutral)
+      break;
+    return transp_list(m, line, phi, base);
+  case OP_FAMILY:
+    break;
+  case OP_INTERVAL:
+  case OP_UNIT_VAL:
+  case OP_FLAG_YES:
+  case OP_FLAG_NO:
+  case OP_PAIR:
+  case OP_INL:
+  case OP_INR:
+  case OP_NONE:
+  case OP_SOME:
+  case OP_NIL:
+  case OP_CONS:
+  case OP_PACK:
+  case OP_CTOR:
+  case OP_FIRST:
+  case OP_SECOND:
+  case OP_EITHER:
+  case OP_OPTION_ELIM:
+  case OP_PURE:
+  case OP_MAP:
+  case OP_BIND:
+  case OP_FOLD_NAT:
+  case OP_FOLD_LIST:
+  case OP_FOLD_FAMILY:
+  case OP_UNFOLD:
+  case OP_FILTER:
+  case OP_WITNESS:
+  case OP_PAYLOAD:
+  case OP_NAT_ADD:
+  case OP_NAT_SUB:
+  case OP_NAT_EQ:
+  case OP_NAT_LE:
+  case OP_FLAG_IF:
+  case OP_U256_ADD:
+  case OP_U256_SUB:
+  case OP_U256_LE:
+  case OP_U256_EQ:
+  case OP_TO_U256:
+  case OP_ADDR_EQ:
+  case OP_NAT_DIV:
+  case OP_NAT_MOD:
+  case OP_HASH:
+  case OP_ECRECOVER:
+  case OP_EC_ADD:
+  case OP_EC_MUL:
+  case OP_EC_PAIRING:
+  case OP_ADDR_TO_U256:
+  case OP_PROJ:
+  case OP_KMAP_OF:
+  case OP_KMAP_GET:
+  case OP_KMAP_SET:
+  case OP_TRANSP:
+  case OP_SYSTEM:
+  case OP_HCOMP:
+    return internal(m, "a transport along a line that is not a type");
+  }
+  return transp_stuck(m, line, phi, base);
+}
+
+/* Rule 6: L(i) = Sigma (x : A i) (B i x). The base goes through its
+   projections, so a neutral base moves too. */
+static const Value *transp_sigma(Machine *m, const Value *line, const Value *phi, const Value *base) {
+  const Value *one[1];
+  const Value *u;
+  const Value *v;
+  one[0] = base;
+  u = reduce_part(m, OP_WITNESS, one, 1, OP_PACK, 0);
+  v = reduce_part(m, OP_PAYLOAD, one, 1, OP_PACK, 1);
+  return make(m, VAL_OP, OP_PACK, 0, 2, sigma_up(m, line, phi, u, val_iend(m, 1)), transp(m, kan_closure(m, VAL_PLAM, CLOS_SIGMA_COD, 0, 3, line, phi, u), phi, v), NULL);
+}
+
+/* transp L phi a, the rules of the S2 kickoff section 1.2 in order. */
+static const Value *transp(Machine *m, const Value *line, const Value *phi, const Value *base) {
+  const Value *face;
+  const Value *head;
+  if (line == NULL || phi == NULL || base == NULL || !spend(m, 1))
+    return NULL;
+  face = face_norm(m, phi);
+  if (face == NULL)
+    return NULL;
+  /* Rule 1: phi is true. */
+  if (ival_is_end(face, 1) || base->kind == VAL_TRAP)
+    return base;
+  head = line_head(m, line);
+  if (head == NULL)
+    return NULL;
+  switch (head->kind) {
+  case VAL_UNIV: /* rule 2 */
+    return base;
+  case VAL_OP: /* rules 3, 4, 8 */
+    return transp_data(m, head->op, line, face, base);
+  case VAL_PI: /* rule 5 */
+    return kan_closure(m, VAL_LAM, CLOS_TRANSP_PI, 0, 3, line, face, base);
+  case VAL_SIGMA: /* rule 6 */
+    return transp_sigma(m, line, face, base);
+  case VAL_TRAP:
+    return head;
+  case VAL_NAT:
+  case VAL_WORD:
+  case VAL_LAM:
+  case VAL_PLAM:
+  case VAL_IVAL:
+    return internal(m, "a transport along a line that is not a type");
+  case VAL_PATHP: /* rule 7 */
+    return kan_closure(m, VAL_PLAM, CLOS_TRANSP_PATHP, 0, 3, line, face, base);
+  case VAL_VAR:
+  case VAL_APP:
+  case VAL_STUCK:
+  case VAL_PAPP:
+    break;
+  }
+  /* Rule 9: a neutral line. */
+  return transp_stuck(m, line, face, base);
+}
+
+/* hcomp, comp and hfill (S2b, S2 kickoff section 1.3). A system is a
+   VAL_OP OP_SYSTEM with the arguments key0, branch0, key1, branch1, ...;
+   each branch is a PLAM over the tube variable. */
+
+/* Normalize face keys and discard unreachable branches before applying
+   constructor projections or comparing generated systems. */
+static const Value *system_value(Machine *m, const Value *const *args, uint32_t argc) {
+  const Value **live;
+  const Value *key;
+  uint32_t k;
+  uint32_t n = 0;
+  live = arena_alloc(m->arena, ((size_t)argc + 1u) * sizeof *live);
+  if (live == NULL)
+    return oom(m);
+  for (k = 0; k + 1u < argc; k += 2u) {
+    key = face_norm(m, args[k]);
+    if (key == NULL)
+      return NULL;
+    if (!ival_is_end(key, 0)) {
+      live[n++] = key;
+      live[n++] = args[k + 1u];
+    }
+  }
+  return val_op(m, VAL_OP, OP_SYSTEM, 0, 0, live, n);
+}
+
+/* SYS with each branch b replaced by the closure TAG of b and the EXTRA
+   values X, Y, Z. The keys do not change. */
+static const Value *sys_map(Machine *m, const Value *sys, ClosTag tag, uint32_t field, uint32_t extra, const Value *x, const Value *y, const Value *z) {
+  const Value **args;
+  uint32_t k;
+  if (sys == NULL)
+    return NULL;
+  args = arena_alloc(m->arena, ((size_t)sys->argc + 1u) * sizeof *args);
+  if (args == NULL)
+    return oom(m);
+  for (k = 0; k + 1u < sys->argc; k += 2u) {
+    args[k] = sys->args[k];
+    args[k + 1u] = kan_closure4(m, VAL_PLAM, tag, field, extra + 1u, sys->args[k + 1u], x, y, z);
+  }
+  return system_value(m, args, sys->argc);
+}
+
+/* SYS with one more branch KEY -> BRANCH. */
+static const Value *sys_add(Machine *m, const Value *sys, const Value *key, const Value *branch) {
+  const Value **args;
+  uint32_t k;
+  if (sys == NULL)
+    return NULL;
+  args = arena_alloc(m->arena, ((size_t)sys->argc + 2u) * sizeof *args);
+  if (args == NULL)
+    return oom(m);
+  for (k = 0; k < sys->argc; k++)
+    args[k] = sys->args[k];
+  args[sys->argc] = key;
+  args[sys->argc + 1u] = branch;
+  return system_value(m, args, sys->argc + 2u);
+}
+
+static const Value *constant_line(Machine *m, const Value *v) {
+  return kan_closure(m, VAL_PLAM, CLOS_CONST, 0, 1, v, NULL, NULL);
+}
+
+static const Value *hcomp_stuck(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base) {
+  const Value *args[4];
+  args[0] = ty;
+  args[1] = phi;
+  args[2] = sys;
+  args[3] = base;
+  return val_op(m, VAL_STUCK, OP_HCOMP, 0, 0, args, 4);
+}
+
+/* phi is true, so the join of the keys is true and one key is i1: the
+   result is its branch at i1. */
+static const Value *hcomp_true(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base) {
+  uint32_t k;
+  for (k = 0; k + 1u < sys->argc; k += 2u)
+    if (ival_is_end(face_norm(m, sys->args[k]), 1))
+      return closure_apply(m, sys->args[k + 1u], val_iend(m, 1));
+  return hcomp_stuck(m, ty, phi, sys, base);
+}
+
+/* The type of the argument FIELD of the constructor value V in the data
+   type TY, or NULL. */
+static const Value *data_field_type(const Value *ty, const Value *v, uint32_t field) {
+  if (val_is(v, OP_PAIR) && val_is(ty, OP_PROD) && field < 2u)
+    return ty->args[field];
+  if ((val_is(v, OP_INL) && val_is(ty, OP_SUM)) || (val_is(v, OP_SOME) && val_is(ty, OP_OPTION)) || (val_is(v, OP_CONS) && val_is(ty, OP_LIST) && field == 0u))
+    return ty->args[0];
+  if (val_is(v, OP_INR) && val_is(ty, OP_SUM))
+    return ty->args[1];
+  return val_is(v, OP_CONS) && val_is(ty, OP_LIST) ? ty : NULL;
+}
+
+/* 1 when the branch B at a fresh i has the head of V: the same literal or
+   the same constructor (the K10 head test). */
+static int same_head_at(Machine *m, const Value *b, const Value *v) {
+  const Value *x = closure_apply(m, b, fresh_ivar(m));
+  if (x == NULL)
+    return 0;
+  if (v->kind == VAL_NAT)
+    return x->kind == VAL_NAT && x->nat == v->nat;
+  if (v->kind == VAL_WORD) /* R27: a word literal is a base value */
+    return x->kind == VAL_WORD && x->nat == v->nat && u256_cmp(x->word, v->word) == 0;
+  return x->kind == VAL_OP && x->op == v->op && x->inst == v->inst && x->argc == v->argc;
+}
+
+/* A data type (R4 (a)): each live branch at a fresh i has the head of u0.
+   A literal or a nullary constructor gives u0; a constructor with
+   arguments goes into them. A neutral u0, a domain family and a head
+   mismatch are stuck. */
+static const Value *hcomp_data(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base) {
+  const Value **args;
+  const Value *field;
+  uint32_t k;
+  if (val_is(ty, OP_FAMILY) || scrut_of(base) == SCRUT_NEUTRAL || (base->kind != VAL_NAT && base->kind != VAL_WORD && base->kind != VAL_OP))
+    return hcomp_stuck(m, ty, phi, sys, base);
+  for (k = 0; k + 1u < sys->argc; k += 2u)
+    if (!ival_is_end(face_norm(m, sys->args[k]), 0) && !same_head_at(m, sys->args[k + 1u], base))
+      return hcomp_stuck(m, ty, phi, sys, base);
+  if (base->kind != VAL_OP || base->argc == 0u) /* R27: a literal is the base */
+    return base;
+  args = arena_alloc(m->arena, ((size_t)base->argc + 1u) * sizeof *args);
+  if (args == NULL)
+    return oom(m);
+  for (k = 0; k < base->argc; k++) {
+    field = data_field_type(ty, base, k);
+    if (field == NULL || field->kind == VAL_UNIV)
+      return hcomp_stuck(m, ty, phi, sys, base);
+    args[k] = hcomp(m, field, phi, sys_map(m, sys, CLOS_SYS_ARG, k, 0, NULL, NULL, NULL), base->args[k]);
+    if (args[k] == NULL)
+      return NULL;
+  }
+  return val_op(m, VAL_OP, base->op, base->inst, base->field, args, base->argc);
+}
+
+/* Sigma: the first part is an hcomp in A; the second part is a comp along
+   i |-> B (the hfill of the first part at i). */
+static const Value *hcomp_sigma(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base) {
+  const Value *w;
+  const Value *cod;
+  const Value *u = sigma_part(m, base, 0);
+  const Value *v = sigma_part(m, base, 1);
+  const Value *first = sys_map(m, sys, CLOS_SYS_SIGMA, 0, 0, NULL, NULL, NULL);
+  const Value *second = sys_map(m, sys, CLOS_SYS_SIGMA, 1, 0, NULL, NULL, NULL);
+  if (ty->dom->kind == VAL_UNIV)
+    return hcomp_stuck(m, ty, phi, sys, base);
+  w = hcomp(m, ty->dom, phi, first, u);
+  cod = w == NULL ? NULL : closure_apply(m, ty, w);
+  if (cod == NULL)
+    return NULL;
+  if (cod->kind == VAL_UNIV)
+    return hcomp_stuck(m, ty, phi, sys, base);
+  return make(m, VAL_OP, OP_PACK, 0, 2, w, comp(m, kan_closure4(m, VAL_PLAM, CLOS_SIGMA_FILL_COD, 0, 4, ty, phi, first, u), phi, second, v), NULL);
+}
+
+/* PathP at j: hcomp (A j) (phi \/ ~j \/ j) [sys @ j, ~j -> a, j -> b]
+   (u0 @ j), with a and b the ends of the path type. */
+static const Value *hcomp_pathp_at(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base, const Value *j) {
+  const Value *a = ty->args[0];
+  const Value *b = ty->args[1];
+  const Value *at = closure_apply(m, ty, j);
+  const Value *nj = ival_neg(m, j);
+  const Value *s;
+  if (at == NULL)
+    return NULL;
+  if (at->kind == VAL_UNIV)
+    return path_apply(m, hcomp_stuck(m, ty, phi, sys, base), j, a, b);
+  s = sys_add(m, sys_add(m, sys_map(m, sys, CLOS_SYS_PAPP, 0, 3, j, a, b), nj, constant_line(m, a)), j, constant_line(m, b));
+  return hcomp(m, at, ival_join(m, phi, ival_join(m, nj, j)), s, path_apply(m, base, j, a, b));
+}
+
+/* Rule 7 of transp at r: comp (fun i => L(i) at r) (phi \/ ~r \/ r)
+   [phi -> p0 @ r, ~r -> the i0 end of L(i), r -> the i1 end of L(i)]
+   (p0 @ r). */
+static const Value *transp_pathp_at(Machine *m, const Value *line, const Value *phi, const Value *base, const Value *r) {
+  const Value *t = line_former(m, line_at(m, line, val_iend(m, 0)), VAL_PATHP);
+  const Value *end = line_former(m, line_at(m, line, val_iend(m, 1)), VAL_PATHP);
+  const Value *at = end == NULL ? NULL : closure_apply(m, end, r);
+  const Value *nr = ival_neg(m, r);
+  const Value *p = t == NULL ? NULL : path_apply(m, base, r, t->args[0], t->args[1]);
+  const Value *empty = val_op(m, VAL_OP, OP_SYSTEM, 0, 0, NULL, 0);
+  const Value *s;
+  if (at == NULL)
+    return NULL;
+  if (at->kind == VAL_UNIV)
+    return path_apply(m, transp_stuck(m, line, phi, base), r, end->args[0], end->args[1]);
+  s = sys_add(m, sys_add(m, sys_add(m, empty, phi, constant_line(m, p)), nr, kan_closure(m, VAL_PLAM, CLOS_PATHP_END, 0, 1, line, NULL, NULL)), r, kan_closure(m, VAL_PLAM, CLOS_PATHP_END, 1, 1, line, NULL, NULL));
+  return comp(m, kan_closure(m, VAL_PLAM, CLOS_PATHP_LINE, 0, 2, line, r, NULL), ival_join(m, phi, ival_join(m, nr, r)), s, p);
+}
+
+/* hfill A phi sys u0 r = hcomp A (phi \/ ~r) [j |-> sys (r /\ j),
+   ~r -> u0] u0. */
+static const Value *hfill(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base, const Value *r) {
+  const Value *nr = ival_neg(m, r);
+  return hcomp(m, ty, ival_join(m, phi, nr), sys_add(m, sys_map(m, sys, CLOS_SYS_MEET, 0, 1, r, NULL, NULL), nr, constant_line(m, base)), base);
+}
+
+/* comp L phi sys u0 = hcomp L(i1) phi [i |-> transp (fun j => L (i \/ j))
+   i (sys i)] (transp L i0 u0). */
+static const Value *comp(Machine *m, const Value *line, const Value *phi, const Value *sys, const Value *base) {
+  return hcomp(m, line_at(m, line, val_iend(m, 1)), phi, sys_map(m, sys, CLOS_COMP_BRANCH, 0, 1, line, NULL, NULL), transp(m, line, val_iend(m, 0), base));
+}
+
+/* hcomp A phi sys u0, the rules of the S2 kickoff section 1.3 in order. */
+static const Value *hcomp(Machine *m, const Value *ty, const Value *phi, const Value *sys, const Value *base) {
+  const Value *face;
+  if (ty == NULL || phi == NULL || sys == NULL || base == NULL || !spend(m, 1))
+    return NULL;
+  face = face_norm(m, phi);
+  if (face == NULL)
+    return NULL;
+  if (base->kind == VAL_TRAP)
+    return base;
+  if (ival_is_end(face, 1))
+    return hcomp_true(m, ty, face, sys, base);
+  switch (ty->kind) {
+  case VAL_PI:
+    return kan_closure4(m, VAL_LAM, CLOS_HCOMP_PI, 0, 4, ty, face, sys, base);
+  case VAL_SIGMA:
+    return hcomp_sigma(m, ty, face, sys, base);
+  case VAL_PATHP:
+    return kan_closure4(m, VAL_PLAM, CLOS_HCOMP_PATHP, 0, 4, ty, face, sys, base);
+  case VAL_OP:
+    return hcomp_data(m, ty, face, sys, base);
+  case VAL_TRAP:
+    return ty;
+  case VAL_NAT:
+  case VAL_WORD:
+  case VAL_LAM:
+  case VAL_PLAM:
+  case VAL_IVAL:
+    return internal(m, "an hcomp in a value that is not a type");
+  case VAL_UNIV:
+  case VAL_VAR:
+  case VAL_APP:
+  case VAL_STUCK:
+  case VAL_PAPP:
+    break;
+  }
+  return hcomp_stuck(m, ty, face, sys, base);
 }
 
 static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, const Value *const *a, uint32_t n) {
@@ -1003,7 +1879,7 @@ static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, 
   case OP_SUM:
   case OP_OPTION:
   case OP_LIST:
-  case OP_EQ:
+  case OP_INTERVAL:
   case OP_FAMILY:
   case OP_UNIT_VAL:
   case OP_FLAG_YES:
@@ -1016,11 +1892,12 @@ static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, 
   case OP_NIL:
   case OP_CONS:
   case OP_PACK:
-  case OP_REFL:
   case OP_CTOR:
   case OP_KMAP:
   case OP_KMAP_OF:
     return val_op(m, VAL_OP, op, inst, field, a, n);
+  case OP_SYSTEM:
+    return system_value(m, a, n);
   case OP_KMAP_GET:
     return reduce_kmap_get(m, a, n);
   case OP_KMAP_SET:
@@ -1053,14 +1930,6 @@ static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, 
     return reduce_unfold(m, a, n);
   case OP_FILTER:
     return reduce_filter(m, inst, a, n);
-  case OP_SYMM:
-    return reduce_proof(m, op, a, n, 0, 1, constant(m, OP_REFL));
-  case OP_TRANS:
-    return reduce_proof(m, op, a, n, 0, 2, constant(m, OP_REFL));
-  case OP_CONG:
-    return reduce_proof(m, op, a, n, 1, 1, constant(m, OP_REFL));
-  case OP_TRANSPORT:
-    return reduce_proof(m, op, a, n, 1, 1, a[2]);
   case OP_NAT_ADD:
     return nat_add(m, a, n);
   case OP_NAT_SUB:
@@ -1094,6 +1963,10 @@ static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, 
     return reduce_flag_if(m, a, n);
   case OP_PROJ:
     return reduce_proj(m, inst, field, a, n);
+  case OP_TRANSP:
+    return transp(m, a[0], a[1], a[2]);
+  case OP_HCOMP:
+    return hcomp(m, a[0], a[1], a[2], a[3]);
   }
   return internal(m, "an unknown operation");
 }
@@ -1109,6 +1982,22 @@ static const Value *eval_op(Machine *m, const Env *env, const Core *c) {
       return NULL;
   }
   return reduce_op(m, c->op, c->inst, c->field, args, c->argc);
+}
+
+static const Value *eval_pathp(Machine *m, const Env *env, const Core *c) {
+  const Value **ends = arena_alloc(m->arena, 2u * sizeof *ends);
+  Value *v;
+  if (ends == NULL)
+    return oom(m);
+  ends[0] = eval_core(m, env, c->args[0]);
+  ends[1] = eval_core(m, env, c->args[1]);
+  v = (Value *)val_closure(m, VAL_PLAM, c->name, NULL, env, c->b);
+  if (ends[0] == NULL || ends[1] == NULL || v == NULL)
+    return NULL;
+  v->kind = VAL_PATHP;
+  v->args = ends;
+  v->argc = 2;
+  return v;
 }
 
 static const Value *eval_inner(Machine *m, const Env *env, const Core *c) {
@@ -1135,6 +2024,22 @@ static const Value *eval_inner(Machine *m, const Env *env, const Core *c) {
     return apply_value(m, eval_core(m, env, c->a), eval_core(m, env, c->b));
   case CORE_OP:
     return eval_op(m, env, c);
+  case CORE_PLAM:
+    return val_closure(m, VAL_PLAM, c->name, NULL, env, c->b);
+  case CORE_PATHP:
+    return eval_pathp(m, env, c);
+  case CORE_PAPP:
+    return path_apply(m, eval_core(m, env, c->a), eval_core(m, env, c->b), eval_core(m, env, c->args[0]), eval_core(m, env, c->args[1]));
+  case CORE_IZERO:
+    return val_iend(m, 0);
+  case CORE_IONE:
+    return val_iend(m, 1);
+  case CORE_INEG:
+    return ival_neg(m, eval_core(m, env, c->a));
+  case CORE_IMEET:
+    return ival_meet(m, eval_core(m, env, c->a), eval_core(m, env, c->b));
+  case CORE_IJOIN:
+    return ival_join(m, eval_core(m, env, c->a), eval_core(m, env, c->b));
   }
   return internal(m, "an unknown core term");
 }
@@ -1159,6 +2064,22 @@ static int conv_binder(Machine *m, uint32_t level, const Value *a, const Value *
   return conv_values(m, level, a->dom, b->dom) && conv_values(m, level + 1u, closure_apply(m, a, x), closure_apply(m, b, x));
 }
 
+/* Path eta (R11): a path is equal to Q when the two agree at a fresh
+   interval variable. A neutral Q there is a VAL_PAPP with no ends. */
+static int conv_path(Machine *m, uint32_t level, const Value *a, const Value *b) {
+  const Value *i = val_ivar(m, level);
+  const Value *at_a = a->kind == VAL_PLAM ? closure_apply(m, a, i) : path_apply(m, a, i, NULL, NULL);
+  const Value *at_b = b->kind == VAL_PLAM ? closure_apply(m, b, i) : path_apply(m, b, i, NULL, NULL);
+  return conv_values(m, level + 1u, at_a, at_b);
+}
+
+/* Two path types: the lines at a fresh interval variable and both ends. */
+static int conv_pathp(Machine *m, uint32_t level, const Value *a, const Value *b) {
+  const Value *i = val_ivar(m, level);
+  return conv_values(m, level, a->args[0], b->args[0]) && conv_values(m, level, a->args[1], b->args[1])
+      && conv_values(m, level + 1u, closure_apply(m, a, i), closure_apply(m, b, i));
+}
+
 static int same_head(const Value *a, const Value *b) {
   return a->op == b->op && a->inst == b->inst && a->field == b->field && a->argc == b->argc;
 }
@@ -1178,6 +2099,8 @@ static int conv_loop(Machine *m, uint32_t level, const Value *a, const Value *b)
   while (a != NULL && b != NULL && spend(m, 1)) {
     if (a->kind == VAL_LAM || b->kind == VAL_LAM)
       return conv_fun(m, level, a, b);
+    if (a->kind == VAL_PLAM || b->kind == VAL_PLAM)
+      return conv_path(m, level, a, b);
     if ((val_is(a, OP_PAIR) || val_is(a, OP_PACK)) && scrut_of(b) == SCRUT_NEUTRAL)
       return conv_pair(m, level, a, b);
     if ((val_is(b, OP_PAIR) || val_is(b, OP_PACK)) && scrut_of(a) == SCRUT_NEUTRAL)
@@ -1194,10 +2117,16 @@ static int conv_loop(Machine *m, uint32_t level, const Value *a, const Value *b)
     case VAL_TRAP:
       return 1;
     case VAL_LAM:
+    case VAL_PLAM:
       return 0;
     case VAL_PI:
     case VAL_SIGMA:
       return conv_binder(m, level, a, b);
+    case VAL_PATHP:
+      return conv_pathp(m, level, a, b);
+    case VAL_IVAL:
+      return ival_equal(a, b);
+    case VAL_PAPP:
     case VAL_APP:
       if (!conv_values(m, level, a->dom, b->dom))
         return 0;
@@ -1282,11 +2211,42 @@ static const Core *quote_app(Machine *m, uint32_t level, const Value *v) {
   return c;
 }
 
-static const Core *quote_binder(Machine *m, uint32_t level, const Value *v, CoreKind kind) {
-  const Core *dom = kind == CORE_LAM ? NULL : quote_value(m, level, v->dom);
-  const Core *body = quote_value(m, level + 1u, closure_apply(m, v, val_var(m, level)));
+static const Core *core_pair(Machine *m, CoreKind kind, const Core *a, const Core *b) {
   Core *c;
-  if (body == NULL || (dom == NULL && kind != CORE_LAM))
+  if (a == NULL || (b == NULL && kind != CORE_INEG))
+    return NULL;
+  c = new_core(m, kind);
+  if (c == NULL)
+    return NULL;
+  c->a = a;
+  c->b = b;
+  return c;
+}
+
+/* The two ends of a PATHP or a PAPP value. */
+static const Core *const *quote_ends(Machine *m, uint32_t level, const Value *v) {
+  const Core **ends = arena_alloc(m->arena, 2u * sizeof *ends);
+  if (ends == NULL) {
+    oom(m);
+    return NULL;
+  }
+  if (v->argc != 2 || v->args[0] == NULL || v->args[1] == NULL) {
+    internal(m, "a path with no ends");
+    return NULL;
+  }
+  ends[0] = quote_value(m, level, v->args[0]);
+  ends[1] = quote_value(m, level, v->args[1]);
+  return ends[0] != NULL && ends[1] != NULL ? ends : NULL;
+}
+
+static const Core *quote_binder(Machine *m, uint32_t level, const Value *v, CoreKind kind) {
+  int has_dom = kind == CORE_PI || kind == CORE_SIGMA;
+  int interval = kind == CORE_PLAM || kind == CORE_PATHP;
+  const Core *dom = has_dom ? quote_value(m, level, v->dom) : NULL;
+  const Core *body = quote_value(m, level + 1u, closure_apply(m, v, interval ? val_ivar(m, level) : val_var(m, level)));
+  const Core *const *ends = kind == CORE_PATHP ? quote_ends(m, level, v) : NULL;
+  Core *c;
+  if (body == NULL || (dom == NULL && has_dom) || (ends == NULL && kind == CORE_PATHP))
     return NULL;
   c = new_core(m, kind);
   if (c == NULL)
@@ -1294,6 +2254,54 @@ static const Core *quote_binder(Machine *m, uint32_t level, const Value *v, Core
   c->name = v->name;
   c->a = dom;
   c->b = body;
+  c->args = ends;
+  c->argc = ends != NULL ? 2u : 0u;
+  return c;
+}
+
+static const Core *quote_lit(Machine *m, uint32_t level, uint32_t lit) {
+  Core *c;
+  if ((lit >> 1u) >= level) {
+    internal(m, "an interval variable above its level");
+    return NULL;
+  }
+  c = new_core(m, CORE_VAR);
+  if (c == NULL)
+    return NULL;
+  c->index = level - 1u - (lit >> 1u);
+  return (lit & 1u) != 0u ? core_pair(m, CORE_INEG, c, NULL) : c;
+}
+
+static const Core *quote_ival(Machine *m, uint32_t level, const Value *v) {
+  const Core *out = core_leaf(m, CORE_IZERO, 0);
+  const Core *t;
+  const IConj *k;
+  uint32_t i;
+  uint32_t j;
+  for (i = 0; i < v->conj_count; i++) {
+    k = &v->conj[i];
+    t = k->count == 0 ? core_leaf(m, CORE_IONE, 0) : quote_lit(m, level, k->lits[0]);
+    for (j = 1; j < k->count; j++)
+      t = core_pair(m, CORE_IMEET, t, quote_lit(m, level, k->lits[j]));
+    out = i == 0 ? t : core_pair(m, CORE_IJOIN, out, t);
+  }
+  return out;
+}
+
+static const Core *quote_papp(Machine *m, uint32_t level, const Value *v) {
+  const Core *path = quote_value(m, level, v->dom);
+  const Core *r = quote_value(m, level, v->arg);
+  const Core *const *ends = quote_ends(m, level, v);
+  Core *c;
+  if (path == NULL || r == NULL || ends == NULL)
+    return NULL;
+  c = new_core(m, CORE_PAPP);
+  if (c == NULL)
+    return NULL;
+  c->a = path;
+  c->b = r;
+  c->args = ends;
+  c->argc = 2;
   return c;
 }
 
@@ -1344,6 +2352,14 @@ static const Core *quote_inner(Machine *m, uint32_t level, const Value *v) {
   case VAL_OP:
   case VAL_STUCK:
     return quote_op(m, level, v);
+  case VAL_PLAM:
+    return quote_binder(m, level, v, CORE_PLAM);
+  case VAL_PATHP:
+    return quote_binder(m, level, v, CORE_PATHP);
+  case VAL_IVAL:
+    return quote_ival(m, level, v);
+  case VAL_PAPP:
+    return quote_papp(m, level, v);
   }
   internal(m, "an unknown value");
   return NULL;
@@ -1407,10 +2423,12 @@ static const char *var_name(const Printer *p, uint64_t level) {
 static void print_value(Printer *p, const Value *v, int atom);
 
 static int is_chain(const Value *v) {
-  return v != NULL && (v->kind == VAL_OP || v->kind == VAL_STUCK) && v->argc > 0;
+  return v != NULL && (v->kind == VAL_OP || v->kind == VAL_STUCK) && v->argc > 0 && v->op != OP_SYSTEM;
 }
 
 static int print_name_taken(const Printer *p, const char *name) {
+  if (strcmp(name, "PathP") == 0 || strcmp(name, "i0") == 0 || strcmp(name, "i1") == 0)
+    return 1; /* printed path types and interval ends are outside OP_NAMES */
   for (uint32_t i = 0; i < p->name_count; i++)
     if (p->names[i] != NULL && strcmp(p->names[i], name) == 0)
       return 1;
@@ -1443,11 +2461,18 @@ static void print_binder(Printer *p, const Value *v) {
     snprintf(fresh, sizeof fresh, "x%u", ++suffix);
     name = fresh;
   }
-  const Value *body = closure_apply(p->m, v, val_var(p->m, level));
+  int interval = v->kind == VAL_PLAM || v->kind == VAL_PATHP;
+  const Value *body = closure_apply(p->m, v, interval ? val_ivar(p->m, level) : val_var(p->m, level));
   int binder_dom = v->dom != NULL && (v->dom->kind == VAL_PI || v->dom->kind == VAL_SIGMA || v->dom->kind == VAL_LAM || v->dom->kind == VAL_UNIV);
   switch (v->kind) {
   case VAL_LAM:
+  case VAL_PLAM:
     put(p, "fun ");
+    put(p, name);
+    put(p, " => ");
+    break;
+  case VAL_PATHP:
+    put(p, "PathP (fun ");
     put(p, name);
     put(p, " => ");
     break;
@@ -1478,6 +2503,8 @@ static void print_binder(Printer *p, const Value *v) {
   case VAL_VAR:
   case VAL_APP:
   case VAL_STUCK:
+  case VAL_IVAL:
+  case VAL_PAPP:
     break;
   }
   if (p->extra_count < PRINT_NAMES_MAX)
@@ -1485,12 +2512,76 @@ static void print_binder(Printer *p, const Value *v) {
   p->extra_count++;
   print_value(p, body, v->kind == VAL_SIGMA);
   p->extra_count--;
+  if (v->kind == VAL_PATHP) {
+    put(p, ") ");
+    print_value(p, v->args[0], 1);
+    put(p, " ");
+    print_value(p, v->args[1], 1);
+  }
+}
+
+/* A join of meets: a meet binds closer than a join, so only an atom
+   position needs parentheses. */
+static void print_ival(Printer *p, const Value *v, int atom) {
+  int parens = atom && (v->conj_count > 1u || (v->conj_count == 1u && v->conj[0].count > 1u));
+  uint32_t i;
+  uint32_t j;
+  uint32_t lit;
+  put(p, v->conj_count == 0 ? "i0" : "");
+  put(p, parens ? "(" : "");
+  for (i = 0; i < v->conj_count; i++) {
+    put(p, i == 0 ? "" : " \\/ ");
+    put(p, v->conj[i].count == 0 ? "i1" : "");
+    for (j = 0; j < v->conj[i].count; j++) {
+      lit = v->conj[i].lits[j];
+      put(p, j == 0 ? "" : " /\\ ");
+      put(p, (lit & 1u) != 0 ? "~" : "");
+      put(p, var_name(p, lit >> 1u));
+    }
+  }
+  put(p, parens ? ")" : "");
+}
+
+/* A system prints as its tube, `fun i => [ k -> t, ... ]`: each branch is
+   applied to ONE fresh interval name, so all bodies share that binder. A
+   key is in the outer context. */
+static void print_system(Printer *p, const Value *v, int atom) {
+  uint32_t level = p->name_count + p->extra_count;
+  const Value *first = v->argc >= 2u ? v->args[1] : NULL;
+  const char *name = first != NULL && first->kind == VAL_PLAM && first->name != NULL ? first->name : "i";
+  char fresh[32];
+  uint32_t suffix = 0;
+  uint32_t k;
+  while (print_name_taken(p, name) || name[0] == '%') {
+    snprintf(fresh, sizeof fresh, "_x%u", suffix++);
+    name = fresh;
+  }
+  put(p, atom ? "(" : "");
+  put(p, "fun ");
+  put(p, name);
+  put(p, " => [");
+  if (p->extra_count < PRINT_NAMES_MAX)
+    p->extra[p->extra_count] = name;
+  p->extra_count++;
+  for (k = 0; k + 1u < v->argc; k += 2u) {
+    put(p, k == 0 ? " " : ", ");
+    print_value(p, v->args[k], 0);
+    put(p, " -> ");
+    print_value(p, line_at(p->m, v->args[k + 1u], val_ivar(p->m, level)), 0);
+  }
+  p->extra_count--;
+  put(p, " ]");
+  put(p, atom ? ")" : "");
 }
 
 static void print_other(Printer *p, const Value *v, int atom) {
   char num[96];
   if (v == NULL) {
     put(p, "?");
+    return;
+  }
+  if (v->kind == VAL_OP && v->op == OP_SYSTEM) {
+    print_system(p, v, atom);
     return;
   }
   switch (v->kind) {
@@ -1512,11 +2603,17 @@ static void print_other(Printer *p, const Value *v, int atom) {
   case VAL_STUCK:
     put(p, op_name(p->m, v->op, v->inst, v->field));
     return;
+  case VAL_IVAL:
+    print_ival(p, v, atom);
+    return;
   case VAL_UNIV:
   case VAL_APP:
   case VAL_LAM:
   case VAL_PI:
   case VAL_SIGMA:
+  case VAL_PLAM:
+  case VAL_PATHP:
+  case VAL_PAPP:
     break;
   }
   if (atom)
@@ -1534,7 +2631,14 @@ static void print_other(Printer *p, const Value *v, int atom) {
   case VAL_LAM:
   case VAL_PI:
   case VAL_SIGMA:
+  case VAL_PLAM:
+  case VAL_PATHP:
     print_binder(p, v);
+    break;
+  case VAL_PAPP:
+    print_value(p, v->dom, v->dom->kind != VAL_PAPP && v->dom->kind != VAL_APP && v->dom->kind != VAL_VAR);
+    put(p, " @ ");
+    print_value(p, v->arg, 1);
     break;
   case VAL_NAT:
   case VAL_WORD:
@@ -1542,6 +2646,7 @@ static void print_other(Printer *p, const Value *v, int atom) {
   case VAL_VAR:
   case VAL_OP:
   case VAL_STUCK:
+  case VAL_IVAL:
     break;
   }
   if (atom)

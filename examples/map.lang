@@ -11,11 +11,11 @@ def fm : Map Nat Flag := mapSet (mapSet mapEmpty 2 flagYes) 2 flagNo
 def fMiss : Flag := mapGet fm 2
 
 -- The laws: the order of the sets, the zero value, the last write, get after set.
-def lawOrder : Eq (Map Nat Nat) m1 m2 := refl
-def lawZero : Eq (Map Nat Nat) mZero (mapSet m0 1 2) := refl
-def lawLast : Eq (Map Nat Nat) (mapSet (mapSet m1 1 9) 1 5) (mapSet m1 1 5) := refl
-def lawGetSet : Eq Nat (mapGet (mapSet m1 8 6) 8) 6 := refl
-def lawGetOther : Eq Nat (mapGet (mapSet m1 8 6) 3) (mapGet m1 3) := refl
+def lawOrder : Path (Map Nat Nat) m1 m2 := refl
+def lawZero : Path (Map Nat Nat) mZero (mapSet m0 1 2) := refl
+def lawLast : Path (Map Nat Nat) (mapSet (mapSet m1 1 9) 1 5) (mapSet m1 1 5) := refl
+def lawGetSet : Path Nat (mapGet (mapSet m1 8 6) 8) 6 := refl
+def lawGetOther : Path Nat (mapGet (mapSet m1 8 6) 3) (mapGet m1 3) := refl
 
 -- A state with a Map field (top level only). The start state of `langc run`.
 state State := makeState (books : Map Nat U256) (cursor : Nat)

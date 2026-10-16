@@ -8,23 +8,23 @@ def wOwner : Addr := 0x00000000000000000000000000000000000000FF
 def wTopOnly : Addr := 0x10000000000000000000000000000000000000ff
 def wLowOnly : Addr := 0x00000000000000000000000000000000000000fe
 
-def lawMaxHex : Eq U256 wMax wMaxHex := refl
-def lawAdd : Eq U256 (u256Add 2u 3u) 5u := refl
-def lawCarry : Eq U256 wCarry 18446744073709551616u := refl
-def lawAddZero : Eq U256 (u256Add wMax 0u) wMax := refl
-def lawAddHalves : Eq U256 (u256Add wTwo128 wTwo128) 0x200000000000000000000000000000000u := refl
-def lawSub : Eq U256 (u256Sub 3u 5u) 0u := refl
-def lawSubMax : Eq U256 (u256Sub wMax wMax) 0u := refl
-def lawSubBorrow : Eq U256 (u256Sub wCarry 1u) 0xffffffffffffffffu := refl
-def lawSubHigh : Eq U256 (u256Sub wMax 0x8000000000000000000000000000000000000000000000000000000000000000u) 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffu := refl
-def lawLe : Eq Flag (u256Le wMax wMaxHex) flagYes := refl
-def lawLeNo : Eq Flag (u256Le wMax 0u) flagNo := refl
-def lawEq : Eq Flag (u256Eq wMax wMaxHex) flagYes := refl
-def lawEqNo : Eq Flag (u256Eq wMax 0u) flagNo := refl
-def lawToU256 : Eq U256 (toU256 18446744073709551615) 0xffffffffffffffffu := refl
-def lawAddrSame : Eq Flag (addrEq wOwner 0x00000000000000000000000000000000000000ff) flagYes := refl
-def lawAddrTop : Eq Flag (addrEq wOwner wTopOnly) flagNo := refl
-def lawAddrLow : Eq Flag (addrEq wOwner wLowOnly) flagNo := refl
+def lawMaxHex : Path U256 wMax wMaxHex := refl
+def lawAdd : Path U256 (u256Add 2u 3u) 5u := refl
+def lawCarry : Path U256 wCarry 18446744073709551616u := refl
+def lawAddZero : Path U256 (u256Add wMax 0u) wMax := refl
+def lawAddHalves : Path U256 (u256Add wTwo128 wTwo128) 0x200000000000000000000000000000000u := refl
+def lawSub : Path U256 (u256Sub 3u 5u) 0u := refl
+def lawSubMax : Path U256 (u256Sub wMax wMax) 0u := refl
+def lawSubBorrow : Path U256 (u256Sub wCarry 1u) 0xffffffffffffffffu := refl
+def lawSubHigh : Path U256 (u256Sub wMax 0x8000000000000000000000000000000000000000000000000000000000000000u) 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffu := refl
+def lawLe : Path Flag (u256Le wMax wMaxHex) flagYes := refl
+def lawLeNo : Path Flag (u256Le wMax 0u) flagNo := refl
+def lawEq : Path Flag (u256Eq wMax wMaxHex) flagYes := refl
+def lawEqNo : Path Flag (u256Eq wMax 0u) flagNo := refl
+def lawToU256 : Path U256 (toU256 18446744073709551615) 0xffffffffffffffffu := refl
+def lawAddrSame : Path Flag (addrEq wOwner 0x00000000000000000000000000000000000000ff) flagYes := refl
+def lawAddrTop : Path Flag (addrEq wOwner wTopOnly) flagNo := refl
+def lawAddrLow : Path Flag (addrEq wOwner wLowOnly) flagNo := refl
 
 -- Entries: a trap goes up through u256Le and u256Eq.
 def addTrap : Nat -> Flag := fun (n : Nat) => u256Le (u256Add wMax (toU256 n)) wMax
