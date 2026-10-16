@@ -236,11 +236,21 @@ static int residualize(Machine *m, uint32_t env, uint32_t out, uint32_t i, Resid
    the values are in locals (thus a store does not change a later load). OUT
    has no external effects until K4c (C-K4b-5), but its words are strict so
    that a trap still reverts the call. Other residuals give REFUSE_LOWER. */
-typedef struct {
+typedef struct Stmts Stmts;
+struct Stmts {
   const IrStmt **items;
   size_t count;
   size_t cap;
-} Stmts;
+  const Stmts *up; /* the block that runs before this one, NULL at the root (S2) */
+};
+
+/* A curve-op value lowered in this entry (S2, R17): LOCAL holds the block of
+   the STATICCALL output of STMT. */
+typedef struct {
+  const Value *value;
+  const IrStmt *stmt;
+  uint32_t local;
+} CurveMemo;
 
 typedef struct {
   Machine *m;
@@ -248,6 +258,9 @@ typedef struct {
   const CtorInfo *env;
   uint32_t locals;
   const char *entry;
+  CurveMemo *memo;
+  size_t memo_count;
+  size_t memo_cap;
 } Low;
 
 static void *low_alloc(Low *l, size_t size) {
@@ -316,6 +329,16 @@ static const IrExpr *ir_sload(Low *l, const IrExpr *slot) {
   return e;
 }
 
+/* Word FIELD of the block at address BLOCK (a precompile output, S2). */
+static const IrExpr *ir_load(Low *l, const IrExpr *block, uint32_t field) {
+  IrExpr *e = block != NULL ? new_expr(l, IR_EXPR_LOAD) : NULL;
+  if (e != NULL) {
+    e->left = block;
+    e->field = field;
+  }
+  return e;
+}
+
 /* B gets local := E; the result is the local, or NULL after a diagnostic. */
 static const IrExpr *ir_set(Low *l, Stmts *b, const IrExpr *e) {
   IrStmt *s = e != NULL ? new_stmt(l, IR_STMT_SET) : NULL;
@@ -362,11 +385,10 @@ static const struct {
   Op op;
   IrOp ir;
 } BINARY_OPS[] = {
-    {OP_NAT_ADD, IR_OP_ADD64},     {OP_NAT_SUB, IR_OP_SUB},     {OP_NAT_MUL, IR_OP_MUL64},
-    {OP_NAT_EQ, IR_OP_EQ},         {OP_NAT_LE, IR_OP_LE},       {OP_U256_ADD, IR_OP_ADD_TRAP},
-    {OP_U256_SUB, IR_OP_SUB},      {OP_U256_MUL, IR_OP_MUL_TRAP}, {OP_U256_DIV, IR_OP_DIV},
-    {OP_U256_LE, IR_OP_LE},        {OP_U256_EQ, IR_OP_EQ},      {OP_U256_MIN, IR_OP_MIN},
-    {OP_ADDR_EQ, IR_OP_EQ},
+    {OP_NAT_ADD, IR_OP_ADD64}, {OP_NAT_SUB, IR_OP_SUB},       {OP_NAT_EQ, IR_OP_EQ},
+    {OP_NAT_LE, IR_OP_LE},     {OP_U256_ADD, IR_OP_ADD_TRAP}, {OP_U256_SUB, IR_OP_SUB},
+    {OP_U256_LE, IR_OP_LE},    {OP_U256_EQ, IR_OP_EQ},        {OP_ADDR_EQ, IR_OP_EQ},
+    {OP_HASH, IR_OP_KECCAK},   {OP_NAT_DIV, IR_OP_DIV},       {OP_NAT_MOD, IR_OP_MOD},
 };
 
 static int form_at(Low *l, uint32_t field) {
@@ -400,7 +422,7 @@ static const IrExpr *list_base(Low *l, uint32_t field) {
 static const IrExpr *lower_if_value(Low *l, Stmts *b, const Value *v) {
   const IrExpr *cond = lower_expr(l, b, v->args[0]);
   uint32_t local = l->locals++;
-  Stmts arms[2] = {{NULL, 0, 0}, {NULL, 0, 0}};
+  Stmts arms[2] = {{NULL, 0, 0, b}, {NULL, 0, 0, b}};
   IrStmt *s = cond != NULL ? new_stmt(l, IR_STMT_IF) : NULL;
   for (int k = 0; s != NULL && k < 2; k++) {
     if (!push_set(l, &arms[k], local, lower_expr(l, &arms[k], v->args[1 + k]))) s = NULL;
@@ -416,15 +438,24 @@ static const IrExpr *lower_if_value(Low *l, Stmts *b, const Value *v) {
    It is sound when no computation can trap, or when F cannot discard a trap. */
 static int expr_may_trap(const IrExpr *e) {
   if (e == NULL) return 0;
-  if (e->kind == IR_EXPR_BINARY && (e->op == IR_OP_DIV || e->op == IR_OP_ADD64 || e->op == IR_OP_MUL64 ||
-      e->op == IR_OP_ADD_TRAP || e->op == IR_OP_MUL_TRAP)) return 1;
+  if (e->kind == IR_EXPR_BINARY && (e->op == IR_OP_DIV || e->op == IR_OP_MOD || e->op == IR_OP_ADD64 ||
+      e->op == IR_OP_MUL64 || e->op == IR_OP_ADD_TRAP || e->op == IR_OP_MUL_TRAP)) return 1;
   return expr_may_trap(e->left) || expr_may_trap(e->right);
+}
+
+/* The input words of a PRECOMPILE (S2); LOG and CALL fields are in fx blocks only. */
+static int fields_may_trap(const IrStmt *s) {
+  for (size_t k = 0; k < s->field_count; k++)
+    if (expr_may_trap(s->fields[k])) return 1;
+  return 0;
 }
 
 static int block_may_trap(IrBlock b) {
   for (size_t i = 0; i < b.count; i++) {
     const IrStmt *s = b.items[i];
-    if (s->kind == IR_STMT_TRAP || expr_may_trap(s->expr) || expr_may_trap(s->value) ||
+    /* A failed STATICCALL reverts, even when its input words cannot trap. */
+    if (s->kind == IR_STMT_TRAP || s->kind == IR_STMT_PRECOMPILE ||
+        expr_may_trap(s->expr) || expr_may_trap(s->value) || fields_may_trap(s) ||
         block_may_trap(s->body) || block_may_trap(s->otherwise)) return 1;
   }
   return 0;
@@ -442,7 +473,7 @@ static int must_trap(const Value *v) {
    thus the scan k = 0 to n-1 gives the right fold: acc := F (word at BASE + k)
    acc. The step is F applied to the levels of the locals X and ACC (F-c12-1). */
 static const IrExpr *lower_fold(Low *l, Stmts *b, const Value *v, uint32_t field) {
-  Stmts init = {NULL, 0, 0}, body = {NULL, 0, 0};
+  Stmts init = {NULL, 0, 0, b}, body = {NULL, 0, 0, &init};
   const IrExpr *base = list_base(l, field);
   uint32_t acc = l->locals++, k = l->locals++, x = l->locals++;
   if (base == NULL || !push_set(l, &init, acc, lower_expr(l, &init, v->args[1])) ||
@@ -472,6 +503,96 @@ static const IrExpr *lower_fold(Low *l, Stmts *b, const Value *v, uint32_t field
   return push(l, b, s) ? ir_local(l, acc) : NULL;
 }
 
+/* 1 when V is the STUCK value of ecAdd or ecMul: a G1 in a block of two words. */
+static int is_curve(const Value *v) {
+  return v != NULL && v->kind == VAL_STUCK && (v->op == OP_EC_ADD || v->op == OP_EC_MUL);
+}
+
+/* 1 when STMT is in B or in a block that runs before B. */
+static int block_has(const Stmts *b, const IrStmt *stmt) {
+  for (; b != NULL; b = b->up)
+    for (size_t i = 0; i < b->count; i++)
+      if (b->items[i] == stmt) return 1;
+  return 0;
+}
+
+static int memo_add(Low *l, const Value *v, const IrStmt *stmt, uint32_t local) {
+  if (l->memo_count == l->memo_cap) {
+    size_t cap = l->memo_cap == 0 ? 8u : l->memo_cap * 2u;
+    CurveMemo *memo = low_alloc(l, cap * sizeof *memo);
+    if (memo == NULL) return 0;
+    if (l->memo_count > 0) memcpy(memo, l->memo, l->memo_count * sizeof *memo);
+    l->memo = memo;
+    l->memo_cap = cap;
+  }
+  l->memo[l->memo_count].value = v;
+  l->memo[l->memo_count].stmt = stmt;
+  l->memo[l->memo_count].local = local;
+  l->memo_count++;
+  return 1;
+}
+
+static const IrExpr *lower_curve(Low *l, Stmts *b, const Value *v);
+
+/* The words of a precompile argument (S2, R17): a pair gives the words of
+   its two parts, a curve value gives its two coordinates, a word gives
+   itself. A G2 is a pair of pairs, thus 4 words. */
+static size_t point_word_count(const Value *v) {
+  if (is_op(v, OP_PAIR) && v->argc == 2) return point_word_count(v->args[0]) + point_word_count(v->args[1]);
+  return is_curve(v) ? 2u : 1u;
+}
+
+static int lower_point_words(Low *l, Stmts *b, const Value *v, const IrExpr **out, size_t *n) {
+  if (is_op(v, OP_PAIR) && v->argc == 2)
+    return lower_point_words(l, b, v->args[0], out, n) && lower_point_words(l, b, v->args[1], out, n);
+  if (is_curve(v)) {
+    const IrExpr *block = lower_curve(l, b, v);
+    out[*n] = ir_load(l, block, 0);
+    out[*n + 1u] = ir_load(l, block, 1);
+    *n += 2u;
+  } else {
+    out[*n] = lower_expr(l, b, v);
+    *n += 1u;
+  }
+  return out[*n - 1u] != NULL;
+}
+
+/* 1 when V is a cons chain that ends in nil. */
+static int closed_list(const Value *v) {
+  return val_is(v, OP_NIL) || (is_op(v, OP_CONS) && v->argc == 2 && closed_list(v->args[1]));
+}
+
+/* The STUCK value V of a curve op (S2, R17): local := the output block of
+   one STATICCALL to the precompile (ecrecover 1, ecAdd 6, ecMul 7,
+   ecPairing 8). The input words are the words of the arguments; the
+   pairing list must be a closed list, 6 words per pair. One STATICCALL per
+   value per entry: a second use in B, or in a block that runs after B,
+   reads the first block. A use in the other arm of an IF gets its own call. */
+static const IrExpr *lower_curve(Low *l, Stmts *b, const Value *v) {
+  const Value *list = v->op == OP_EC_PAIRING ? v->args[0] : NULL;
+  uint32_t argc = list != NULL ? 0 : v->argc;
+  size_t count = 0, n = 0;
+  int ok = 1;
+  for (size_t i = 0; i < l->memo_count; i++)
+    if (l->memo[i].value == v && block_has(b, l->memo[i].stmt)) return ir_local(l, l->memo[i].local);
+  if (list != NULL && !closed_list(list))
+    return refuse(l, list, "at a pairing position (want a closed list of pairs)"), NULL;
+  for (const Value *c = list; is_op(c, OP_CONS); c = c->args[1]) count += point_word_count(c->args[0]);
+  for (uint32_t i = 0; i < argc; i++) count += point_word_count(v->args[i]);
+  const IrExpr **fields = count > 0 ? low_alloc(l, count * sizeof *fields) : NULL;
+  IrStmt *s = count == 0 || fields != NULL ? new_stmt(l, IR_STMT_PRECOMPILE) : NULL;
+  if (s == NULL) return NULL;
+  for (const Value *c = list; ok && is_op(c, OP_CONS); c = c->args[1]) ok = lower_point_words(l, b, c->args[0], fields, &n);
+  for (uint32_t i = 0; ok && i < argc; i++) ok = lower_point_words(l, b, v->args[i], fields, &n);
+  if (!ok) return NULL;
+  s->local = l->locals++;
+  s->fields = fields;
+  s->field_count = count;
+  s->address = v->op == OP_ECRECOVER ? 1u : v->op == OP_EC_ADD ? 6u : v->op == OP_EC_MUL ? 7u : 8u;
+  s->out_count = is_curve(v) ? 2u : 1u;
+  return push(l, b, s) && memo_add(l, v, s, s->local) ? ir_local(l, s->local) : NULL;
+}
+
 static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
   uint32_t f;
   if (v != NULL && v->kind == VAL_TRAP) return push(l, b, new_stmt(l, IR_STMT_TRAP)) ? ir_const(l, 0) : NULL;
@@ -493,6 +614,10 @@ static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
     return e != NULL ? e : (refuse(l, v, "(an Env field that is not now or caller)"), NULL);
   }
   if (is_op(v, OP_TO_U256) && v->argc == 1) return lower_expr(l, b, v->args[0]);
+  if (is_op(v, OP_ADDR_TO_U256) && v->argc == 1) return lower_expr(l, b, v->args[0]);
+  if ((is_op(v, OP_ECRECOVER) || is_op(v, OP_EC_PAIRING)) && v->argc >= 1) return ir_load(l, lower_curve(l, b, v), 0);
+  if ((is_op(v, OP_FIRST) || is_op(v, OP_SECOND)) && v->argc == 1 && is_curve(v->args[0]))
+    return ir_load(l, lower_curve(l, b, v->args[0]), (uint32_t)is_op(v, OP_SECOND));
   if (is_op(v, OP_KMAP_GET) && v->argc == 3 && field_of(v->args[1], 1u, &f) && form_at(l, f) == FORM_MAP) {
     const IrExpr *key = lower_expr(l, b, v->args[2]);
     return ir_sload(l, ir_binary(l, IR_OP_KECCAK, key, key != NULL ? ir_const(l, f) : NULL));
@@ -573,7 +698,7 @@ static int push_all(Low *l, Stmts *b, const Stmts *from) {
 /* The state write: force the field words, then the stores, then FX (the LOGs
    of the Out list, C-K4d-2), then STOP. */
 static int lower_state_write(Low *l, Stmts *b, const Stmts *fx, const Value *st) {
-  Stmts stores = {NULL, 0, 0};
+  Stmts stores = {NULL, 0, 0, NULL};
   uint32_t f;
   if (st != NULL && st->kind == VAL_VAR && st->nat == 1u)
     return push_all(l, b, fx) && push(l, b, new_stmt(l, IR_STMT_STOP));
@@ -678,10 +803,10 @@ static int lower_out_words(Low *l, Stmts *b, Stmts *fx, const Value *v) {
     /* With effects in a branch, the condition goes into a local: FX tests it
        again after the state write, which can change a storage word in it. */
     const IrExpr *cond = lower_expr(l, b, v->args[0]);
-    Stmts yes = {NULL, 0, 0};
-    Stmts no = {NULL, 0, 0};
-    Stmts fx_yes = {NULL, 0, 0};
-    Stmts fx_no = {NULL, 0, 0};
+    Stmts yes = {NULL, 0, 0, b};
+    Stmts no = {NULL, 0, 0, b};
+    Stmts fx_yes = {NULL, 0, 0, fx};
+    Stmts fx_no = {NULL, 0, 0, fx};
     int ok = cond != NULL && lower_out_words(l, &yes, &fx_yes, v->args[1]) && lower_out_words(l, &no, &fx_no, v->args[2]);
     int effects = fx_yes.count + fx_no.count > 0;
     if (ok && effects) cond = ir_set(l, b, cond);
@@ -713,8 +838,8 @@ static int lower_result(Low *l, Stmts *b, const Value *v) {
   if (is_op(v, OP_NONE)) return push(l, b, new_stmt(l, IR_STMT_REVERT));
   if (is_op(v, OP_FLAG_IF) && v->argc == 3) {
     const IrExpr *cond = lower_expr(l, b, v->args[0]);
-    Stmts yes = {NULL, 0, 0};
-    Stmts no = {NULL, 0, 0};
+    Stmts yes = {NULL, 0, 0, b};
+    Stmts no = {NULL, 0, 0, b};
     IrStmt *s = cond != NULL && lower_result(l, &yes, v->args[1]) && lower_result(l, &no, v->args[2])
                     ? new_stmt(l, IR_STMT_IF) : NULL;
     if (s == NULL) return 0;
@@ -724,7 +849,7 @@ static int lower_result(Low *l, Stmts *b, const Value *v) {
     return push(l, b, s);
   }
   if (is_op(v, OP_SOME) && v->argc >= 1 && is_op(v->args[v->argc - 1], OP_PAIR) && v->args[v->argc - 1]->argc == 2) {
-    Stmts fx = {NULL, 0, 0};
+    Stmts fx = {NULL, 0, 0, b};
     return lower_out_words(l, b, &fx, v->args[v->argc - 1]->args[1])
            && lower_state_write(l, b, &fx, v->args[v->argc - 1]->args[0]);
   }
@@ -762,8 +887,8 @@ static int lower_entries(Machine *m, const CtorInfo *ci, IrProgram *program, con
     int role = residualize(m, env, out, i, &r);
     if (role < 0) return 0;
     if (role == 0) continue;
-    Low l = {m, ci, env < m->family_count ? &m->ctors[m->families[env].first_ctor] : NULL, r.arg_count, m->defs[i].name};
-    Stmts b = {NULL, 0, 0};
+    Low l = {m, ci, env < m->family_count ? &m->ctors[m->families[env].first_ctor] : NULL, r.arg_count, m->defs[i].name, NULL, 0, 0};
+    Stmts b = {NULL, 0, 0, NULL};
     IrScalar *params = r.arg_count > 0 ? low_alloc(&l, r.arg_count * sizeof *params) : NULL;
     if ((r.arg_count > 0 && params == NULL)
         || !(role == 2 ? lower_view(&l, &b, r.body) : lower_result(&l, &b, r.body)))

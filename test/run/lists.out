@@ -5,10 +5,10 @@
 5 paidSum = 7u
 6 pushTwo ok
 7 paidSum = 17u
-8 weighted = 719u
+8 weighted = 39u
 9 pushOne ok
 10 paidSum = 20u
-11 weighted = 7193u
+11 weighted = 81u
 12 settle ok
 13 settleWith ok
 14 paidSum = 20u

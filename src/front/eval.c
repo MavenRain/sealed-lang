@@ -1,6 +1,7 @@
 /* The evaluator, the conversion test, quote and the printer (see
    front/core.h). SHARED by the tcc kits. */
 #include "front/core.h"
+#include "keccak.h"
 
 #include <string.h>
 
@@ -21,10 +22,12 @@ static const char *const OP_NAMES[] = {
   [OP_FILTER] = "filter", [OP_WITNESS] = "witness", [OP_PAYLOAD] = "payload",
   [OP_SYMM] = "symm", [OP_TRANS] = "trans", [OP_TRANSPORT] = "transport",
   [OP_CONG] = "cong", [OP_NAT_ADD] = "natAdd", [OP_NAT_SUB] = "natSub",
-  [OP_NAT_MUL] = "natMul", [OP_NAT_EQ] = "natEq", [OP_NAT_LE] = "natLe",
+  [OP_NAT_EQ] = "natEq", [OP_NAT_LE] = "natLe",
   [OP_FLAG_IF] = "flagIf", [OP_U256_ADD] = "u256Add", [OP_U256_SUB] = "u256Sub",
-  [OP_U256_MUL] = "u256Mul", [OP_U256_DIV] = "u256Div", [OP_U256_LE] = "u256Le",
-  [OP_U256_EQ] = "u256Eq", [OP_U256_MIN] = "u256Min", [OP_TO_U256] = "toU256",
+  [OP_U256_LE] = "u256Le",
+  [OP_U256_EQ] = "u256Eq", [OP_TO_U256] = "toU256",
+  [OP_NAT_DIV] = "natDiv", [OP_NAT_MOD] = "natMod", [OP_HASH] = "hash", [OP_ECRECOVER] = "ecrecover",
+  [OP_EC_ADD] = "ecAdd", [OP_EC_MUL] = "ecMul", [OP_EC_PAIRING] = "ecPairing", [OP_ADDR_TO_U256] = "addrToU256",
   [OP_ADDR_EQ] = "addrEq", [OP_PROJ] = "?", [OP_KMAP] = "Map", [OP_KMAP_OF] = "mapOf",
   [OP_KMAP_GET] = "mapGet", [OP_KMAP_SET] = "mapSet"
 };
@@ -41,10 +44,12 @@ static const unsigned char OP_ARITY[] = {
   [OP_MAP] = 2, [OP_BIND] = 2, [OP_FOLD_NAT] = 3, [OP_FOLD_LIST] = 3,
   [OP_FOLD_FAMILY] = VARIES, [OP_UNFOLD] = 3, [OP_FILTER] = 2, [OP_WITNESS] = 1,
   [OP_PAYLOAD] = 1, [OP_SYMM] = 1, [OP_TRANS] = 2, [OP_TRANSPORT] = 3,
-  [OP_CONG] = 2, [OP_NAT_ADD] = 2, [OP_NAT_SUB] = 2, [OP_NAT_MUL] = 2,
+  [OP_CONG] = 2, [OP_NAT_ADD] = 2, [OP_NAT_SUB] = 2,
   [OP_NAT_EQ] = 2, [OP_NAT_LE] = 2, [OP_FLAG_IF] = 3, [OP_U256_ADD] = 2,
-  [OP_U256_SUB] = 2, [OP_U256_MUL] = 2, [OP_U256_DIV] = 2, [OP_U256_LE] = 2,
-  [OP_U256_EQ] = 2, [OP_U256_MIN] = 2, [OP_TO_U256] = 1, [OP_ADDR_EQ] = 2,
+  [OP_U256_SUB] = 2, [OP_U256_LE] = 2,
+  [OP_U256_EQ] = 2, [OP_TO_U256] = 1, [OP_ADDR_EQ] = 2,
+  [OP_NAT_DIV] = 2, [OP_NAT_MOD] = 2, [OP_HASH] = 2, [OP_ECRECOVER] = 4,
+  [OP_EC_ADD] = 2, [OP_EC_MUL] = 2, [OP_EC_PAIRING] = 1, [OP_ADDR_TO_U256] = 1,
   [OP_PROJ] = 1, [OP_KMAP] = 2, [OP_KMAP_OF] = VARIES, [OP_KMAP_GET] = 3, [OP_KMAP_SET] = 4
 };
 
@@ -742,13 +747,17 @@ static const Value *nat_sub(Machine *m, const Value *const *a, uint32_t n) {
   return val_nat(m, x < y ? 0 : x - y);
 }
 
-static const Value *nat_mul(Machine *m, const Value *const *a, uint32_t n) {
+/* natDiv and natMod (S2, R14): the floor and the rest; a zero divisor traps
+   like an overflow does. */
+static const Value *nat_divmod(Machine *m, Op op, const Value *const *a, uint32_t n) {
   const Value *out;
   uint64_t x = 0;
   uint64_t y = 0;
-  if (!nat_args(m, OP_NAT_MUL, a, n, &x, &y, &out))
+  if (!nat_args(m, op, a, n, &x, &y, &out))
     return out;
-  return y != 0 && x > UINT64_MAX / y ? overflow(m) : val_nat(m, x * y);
+  if (y == 0)
+    return overflow(m);
+  return val_nat(m, op == OP_NAT_DIV ? x / y : x % y);
 }
 
 /* 1 when each argument is a value of the kind WANT. Else *OUT is the trap or
@@ -782,7 +791,7 @@ static const Value *word_value(Machine *m, const U256 *x) {
   return val_word(m, WORD_U256, w);
 }
 
-/* u256Add and u256Mul trap on an overflow, u256Div traps on 0. */
+/* u256Add traps on an overflow; u256Sub stops at 0. */
 static const Value *u256_arith(Machine *m, Op op, const Value *const *a, uint32_t n, int (*fn)(U256 *, const U256 *, const U256 *)) {
   const Value *out;
   U256 r;
@@ -808,6 +817,49 @@ static const Value *to_u256(Machine *m, const Value *const *a, uint32_t n) {
     return out;
   u256_from_u64(&r, a[0]->nat);
   return word_value(m, &r);
+}
+
+/* The 32 big-endian bytes of X at OUT (limb 3 is the most significant). */
+static void word_bytes(const U256 *x, unsigned char *out) {
+  for (uint32_t i = 0; i < 32u; i++)
+    out[i] = (unsigned char)(x->limb[3u - i / 8u] >> (56u - 8u * (i % 8u)));
+}
+
+/* hash x y (S2, R16): KECCAK256 of the 64 packed bytes, as IR_OP_KECCAK. */
+static const Value *hash_words(Machine *m, const Value *const *a, uint32_t n) {
+  const Value *out;
+  unsigned char data[64], digest[32];
+  U256 r;
+  if (!word_args(m, OP_HASH, VAL_WORD, a, n, &out))
+    return out;
+  word_bytes(a[0]->word, data);
+  word_bytes(a[1]->word, data + 32);
+  keccak256(data, sizeof data, digest);
+  for (uint32_t k = 0; k < 4u; k++) {
+    r.limb[3u - k] = 0;
+    for (uint32_t j = 0; j < 8u; j++)
+      r.limb[3u - k] = (r.limb[3u - k] << 8) | digest[8u * k + j];
+  }
+  return word_value(m, &r);
+}
+
+/* addrToU256 a (S2, R20): the same word in the U256 sort. */
+static const Value *addr_to_u256(Machine *m, const Value *const *a, uint32_t n) {
+  const Value *out;
+  if (!word_args(m, OP_ADDR_TO_U256, VAL_WORD, a, n, &out))
+    return out;
+  return word_value(m, a[0]->word);
+}
+
+/* The curve ops (S2, R17): a trap argument gives the trap; else the
+   application is stuck, closed arguments included. The chain test is the
+   differential gate (O5). */
+static const Value *opaque(Machine *m, Op op, const Value *const *a, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    if (a[i]->kind == VAL_TRAP)
+      return a[i];
+  }
+  return val_op(m, VAL_STUCK, op, 0, 0, a, n);
 }
 
 static const Value *nat_test(Machine *m, Op op, const Value *const *a, uint32_t n) {
@@ -1013,8 +1065,6 @@ static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, 
     return nat_add(m, a, n);
   case OP_NAT_SUB:
     return nat_sub(m, a, n);
-  case OP_NAT_MUL:
-    return nat_mul(m, a, n);
   case OP_NAT_EQ:
   case OP_NAT_LE:
     return nat_test(m, op, a, n);
@@ -1022,18 +1072,24 @@ static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, 
     return u256_arith(m, op, a, n, u256_add);
   case OP_U256_SUB:
     return u256_arith(m, op, a, n, u256_sub);
-  case OP_U256_MUL:
-    return u256_arith(m, op, a, n, u256_mul);
-  case OP_U256_DIV:
-    return u256_arith(m, op, a, n, u256_div);
-  case OP_U256_MIN:
-    return u256_arith(m, op, a, n, u256_min);
   case OP_U256_LE:
   case OP_U256_EQ:
   case OP_ADDR_EQ:
     return word_test(m, op, a, n);
   case OP_TO_U256:
     return to_u256(m, a, n);
+  case OP_NAT_DIV:
+  case OP_NAT_MOD:
+    return nat_divmod(m, op, a, n);
+  case OP_HASH:
+    return hash_words(m, a, n);
+  case OP_ADDR_TO_U256:
+    return addr_to_u256(m, a, n);
+  case OP_ECRECOVER:
+  case OP_EC_ADD:
+  case OP_EC_MUL:
+  case OP_EC_PAIRING:
+    return opaque(m, op, a, n);
   case OP_FLAG_IF:
     return reduce_flag_if(m, a, n);
   case OP_PROJ:

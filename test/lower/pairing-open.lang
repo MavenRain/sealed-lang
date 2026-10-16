@@ -1,0 +1,11 @@
+-- REFUSE_LOWER (slice S2, R17): ecPairing over a list that a fold over a state List field makes. The lowering wants a closed list of pairs.
+state State := makeState (xs : List U256)
+def init : State := makeState nil
+
+def verify : (env : Env) -> (s : State) -> Flag :=
+  fun (env : Env) (s : State) =>
+    ecPairing
+      (fold
+        (fun (x : U256) (acc : List (Prod (Prod U256 U256) (Prod (Prod U256 U256) (Prod U256 U256)))) =>
+          cons (pair (pair x x) (pair (pair x x) (pair x x))) acc)
+        nil (xs s))

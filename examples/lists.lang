@@ -24,7 +24,7 @@ def paidSum : (env : Env) -> (s : State) -> U256 :=
   fun (env : Env) (s : State) => fold (fun (x : U256) (acc : U256) => u256Add x acc) 0u (paid s)
 
 def weighted : (env : Env) -> (s : State) -> U256 :=
-  fun (env : Env) (s : State) => fold (fun (x : U256) (acc : U256) => u256Add x (u256Mul acc 10u)) 0u (paid s)
+  fun (env : Env) (s : State) => fold (fun (x : U256) (acc : U256) => u256Add x (u256Add acc acc)) 0u (paid s)
 
 -- A view that traps (O-c4-3): u256Add traps above 2^256-1, thus over is the max word at tally 0 and traps at a tally above 0.
 def over : (env : Env) -> (s : State) -> U256 :=

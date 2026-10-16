@@ -14,11 +14,11 @@ test "$(build/langc eval "$tmp/roundtrip.lang" answer)" = 4
 
 # Reducing a closure can expose a constructor with the binder's old name.
 cat >"$tmp/constructor.lang" <<'EOF'
-def constant : Unit -> Color := fun u => red
-def value : Unit -> Color := fun red => constant red
+def constant : Unit -> Flag := fun u => flagYes
+def value : Unit -> Flag := fun flagYes => constant flagYes
 EOF
 normal=$(build/langc eval "$tmp/constructor.lang" value)
-printf 'def value : Unit -> Color := %s\ndef answer : Nat := fold 1 2 3 (value unit)\n' "$normal" >"$tmp/roundtrip.lang"
+printf 'def value : Unit -> Flag := %s\ndef answer : Nat := flagIf (value unit) 1 2\n' "$normal" >"$tmp/roundtrip.lang"
 test "$(build/langc eval "$tmp/roundtrip.lang" answer)" = 1
 
 # A generated eta binder must also print as a source identifier.
@@ -96,4 +96,7 @@ for call in 'natView 18446744073709551616' 'flagView 2' 'wordView 5' 'addrView 0
     *) exit 1 ;;
   esac
 done
+# The sample domain is gone (S2, R21): its names are free for a program.
+printf 'def red : Nat := 1\ndef Color : Nat := 2\ndef lineTotal : Nat := natAdd red Color\n' >"$tmp/free.lang"
+test "$(build/langc eval "$tmp/free.lang" lineTotal)" = 3
 echo 'review regressions: passed'

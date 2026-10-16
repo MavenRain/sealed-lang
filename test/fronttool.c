@@ -28,6 +28,8 @@ static int domain(const char *text, const char *want) {
 
 int main(void) {
   int ok = 1;
+  /* The empty domain (sealed-lang S2, R21) lexes, parses and checks. */
+  ok &= domain("", NULL);
   ok &= domain("family F := makeF (field : Nat) (field : Flag)", "REFUSE_NAME");
   ok &= domain("family F := makeF (makeF : Nat)", "REFUSE_NAME");
   ok &= domain("family F := makeF (firstField : Nat) (secondField : Flag)", NULL);

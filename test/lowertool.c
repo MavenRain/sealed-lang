@@ -226,6 +226,7 @@ static int abi_boundaries(void) {
 #define ENTRY "def entry : Env -> State -> Option (Prod State (List Out)) := fun env s => "
 #define LOGGED "event Logged (x : U256)\n"
 #define TOKEN "0x00000000000000000000000000000000000000aa"
+#define WMAX "115792089237316195423570985008687907853269984665640564039457584007913129639935u"
 
 /* Compare a closed reference fold and the build boundary for its open view. */
 static int fold_regression(const char *name, const char *step, const char *seed, int expected, int refused) {
@@ -274,28 +275,33 @@ int main(void) {
   int ok = 1;
   const char *head = "fun (x : U256) (acc : U256) => x";
   const char *sum = "fun (x : U256) (acc : U256) => u256Add x acc";
-  ok &= fold_regression("discard-static-seed-trap", head, "u256Div 1u 0u", 7, 1);
-  ok &= fold_regression("discard-dynamic-seed-trap", head, "u256Div 1u d", 7, 1);
+  ok &= fold_regression("discard-precompile-seed-failure", head,
+    "first (ecAdd (pair 1u 1u) (pair 1u 2u))", 7, 1);
+  ok &= fold_regression("discard-precompile-step-failure",
+    "fun (x : U256) (acc : U256) => flagIf (u256Eq x 7u) x (first (ecAdd (pair 1u 1u) (pair 1u 2u)))",
+    "0u", 7, 1);
+  ok &= fold_regression("discard-static-seed-trap", head, "u256Add 1u " WMAX, 7, 1);
+  ok &= fold_regression("discard-dynamic-seed-trap", head, "u256Add (u256Add 1u d) " WMAX, 7, 1);
   ok &= fold_regression("discard-conditional-seed-trap", head,
-    "flagIf (u256Eq d 0u) (u256Div 1u 0u) 0u", 7, 1);
+    "flagIf (u256Eq d 0u) (u256Add 1u " WMAX ") 0u", 7, 1);
   ok &= fold_regression("discard-intermediate-trap",
-    "fun (x : U256) (acc : U256) => flagIf (u256Eq x 7u) x (u256Div 1u 0u)", "0u", 7, 1);
+    "fun (x : U256) (acc : U256) => flagIf (u256Eq x 7u) x (u256Add 1u " WMAX ")", "0u", 7, 1);
   ok &= fold_regression("discard-dynamic-step-trap",
-    "fun (x : U256) (acc : U256) => flagIf (u256Eq x 7u) x (u256Div 1u x)", "0u", 7, 1);
+    "fun (x : U256) (acc : U256) => flagIf (u256Eq x 7u) x (u256Add (u256Add 1u x) " WMAX ")", "0u", 7, 1);
   ok &= fold_regression("discard-trap-in-one-branch",
-    "fun (x : U256) (acc : U256) => flagIf (u256Eq x 7u) x (u256Add acc 1u)", "u256Div 1u 0u", 7, 1);
+    "fun (x : U256) (acc : U256) => flagIf (u256Eq x 7u) x (u256Add acc 1u)", "u256Add 1u " WMAX, 7, 1);
   ok &= fold_regression("safe-head", head, "0u", 7, 0);
   ok &= fold_regression("strict-sum", sum, "0u", 7, 0);
-  ok &= fold_regression("strict-trap-seed", sum, "u256Div 1u 0u", -1, 0);
+  ok &= fold_regression("strict-trap-seed", sum, "u256Add 1u " WMAX, -1, 0);
   ok &= fold_regression("strict-conditional",
-    "fun (x : U256) (acc : U256) => flagIf (u256Eq x 7u) (u256Add x acc) (u256Mul x acc)", "0u", 7, 0);
+    "fun (x : U256) (acc : U256) => flagIf (u256Eq x 7u) (u256Add x acc) (u256Sub x acc)", "0u", 7, 0);
   ok &= abi_regression("list-cons-other-field",
     "state State := makeState (items : List U256) (other : List U256)\n"
     "def init : State := makeState nil nil\n"
     ENTRY "some (pair (makeState (cons 1u (other s)) (other s)) nil)\n", "REFUSE_LOWER", NULL);
   ok &= abi_regression("init-trap",
     "state State := makeState (n : U256)\n"
-    "def init : State := makeState (u256Div 1u 0u)\n"
+    "def init : State := makeState (u256Add 1u " WMAX ")\n"
     "def value : Env -> State -> U256 := fun env s => n s\n", "REFUSE_LOWER", NULL);
   ok &= abi_regression("selector-collision",
     "state State := makeState (n : Nat)\n"
@@ -350,22 +356,22 @@ int main(void) {
     "some (pair (makeState 9) (cons (Logged 7u) nil))\n",
     1, 0, 0, 0, 0, 0);
   ok &= regression("out-trap-second", LOGGED ENTRY
-    "some (pair (makeState 9) (cons (Logged 7u) (cons (Logged (u256Div 7u 0u)) nil)))\n",
+    "some (pair (makeState 9) (cons (Logged 7u) (cons (Logged (u256Add 7u " WMAX ")) nil)))\n",
     1, 0, 1, 0, 0, 0);
   ok &= regression("event-fields-trap", LOGGED ENTRY
-    "some (pair (makeState 9) (cons (Logged (u256Div 7u 0u)) nil))\n",
+    "some (pair (makeState 9) (cons (Logged (u256Add 7u " WMAX ")) nil))\n",
     1, 0, 1, 0, 0, 0);
   ok &= regression("out-symbolic-div", LOGGED
-    "def entry : Env -> State -> U256 -> Option (Prod State (List Out)) := fun env s x => "
-    "some (pair (makeState 9) (cons (Logged (u256Div 7u x)) nil))\n",
+    "def entry : Env -> State -> Nat -> Option (Prod State (List Out)) := fun env s x => "
+    "some (pair (makeState 9) (cons (Logged (toU256 (natDiv 7 x))) nil))\n",
     1, 1, 0, 1, 0, 0);
   ok &= regression("lazy-output-field", LOGGED
     "def entry : Env -> State -> Flag -> Option (Prod State (List Out)) := fun env s f => "
-    "some (pair (makeState 9) (cons (Logged (flagIf f 7u (u256Div 7u 0u))) nil))\n",
+    "some (pair (makeState 9) (cons (Logged (flagIf f 7u (u256Add 7u " WMAX "))) nil))\n",
     1, 1, 1, 0, 1, 0);
   ok &= regression("lazy-output-list", LOGGED
     "def entry : Env -> State -> Flag -> Option (Prod State (List Out)) := fun env s f => "
-    "some (pair (makeState 9) (flagIf f nil (cons (Logged (u256Div 7u 0u)) nil)))\n",
+    "some (pair (makeState 9) (flagIf f nil (cons (Logged (u256Add 7u " WMAX ")) nil)))\n",
     1, 1, 1, 0, 2, 0);
   ok &= order_regression("effect-order", LOGGED ENTRY
     "some (pair (makeState 9) (cons (Logged 7u) nil))\n", 0);
@@ -377,11 +383,11 @@ int main(void) {
     "some (pair (makeState 9) (cons (pay " TOKEN " " TOKEN " 7u) nil))\n",
     1, 0, 0, 0, 0, 0);
   ok &= regression("pay-trap", ENTRY
-    "some (pair (makeState 9) (cons (pay " TOKEN " " TOKEN " (u256Div 7u 0u)) nil))\n",
+    "some (pair (makeState 9) (cons (pay " TOKEN " " TOKEN " (u256Add 7u " WMAX ")) nil))\n",
     1, 0, 1, 0, 0, 0);
   ok &= regression("pay-symbolic-div",
-    "def entry : Env -> State -> U256 -> Option (Prod State (List Out)) := fun env s x => "
-    "some (pair (makeState 9) (cons (pay " TOKEN " " TOKEN " (u256Div 7u x)) nil))\n",
+    "def entry : Env -> State -> Nat -> Option (Prod State (List Out)) := fun env s x => "
+    "some (pair (makeState 9) (cons (pay " TOKEN " " TOKEN " (toU256 (natDiv 7 x))) nil))\n",
     1, 1, 0, 1, 0, 0);
   ok &= order_regression("call-order-pay", ENTRY
     "some (pair (makeState 9) (cons (pay " TOKEN " " TOKEN " 7u) nil))\n", 0);

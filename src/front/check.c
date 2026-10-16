@@ -73,7 +73,8 @@ typedef enum {
   RULE_FLAG_IF,
   RULE_KMAP,
   RULE_KMAP_GET,
-  RULE_KMAP_SET
+  RULE_KMAP_SET,
+  RULE_FIXED /* S2: a fixed signature over U256, Nat, G1 and List (Prod G1 G2) */
 } Rule;
 
 typedef struct {
@@ -126,23 +127,27 @@ static const Builtin BUILTINS[] = {
   {"transport", 3, RULE_TRANSPORT, OP_TRANSPORT, OP_EQ, 0},
   {"natAdd", 2, RULE_NAT2, OP_NAT_ADD, OP_NAT, 0},
   {"natSub", 2, RULE_NAT2, OP_NAT_SUB, OP_NAT, 0},
-  {"natMul", 2, RULE_NAT2, OP_NAT_MUL, OP_NAT, 0},
   {"natEq", 2, RULE_NAT2, OP_NAT_EQ, OP_FLAG, 0},
   {"natLe", 2, RULE_NAT2, OP_NAT_LE, OP_FLAG, 0},
   {"u256Add", 2, RULE_U256_2, OP_U256_ADD, OP_U256, 0},
   {"u256Sub", 2, RULE_U256_2, OP_U256_SUB, OP_U256, 0},
-  {"u256Mul", 2, RULE_U256_2, OP_U256_MUL, OP_U256, 0},
-  {"u256Div", 2, RULE_U256_2, OP_U256_DIV, OP_U256, 0},
   {"u256Le", 2, RULE_U256_2, OP_U256_LE, OP_FLAG, 0},
   {"u256Eq", 2, RULE_U256_2, OP_U256_EQ, OP_FLAG, 0},
-  {"u256Min", 2, RULE_U256_2, OP_U256_MIN, OP_U256, 0},
   {"toU256", 1, RULE_TO_U256, OP_TO_U256, OP_U256, 0},
   {"addrEq", 2, RULE_ADDR2, OP_ADDR_EQ, OP_FLAG, 0},
   {"flagIf", 3, RULE_FLAG_IF, OP_FLAG_IF, OP_FLAG, 0},
   {"Map", 2, RULE_KMAP, OP_KMAP, OP_NAT, 0},
   {"mapEmpty", 0, RULE_EMPTY, OP_KMAP_OF, OP_KMAP, 0},
   {"mapGet", 2, RULE_KMAP_GET, OP_KMAP_GET, OP_KMAP, 0},
-  {"mapSet", 3, RULE_KMAP_SET, OP_KMAP_SET, OP_KMAP, 0}
+  {"mapSet", 3, RULE_KMAP_SET, OP_KMAP_SET, OP_KMAP, 0},
+  {"natDiv", 2, RULE_NAT2, OP_NAT_DIV, OP_NAT, 0},
+  {"natMod", 2, RULE_NAT2, OP_NAT_MOD, OP_NAT, 0},
+  {"hash", 2, RULE_U256_2, OP_HASH, OP_U256, 0},
+  {"ecrecover", 4, RULE_FIXED, OP_ECRECOVER, OP_ADDR, 0},
+  {"ecAdd", 2, RULE_FIXED, OP_EC_ADD, OP_PROD, 0},
+  {"ecMul", 2, RULE_FIXED, OP_EC_MUL, OP_PROD, 0},
+  {"ecPairing", 1, RULE_FIXED, OP_EC_PAIRING, OP_FLAG, 0},
+  {"addrToU256", 1, RULE_ADDR2, OP_ADDR_TO_U256, OP_U256, 0}
 };
 
 #define BUILTIN_COUNT ((uint32_t)(sizeof BUILTINS / sizeof BUILTINS[0]))
@@ -885,6 +890,37 @@ static const Core *rule_prim(Call *k, Op arg) {
   return k->b->arity < 2u ? op3(c, k->b->op, 0, 1, x, NULL, NULL) : op3(c, k->b->op, 0, 2, x, y, NULL);
 }
 
+/* The curve ops (S2, R17): fixed signatures over U256, Nat, G1 = Prod U256
+   U256, G2 = Prod G1 G1 (the EIP-197 field order) and List (Prod G1 G2).
+   The result is the row result; OP_PROD in the row means G1. */
+static const Core *rule_fixed(Call *k) {
+  enum { SHAPE_U256, SHAPE_NAT, SHAPE_G1, SHAPE_PAIRS };
+  static const struct {
+    Op op;
+    unsigned char arg[4];
+  } ROWS[] = {
+    {OP_ECRECOVER, {SHAPE_U256, SHAPE_NAT, SHAPE_U256, SHAPE_U256}},
+    {OP_EC_ADD, {SHAPE_G1, SHAPE_G1, SHAPE_U256, SHAPE_U256}},
+    {OP_EC_MUL, {SHAPE_G1, SHAPE_U256, SHAPE_U256, SHAPE_U256}},
+    {OP_EC_PAIRING, {SHAPE_PAIRS, SHAPE_U256, SHAPE_U256, SHAPE_U256}},
+  };
+  Checker *c = k->c;
+  const Value *u = tyop(c, OP_U256, 0, NULL, NULL, NULL);
+  const Value *g1 = tyop(c, OP_PROD, 2, u, u, NULL);
+  const Value *g2 = tyop(c, OP_PROD, 2, g1, g1, NULL);
+  const Value *shape[4] = {u, nat_type(c), g1, tyop(c, OP_LIST, 1, tyop(c, OP_PROD, 2, g1, g2, NULL), NULL, NULL)};
+  const Core *args[4] = {NULL, NULL, NULL, NULL};
+  size_t row = 0;
+  while (row < sizeof ROWS / sizeof ROWS[0] && ROWS[row].op != k->b->op) row++;
+  if (row == sizeof ROWS / sizeof ROWS[0] || k->b->arity > 4u) return NULL;
+  for (uint32_t i = 0; i < k->b->arity; i++) {
+    args[i] = check(c, k->args[i], shape[ROWS[row].arg[i]]);
+    if (args[i] == NULL) return NULL;
+  }
+  k->type = k->b->result == OP_PROD ? g1 : tyop(c, k->b->result, 0, NULL, NULL, NULL);
+  return core_op(c, k->b->op, 0, 0, args, k->b->arity);
+}
+
 /* flagIf b yes no */
 static const Core *rule_flag_if(Call *k) {
   Checker *c = k->c;
@@ -1005,6 +1041,8 @@ static const Core *rule(Call *k) {
     return kmap_access(k, 0);
   case RULE_KMAP_SET:
     return kmap_access(k, 1);
+  case RULE_FIXED:
+    return rule_fixed(k);
   }
   return NULL;
 }

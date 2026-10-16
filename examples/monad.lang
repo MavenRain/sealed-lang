@@ -1,6 +1,6 @@
 -- Formers F5 and F8: pure, map and bind over Option, Sum E and List; filter.
 def lifted : Option Nat := map (fun (n : Nat) => natAdd n 1) (some 4)
-def chained : Option Nat := bind (some 4) (fun (n : Nat) => some (natMul n 2))
+def chained : Option Nat := bind (some 4) (fun (n : Nat) => some (natAdd n n))
 def single : List Nat := pure 5
 def wrapped : Option Nat := pure 5
 def okRight : Sum Flag Nat := map (fun (n : Nat) => natAdd n 1) (inr 3)

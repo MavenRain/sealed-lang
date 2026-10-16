@@ -127,10 +127,15 @@ int target_write(const IrProgram *prog, TargetPart part, FILE *out, FILE *err) {
 /* IR to EVM (C-K4b-1, C-K4b-7). Local k is the memory word at 32 * k. The
    two words after the locals of an entry are a scratch for KECCAK and
    MUL_TRAP: they use it only after both operands are on the stack. The
-   words after the scratch are the data of a LOG (C-K4-13). */
+   words after the scratch are the output blocks of the PRECOMPILE statements
+   of the entry (S2), then the data of a LOG (C-K4-13), a CALL or a
+   precompile input. */
 typedef struct {
   Asm *a;
   uint64_t scratch;
+  uint64_t blocks;     /* the first output block word */
+  uint64_t block_next; /* the words of the blocks given out so far */
+  uint64_t data;       /* the data words after the blocks */
   Label revert;
   Label trap;
   EvmBuild failure;
@@ -166,12 +171,12 @@ static int emit_binary(Emit *e, const IrExpr *x) {
   static const Op add_trap[] = {EVM_OP_DUP1, EVM_OP_SWAP2, EVM_OP_ADD, EVM_OP_DUP1,
                                 EVM_OP_SWAP2, EVM_OP_SWAP1, EVM_OP_LT};
   Asm *a = e->a;
-  if (x->op == IR_OP_DIV) {
+  if (x->op == IR_OP_DIV || x->op == IR_OP_MOD) {
     if (!emit_expr(e, x->right)) return 0;
     emit_ops(a, (const Op[]){EVM_OP_DUP1, EVM_OP_ISZERO}, 2);
     asm_jump_if(a, e->trap);
     if (!emit_expr(e, x->left)) return 0;
-    asm_op(a, EVM_OP_DIV);
+    asm_op(a, x->op == IR_OP_DIV ? EVM_OP_DIV : EVM_OP_MOD);
     return 1;
   }
   if (!emit_operands(e, x)) return 0;
@@ -224,7 +229,8 @@ static int emit_binary(Emit *e, const IrExpr *x) {
     asm_push(a, e->scratch);
     asm_op(a, EVM_OP_SHA3);
     return 1;
-  case IR_OP_DIV: return 0;
+  case IR_OP_DIV:
+  case IR_OP_MOD: return 0;
   }
   return 0;
 }
@@ -234,7 +240,11 @@ static int emit_expr(Emit *e, const IrExpr *x) {
   case IR_EXPR_CONST: asm_push(e->a, x->value); return 1;
   case IR_EXPR_LOCAL: emit_load(e->a, 32u * (uint64_t)x->local); return 1;
   case IR_EXPR_BINARY: return emit_binary(e, x);
-  case IR_EXPR_LOAD: return 0; /* no heap blocks on the EVM path */
+  case IR_EXPR_LOAD: /* word FIELD of the block at address LEFT (a precompile output, S2) */
+    if (!emit_expr(e, x->left)) return 0;
+    asm_push(e->a, 32u * (uint64_t)x->field);
+    emit_ops(e->a, (const Op[]){EVM_OP_ADD, EVM_OP_MLOAD}, 2);
+    return 1;
   case IR_EXPR_WORD: asm_push_word(e->a, x->word); return 1;
   case IR_EXPR_ENV: asm_op(e->a, x->field == IR_ENV_NOW ? EVM_OP_TIMESTAMP : EVM_OP_CALLER); return 1;
   case IR_EXPR_SLOAD:
@@ -285,17 +295,17 @@ static int emit_stmt(Emit *e, const IrStmt *s) {
     if (result != EVM_BUILD_OK) { e->failure = result; return 0; }
     for (size_t i = 0; i < s->field_count; i++) {
       if (!emit_expr(e, s->fields[i])) return 0;
-      emit_store(a, e->scratch + 64u + 32u * (uint64_t)i);
+      emit_store(a, e->data + 32u * (uint64_t)i);
     }
     asm_push_word(a, topic);
     asm_push(a, 32u * (uint64_t)s->field_count);
-    asm_push(a, e->scratch + 64u);
+    asm_push(a, e->data);
     asm_op(a, EVM_OP_LOG1);
     return 1;
   }
   case IR_STMT_CALL: { /* a pay or a pull (C-K4-14, C-K4d-7): the call data after the scratch */
     unsigned char selector[32];
-    uint64_t at = e->scratch + 64u;
+    uint64_t at = e->data;
     EvmBuild result = event_topic(s, selector);
     if (result != EVM_BUILD_OK) { e->failure = result; return 0; }
     asm_push_word(a, selector); /* bytes 0 to 3 stay; argument 0 writes over the other 28 */
@@ -343,11 +353,46 @@ static int emit_stmt(Emit *e, const IrStmt *s) {
     asm_jumpdest(a, end);
     return 1;
   }
+  case IR_STMT_PRECOMPILE: { /* S2: the input after the data, the output in a block */
+    uint64_t in = e->data, out = e->blocks + 32u * e->block_next;
+    e->block_next += s->out_count;
+    for (size_t i = 0; i < s->field_count; i++) {
+      if (!emit_expr(e, s->fields[i])) return 0;
+      emit_store(a, in + 32u * (uint64_t)i);
+    }
+    for (size_t k = 0; k < s->out_count; k++) { /* R18: an empty return reads as 0 */
+      asm_op(a, EVM_OP_PUSH0);
+      emit_store(a, out + 32u * (uint64_t)k);
+    }
+    asm_push(a, 32u * (uint64_t)s->out_count);
+    asm_push(a, out);
+    asm_push(a, 32u * (uint64_t)s->field_count);
+    asm_push(a, in);
+    asm_push(a, s->address);
+    emit_ops(a, (const Op[]){EVM_OP_GAS, EVM_OP_STATICCALL, EVM_OP_ISZERO}, 3);
+    asm_jump_if(a, e->revert);
+    asm_push(a, out);
+    emit_store(a, 32u * (uint64_t)s->local);
+    return 1;
+  }
   case IR_STMT_ALLOC:
   case IR_STMT_SWITCH:
   case IR_STMT_WHILE: return 0;
   }
   return 0;
+}
+
+/* The output block words of the PRECOMPILE statements in B, nested blocks
+   included: the entry lays them out once, after the scratch. */
+static uint64_t block_words(IrBlock b) {
+  uint64_t n = 0;
+  for (size_t i = 0; i < b.count; i++) {
+    const IrStmt *s = b.items[i];
+    n += s->kind == IR_STMT_PRECOMPILE ? (uint64_t)s->out_count : 0u;
+    n += block_words(s->body) + block_words(s->otherwise);
+    for (size_t k = 0; s->arms != NULL && k < s->arm_count; k++) n += block_words(s->arms[k]);
+  }
+  return n;
 }
 
 static int emit_block(Emit *e, IrBlock b) {
@@ -364,6 +409,9 @@ static int emit_block(Emit *e, IrBlock b) {
 static int evm_entry(Emit *e, const IrFunc *fn, Label label) {
   Asm *a = e->a;
   e->scratch = 32u * (uint64_t)fn->local_count;
+  e->blocks = e->scratch + 64u;
+  e->block_next = 0;
+  e->data = e->blocks + 32u * block_words(fn->body);
   asm_jumpdest(a, label);
   asm_op(a, EVM_OP_POP);
   asm_push(a, 4u + 32u * (uint64_t)fn->param_count);
@@ -399,7 +447,7 @@ static EvmBuild evm_runtime(Asm *a, const IrProgram *prog, Label first) {
     for (size_t j = 0; j < i; j++)
       if (hits[j] == hits[i]) return EVM_BUILD_SELECTOR;
   }
-  Emit e = {a, 0, asm_label(a), asm_label(a), EVM_BUILD_IR};
+  Emit e = {a, 0, 0, 0, 0, asm_label(a), asm_label(a), EVM_BUILD_IR};
   asm_op(a, EVM_OP_CALLVALUE);
   asm_jump_if(a, e.revert);
   asm_push(a, 4);

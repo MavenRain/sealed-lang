@@ -56,7 +56,7 @@ static int expression(const char *name, const IrExpr *expr, const unsigned char 
                       const unsigned char *slot, int write) {
   Asm *a = calloc(1, sizeof *a);
   if (a == NULL) return 0;
-  Emit e = {a, 32, asm_label(a), asm_label(a), EVM_BUILD_IR};
+  Emit e = {a, 32, 96, 0, 96, asm_label(a), asm_label(a), EVM_BUILD_IR};
   if (slot != NULL && !write) {
     asm_push(a, 99);
     asm_push_word(a, slot);
@@ -81,7 +81,7 @@ static int expression(const char *name, const IrExpr *expr, const unsigned char 
 static int repeat(const char *name, uint64_t count, uint64_t want) {
   Asm *a = calloc(1, sizeof *a);
   if (a == NULL) return 0;
-  Emit e = {a, 32, asm_label(a), asm_label(a), EVM_BUILD_IR};
+  Emit e = {a, 32, 96, 0, 96, asm_label(a), asm_label(a), EVM_BUILD_IR};
   const IrExpr zero = {.kind = IR_EXPR_CONST, .value = 0};
   const IrExpr three = {.kind = IR_EXPR_CONST, .value = 3};
   const IrExpr times = {.kind = IR_EXPR_CONST, .value = count};

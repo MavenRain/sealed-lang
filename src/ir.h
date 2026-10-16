@@ -47,7 +47,8 @@ typedef enum {
   IR_OP_MUL_TRAP,  /* the product; traps on a word overflow (U256) */
   IR_OP_MIN,       /* the smaller operand */
   IR_OP_KECCAK,    /* keccak256(left . right), each a 32-byte word */
-  IR_OP_WORD_ADD   /* the sum modulo 2^256 (a List word slot, C-c9-1) */
+  IR_OP_WORD_ADD,  /* the sum modulo 2^256 (a List word slot, C-c9-1) */
+  IR_OP_MOD        /* left modulo right; traps when right is 0 (sealed-lang S2) */
 } IrOp;
 
 /* The call data that IR_EXPR_ENV reads (C-K4-12). */
@@ -100,8 +101,12 @@ typedef enum {
   IR_STMT_STOP,   /* stop the call, keep the stores: EVM STOP */
   IR_STMT_LOG,    /* EVM LOG1 (C-K4-13): topic 0 = keccak256 of name(types),
                      data = the field_count words of fields */
-  IR_STMT_CALL    /* EVM CALL to the token word expr (C-K4-14, C-K4d-6): the
+  IR_STMT_CALL,   /* EVM CALL to the token word expr (C-K4-14, C-K4d-6): the
                      selector of name(types), then the field_count words of fields */
+  IR_STMT_PRECOMPILE /* sealed-lang S2: local := address of a new block of out_count
+                        words; EVM STATICCALL to the precompile address with the
+                        field_count words of fields as input; the output words fill
+                        the block, which is 0 first; a failure reverts */
 } IrStmtKind;
 
 struct IrStmt {
@@ -118,6 +123,8 @@ struct IrStmt {
   size_t arm_count;
   const char *name;      /* IR_STMT_LOG: the event name; IR_STMT_CALL: the function name */
   const IrScalar *types; /* IR_STMT_LOG and IR_STMT_CALL: the type of each field */
+  uint32_t address;      /* IR_STMT_PRECOMPILE: the precompile address (1, 6, 7 or 8) */
+  size_t out_count;      /* IR_STMT_PRECOMPILE: the words of the output block */
 };
 
 /* One exported entry. The body block ends in RETURN, TRAP, REVERT or STOP on

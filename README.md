@@ -11,4 +11,4 @@ the tcc-evm-contract host.
 - `probe/CAPABILITY.md`: the host probe.
 - `docs/STATUS.md` and `docs/VALIDATION.md`: the status and the gate results.
 - `docs/host/README.md`: how to build and test the host kit, and how to
-  replace the sample domain in `domain/`.
+  write the domain in `domain/`.

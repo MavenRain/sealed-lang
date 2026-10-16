@@ -48,11 +48,8 @@ Prelude names:
 |------|------|--------|
 | `u256Add` | `U256 -> U256 -> U256` | The sum. An overflow past 2^256 - 1 traps. |
 | `u256Sub` | `U256 -> U256 -> U256` | The difference. The result stops at 0. |
-| `u256Mul` | `U256 -> U256 -> U256` | The product. An overflow traps. |
-| `u256Div` | `U256 -> U256 -> U256` | The quotient, rounded down. Division by 0 traps. |
 | `u256Le` | `U256 -> U256 -> Flag` | `flagYes` when the first is less than or equal to the second. |
 | `u256Eq` | `U256 -> U256 -> Flag` | `flagYes` when the two are equal. |
-| `u256Min` | `U256 -> U256 -> U256` | The smaller of the two. |
 | `toU256` | `Nat -> U256` | The same number as a U256. This is the only conversion. |
 | `addrEq` | `Addr -> Addr -> Flag` | `flagYes` when the two addresses are equal. |
 

@@ -3,17 +3,17 @@ TCC ?= tcc
 CC ?= cc
 CFLAGS = -std=c99 -Wall -Werror -Isrc
 CLANG_FLAGS = -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc
-FRONT = src/front/base.c src/front/u256.c src/front/lexer.c src/front/parser.c src/front/front.c src/front/contract.c src/front/eval.c src/front/check.c
-TARGET = src/evm.c src/asm.c src/keccak.c
+FRONT = src/front/base.c src/front/u256.c src/front/lexer.c src/front/parser.c src/front/front.c src/front/contract.c src/front/eval.c src/front/check.c src/keccak.c
+TARGET = src/evm.c src/asm.c
 SRC = src/main.c $(FRONT) $(TARGET) src/lower.c
-TOOL = test/asmtool.c $(TARGET)
+TOOL = test/asmtool.c $(TARGET) src/keccak.c
 FRONT_TOOL = test/fronttool.c $(filter-out src/front/front.c,$(FRONT))
 RUN_TOOL = test/runtool.c $(FRONT)
 SLOT_TOOL = test/slottool.c src/keccak.c
-BUILD_TOOL = test/buildtool.c $(TARGET)
+BUILD_TOOL = test/buildtool.c $(TARGET) src/keccak.c
 LOWER_TOOL = test/lowertool.c $(FRONT) $(TARGET)
 EVM_TOOL = test/evmtool.c src/asm.c src/keccak.c
-EMIT_TOOL = test/emittool.c $(filter-out src/evm.c,$(TARGET))
+EMIT_TOOL = test/emittool.c $(filter-out src/evm.c,$(TARGET)) src/keccak.c
 HEADERS = $(wildcard src/*.h src/front/*.h)
 
 .PHONY: build check check-clang clean
@@ -75,6 +75,7 @@ check: build/langc build/asmtool build/fronttool build/runtool build/slottool bu
 	sh test/build.sh
 	sh test/dispatch.sh
 	sh test/evm.sh
+	sh test/precompile.sh
 	sh test/mock.sh
 	sh test/diff.sh
 	sh test/review.sh

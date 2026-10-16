@@ -62,19 +62,26 @@ typedef enum {
   OP_CONG,
   OP_NAT_ADD,
   OP_NAT_SUB,
-  OP_NAT_MUL,
   OP_NAT_EQ,
   OP_NAT_LE,
   OP_FLAG_IF,
   OP_U256_ADD,
   OP_U256_SUB,
-  OP_U256_MUL,
-  OP_U256_DIV,
   OP_U256_LE,
   OP_U256_EQ,
-  OP_U256_MIN,
   OP_TO_U256,
   OP_ADDR_EQ,
+  /* sealed-lang S2 (R14, R16 to R18, R20): the base span. The curve ops
+     ECRECOVER, EC_ADD, EC_MUL and EC_PAIRING are opaque in the evaluator
+     and exact on the EVM (precompiles 1, 6, 7, 8). */
+  OP_NAT_DIV,
+  OP_NAT_MOD,
+  OP_HASH,
+  OP_ECRECOVER,
+  OP_EC_ADD,
+  OP_EC_MUL,
+  OP_EC_PAIRING,
+  OP_ADDR_TO_U256,
   OP_PROJ,
   /* Slice K4a0: Map K V, the map value (k0 v0 k1 v1 ... with the keys in
      order and no zero value), mapGet V m k and mapSet V m k v. */

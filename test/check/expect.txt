@@ -4,7 +4,6 @@ rec.lang REFUSE_REC
 self.lang REFUSE_REC
 later.lang REFUSE_REC
 core-name.lang REFUSE_NAME
-domain-name.lang REFUSE_NAME
 reserved.lang REFUSE_NAME
 duplicate.lang REFUSE_NAME
 bad-refl.lang TYPE_REFL
@@ -55,3 +54,6 @@ event-max.lang REFUSE_EVENT
 event-arity.lang TYPE_ARITY
 event-arg.lang TYPE_MISMATCH
 event-state.lang REFUSE_STATE
+hash-type.lang TYPE_MISMATCH
+pairing-list.lang TYPE_MISMATCH
+pruned-op.lang NAME_UNKNOWN
