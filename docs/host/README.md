@@ -26,6 +26,7 @@ The TinyCC host kit of retainer-lang. It compiles the contract language to EVM b
 | K4d | Token calls (pay and pull) and the differential test | Done |
 | After K4d | None: retainer-lang closes at K4d | Closed |
 | S2 | sealed-lang base span: `natDiv`, `natMod`, `hash`, `addrToU256`, `ecrecover`, `ecAdd`, `ecMul`, `ecPairing`; four kit operations pruned | Done |
+| S3 | sealed-lang interval paths: `I`, `PathP`, `Path`, `refl`, `sym`, `cong`, `funExt`, `transp`, `hcomp`; the kit `Eq` removed | Done |
 
 
 ## U256 and Addr (slice K2)
@@ -291,6 +292,12 @@ Slice S2 of sealed-lang adds eight operations and removes four. `langc eval` kee
 | `ecPairing` | `List (Prod G1 G2) -> Flag` | `flagYes` when the pairing product is one (precompile 8). G1 is `Prod U256 U256`. G2 is `Prod (Prod U256 U256) (Prod U256 U256)` in the EIP-197 word order (x_im, x_re, y_im, y_re). The list must be a closed `cons` chain at build; an open list gives REFUSE_LOWER. Stuck in `langc eval`. |
 
 EVM form: a residual curve application lowers to an IR_STMT_PRECOMPILE statement that executes one STATICCALL to its precompile (`lower_curve` in `src/lower.c`, IR_STMT_PRECOMPILE in `src/evm.c`). The input words use the data region after the output blocks. The output words go in a block that is stored 0 before each call. A STATICCALL that returns 0 reverts with empty data. `first` and `second` of a curve value read the two output words. Repeated uses of the same residual value in one block, or in nested blocks after its statement, reuse the output. Uses in separate `if` arms emit separate statements; a statement in a fold body executes once per element. Removed in S2 (R19): `natMul`, `u256Mul`, `u256Div` and `u256Min`; a program that names one gets NAME_UNKNOWN.
+
+## Paths (slice S3)
+
+Slice S3 of sealed-lang replaces the kit `Eq` with the interval paths of coin-lang: `I`, `i0`, `i1`, `PathP`, `Path`, `refl`, `sym`, `cong`, `funExt`, `transp` and `hcomp` (BUILTINS 61 - 6 + 11 = 66 rows). `transport`, `subst`, `J`, `JRefl` and `trans` are guest defs in `domain/domain.lang`. `formers/tcc-evm-contract.md` section `Paths (slice S3)` gives each operation and its tests.
+
+Path computations normalize before lowering. A proof used only during checking has no runtime content. A remaining path or Kan operation at a word position gives REFUSE_LOWER (`test/lower/path-word.lang`); the EVM never tests two words for equality to check a path (R24). The existing EVM regressions still pass with the S2 counts: `test/evm.sh` 43 steps, `test/diff.sh` 15 rows and `build/emittool` 24 execution regressions. Path-specific coverage includes the refusal fixture and the 19 quote and parse roundtrips in `build/pathtool`.
 
 ## Commands
 

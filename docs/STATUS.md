@@ -68,3 +68,52 @@ with `make -B`.
 | M9 pruned op in BUILTINS | check.c BUILTINS: row `{"u256Mul", 2, RULE_U256_2, OP_U256_ADD, OP_U256, 0}` added | gate.sh check refusal `pruned-op.lang`: want exit 1 and NAME_UNKNOWN, got exit 0 | KILLED |
 
 Score: 9 of 9 killed.
+
+## S3
+
+Slice S3 (interval paths) is complete at commit 9394ffd plus the docs of
+this section. The gate `make -B check` is GREEN: examples 21, parse
+refusals 15, check refusals 77, evals 59, runs 5, run refusals 10, asmtool
+8 of 8, builds 3, lower refusals 13, checks 30, dispatch 20, evm steps 43,
+precompile 18 steps and 0 failures, mock 13 rows, diff 15 rows, emit 24,
+all regressions passed (with the new line `path regressions: passed`).
+Against S2: examples 19 -> 21, parse refusals 13 -> 15, check refusals
+59 -> 77, evals 54 -> 59, lower refusals 12 -> 13, checks 29 -> 30. The
+EVM counts (evm 43, precompile 18, mock 13, diff 15, emit 24) did not
+change. These counts record the existing execution regressions.
+
+The kit `Eq` is out (the six Eq rows of BUILTINS). `Path` takes its place,
+as in coin-lang. The S3 rows of BUILTINS are I, i0, i1, PathP, Path, refl,
+sym, cong, funExt, transp and hcomp: 61 - 6 + 11 = 66 rows. transport,
+subst, J, JRefl and trans are guest defs in domain/domain.lang (R25). The
+Kan rules treat Nat, Flag, U256, Addr, Unit and Map as base lines (R27):
+transp is the identity. For hcomp on a face other than i1, a literal base
+is returned only when every live branch evaluates to that literal at a
+fresh interval; otherwise it stays stuck. A neutral base stays stuck on
+such a face. On i1, hcomp selects a true system branch at i1. hcomp spends
+the `m->fuel` step budget (R28).
+funExt elaborates at check time to a path abstraction and has no eval
+rule (R29). A path residual at a word position gives REFUSE_LOWER
+(test/lower/path-word.lang, R24 and R26). build/pathtool (test/pathtool.c,
+the port of coin-lang test/path-regressions.c) does 19 quote and parse
+roundtrips and prints `path regressions: passed` (R30).
+
+Mutants M1 to M9 (kickoff section 4.7), one at a time on commit 9394ffd.
+Each kill is a test failure, not a compile error. Each file was restored
+after its mutant with `git checkout` and confirmed by shasum (eval.c
+dedc24fba7ab, check.c 1fd58e689199, lower.c 469645306144), then rebuilt
+with `make -B`.
+
+| Mutant | Edit | Killer | Verdict |
+|---|---|---|---|
+| M1 path ends swapped | eval.c path_apply: the i0 and i1 ends swapped | gate.sh bad-refl string: the message becomes TYPE_MISMATCH at the domain `transport`; also 21 of 21 examples, pathtool "dependent symmetry" | KILLED |
+| M2 PathP end b at i0 | check.c rule_pathp: the end b checked at L[i0] | pathtool "a branch on a disjunctive face" (PATH_UIP). The named killer examples/paths.lang survives alone and gate.sh stays GREEN | KILLED |
+| M3 no PATH_UIP guard | check.c path_ends: the PATH_UIP guard removed | check refusal `path-uip.lang`: want PATH_UIP, got PATH_END | KILLED |
+| M4 sym body not reversed | check.c rule_sym: the body set to `q @ i` | pathtool "dependent symmetry"; also examples kan.lang and paths.lang, check row `path-sym.lang` | KILLED |
+| M5 no De Morgan in ival_neg | eval.c ival_neg: the De Morgan step removed | pathtool "stuck transport fill" (also "dependent symmetry" and "dependent Sigma composition"); the examples fail at the domain `trans` | KILLED |
+| M6 transp rule 1 removed | eval.c transp: rule 1 removed | eval row `kan evPi => 5`: PATH_END at the domain `JRefl` | KILLED |
+| M7 no TRANSP_LINE check | check.c rule_transp: the TRANSP_LINE check removed | check refusal `transp-line.lang`: want TRANSP_LINE, got ok | KILLED |
+| M8 no system overlap check | check.c rule_hcomp: the hcomp_overlap call removed | check refusal `system-overlap.lang`: want SYSTEM_OVERLAP, got HCOMP_CAP | KILLED |
+| M9 path word lowers to 0 | lower.c lower_expr: the word-position refusal returns a 0 word | lower refusal `path-word.lang`: want REFUSE_LOWER, got exit 0 and bytecode; build.sh 2 failures (also `nat-fold.lang`) | KILLED |
+
+Score: 9 of 9 killed.

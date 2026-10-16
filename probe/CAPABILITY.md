@@ -25,7 +25,7 @@ below. An answer sets the status of a former in `formers/tcc-evm-contract.md`.
 | What do check and build cost (time and resident memory) at N = 100 and N = 1000? | 6 | all |
 | Can a family take a parameter? Can a constructor of such a family appear in a term? | 7 | F4, F12, F15 |
 | Can a program project a Sigma? Does the kernel accept Sigma eta? | 8 | F11 |
-| How does a program use equality: transport, cong, an index type? | 9 | F12, F13 |
+| How does a program use paths: `Path`, `transport`, `cong`, an index type? | 9 | F12, F13 |
 | How does the host report an axiom? | 10 | R2 |
 
 ## 1. Commands
@@ -82,7 +82,8 @@ pattern parses, and whether the kernel identifies `pack (witness s)
 
 ## 9. Equality
 
-<How a program writes `Eq`, `transport` and `cong`. Whether one family can
+<How a program writes `Path`, `transport` and `cong` (since S3, the kit
+`Eq` is out). Whether one family can
 serve each index type.>
 
 ## 10. Axiom detection

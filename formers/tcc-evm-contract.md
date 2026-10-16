@@ -28,9 +28,10 @@ section `EVM output`). The facts a program author needs:
   such as a sum over a closed `cons` chain, can build.
 - `pay` and `pull` are token CALLs (K4d). `emit` has no EVM form: use a
   named event.
-- The formers F1 to F15 are checked and evaluated. On the EVM only the
-  first-order word residual of a body lowers. A residual of another form
-  gives REFUSE_LOWER (`test/lower/expect.txt`, 12 rows).
+- The formers F1 to F15 are checked and evaluated (F12 and F13 as `Path`
+  since S3). On the EVM only the first-order word residual of a body
+  lowers. A residual of another form gives REFUSE_LOWER
+  (`test/lower/expect.txt`, 13 rows).
 
 ## The S2 operations (slice S2)
 
@@ -48,3 +49,21 @@ Removed in S2 (R19): `natMul`, `u256Mul`, `u256Div` and `u256Min`
 the sample domain. `test/precompile.sh` is the only check of the curve
 words: each constant was confirmed by a direct `evm run --input` to the
 precompile before it entered the script.
+
+## Paths (slice S3)
+
+| Op | `check` and `eval` | EVM | Test |
+|---|---|---|---|
+| `I`, `i0`, `i1`, `~`, `/\`, `\/` | DONE: the interval and its De Morgan algebra. `I` is not a type: only a path abstraction or a PathP line binds an interval variable. | Erased. | `examples/paths.lang`; INTERVAL_TYPE rows `interval-type.lang`, `interval-pi.lang`, `interval-path.lang`. |
+| `PathP`, `Path`, `refl`, `@` | DONE: a path abstraction must meet its ends. No rule makes two paths with the same ends equal (no UIP). | Erased. A path residual at a word position gives REFUSE_LOWER. | `examples/paths.lang`; PATH_END rows `path-end.lang`, `bad-refl.lang`; PATH_UIP rows `path-uip.lang`, `path-k.lang`, `path-ev.lang`; `test/lower/path-word.lang`. |
+| `sym`, `cong` | DONE. | Erased. | The eval rows `equality back`, `equality backEnd`; the PATH_UIP row `path-sym.lang`; pathtool "dependent symmetry", "dependent congruence". |
+| `funExt` | DONE in `check` only: it elaborates to a path abstraction (R29). | Erased. | `examples/paths.lang` `pointwise`; pathtool "dependent function extensionality". |
+| `transp` | DONE: the identity on a base line (Nat, Flag, U256, Addr, Unit, Map; R27); Pi, Sigma, data and universe lines reduce. | Normalizes before lowering; a remaining Kan operation at a word position gives REFUSE_LOWER. | The eval rows `kan evPi`, `kan evPair`; TRANSP_LINE row `transp-line.lang`; pathtool "stuck transport fill". |
+| `hcomp` | DONE: a system of faces. At the R27 base types on a face other than `i1`, a literal base is returned only when every live branch evaluates to that literal at a fresh interval; otherwise it stays stuck, as does a neutral base. On `i1`, a true system branch is selected at `i1`. Each step spends `m->fuel` (R28). | Normalizes before lowering; a remaining Kan operation at a word position gives REFUSE_LOWER. | The eval row `kan evTrans`; rows `system-cover.lang`, `system-overlap.lang`, `hcomp-cap.lang`, `hcomp-universe.lang`; pathtool "hcomp over a literal word base". |
+
+The kit `Eq` is out in S3 (O3): the six Eq rows of BUILTINS. `transport`,
+`subst`, `J`, `JRefl` and `trans` are guest defs in `domain/domain.lang`
+(R25). `build/pathtool` (`test/pathtool.c`) does 19 quote and parse
+roundtrips. The existing EVM regressions still pass with the S2 counts
+(evm 43, diff 15, emit 24). Path-specific EVM coverage includes the
+refusal of a remaining hcomp at a word position (`test/lower/path-word.lang`).

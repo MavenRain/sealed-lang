@@ -139,7 +139,16 @@ operations (14 kept from the kit, 8 new in S2):
 
 Removed from the kit span in S2: the sample domain (`Color`, `Item`,
 `Stack`, `Lot`; R21) and the four pruned operations (R19). `Eq` with
-`refl`, `symm`, `trans`, `transport` and `cong` goes in S3 (O3, R3).
+`refl`, `symm`, `trans`, `transport` and `cong` went in S3 (O3, R3).
+
+The S3 span is the BUILTINS table at commit 9394ffd: 66 rows. S3 removed
+the 6 Eq rows (`Eq`, `refl`, `symm`, `trans`, `transport`, `cong`) and
+added 11 path rows (`I`, `i0`, `i1`, `PathP`, `Path`, `refl`, `sym`,
+`cong`, `funExt`, `transp`, `hcomp`): 61 - 6 + 11 = 66. `trans`,
+`transport`, `subst`, `J` and `JRefl` are guest defs in
+`domain/domain.lang` (R25), not rows. Path computations normalize before
+lowering; unsupported residuals at word positions give REFUSE_LOWER
+(`test/lower/path-word.lang`).
 
 ## 5. The cubical kernel
 
@@ -246,8 +255,9 @@ deploys the program on `evm` and replays the same scripts.
 - O2: the kit tcc-evm-contract, with the cubical kernel ported from
   coin-lang into this repository. Alternatives: start from coin-lang and
   port the EVM target; or a new lang-template kit.
-- O3: the kit `Eq` goes in S3 and `Path` takes its place, as coin-lang did.
-  Alternative: keep `Eq` as a name for `Path`.
+- O3 CLOSED (S3, R3): the kit `Eq` went in S3 and `Path` took its place,
+  as coin-lang did. The alternative (keep `Eq` as a name for `Path`) was
+  not taken.
 - O4: `hash` is KECCAK256 of the packed 32-byte words. The paper's
   implementation uses Poseidon in the circuits. A circuit that proves a
   keccak Merkle path is costly; an on-chain Poseidon is a library, not a
@@ -306,3 +316,31 @@ the defaults (a) were applied in S2:
   circle.
 - O22 (R22): `formers/tcc-evm-contract.md` is rewritten.
 - O23 (R23): ENTRY_PARAMS_MAX is 32 (`src/front/check.h`).
+
+The S3 kickoff added R24 to R30. The USER did not rule (RULED 2026-10-15);
+the defaults (a) were applied in S3. No ruling changes the EVM output of
+an existing program:
+
+- O24 (R24): `Path` on a word type is never a word equality test. A path
+  is a proof: a closed path erases, and a path residual at a word
+  position gives REFUSE_LOWER.
+- O25 (R25): `transport`, `subst`, `J`, `JRefl` and `trans` are guest
+  defs in `domain/domain.lang`, as in coin-lang, above the S4 circle. The
+  `test/review.sh` free-names check runs on them.
+- O26 (R26): the refusal fixture is `test/lower/path-word.lang` (a path
+  residual over a stuck curve word). The fallback was not necessary.
+- O27 (R27): Nat, Flag, U256, Addr, Unit and Map are base lines in the
+  Kan rules: `transp` is the identity. For `hcomp` on a face other than
+  `i1`, a literal base is returned only when every live branch evaluates
+  to that literal at a fresh interval; otherwise it stays stuck. A
+  neutral base stays stuck on such a face. On `i1`, `hcomp` selects a
+  true system branch at `i1`.
+- O28 (R28): `hcomp` spends the `m->fuel` step budget (one step per
+  reduction). There is no second budget.
+- O29 (R29): `funExt` elaborates at check time to a path abstraction, as
+  in coin-lang. It has no eval rule.
+- O30 (R30): `build/pathtool` (`test/pathtool.c`) is the port of
+  coin-lang `test/path-regressions.c`. It does 19 roundtrips (18 from
+  coin-lang and the kit row "hcomp over a literal word base") and prints
+  `path regressions: passed`, as the other regression tools do (the
+  kickoff text "paths: N roundtrips passed" was not used).

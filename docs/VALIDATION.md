@@ -32,3 +32,27 @@ application stays a stuck term), thus no eval row checks a curve word.
 `test/precompile.sh` is the only check of the curve words, and each
 constant was confirmed by a direct `evm run --input` to the precompile.
 Mutants M1 to M9 are in `docs/STATUS.md`: 9 of 9 killed.
+
+The S3 review adds 2 examples (`paths.lang`, `kan.lang`), 2 parse
+refusals (`dangling-at`, `system-top`), 18 check refusals, 5 eval rows
+(6 new: `equality back`, `equality start`, `equality backEnd`, `kan
+evPi`, `kan evPair`, `kan evTrans`; the Eq row `equality moved` is
+removed, and `sigma offer` now quotes a path), 1 lower
+refusal (`path-word`) and `build/pathtool` with 19 roundtrips. The check
+refusals cover a path that does not meet its ends (PATH_END), a claim of
+uniqueness of identity proofs (PATH_UIP), the interval used as a type
+(INTERVAL_TYPE), a bad `transp` line (TRANSP_LINE), and a system that
+does not cover its face, overlaps, or has a bad cap or universe
+(SYSTEM_COVER, SYSTEM_OVERLAP, HCOMP_CAP, HCOMP_UNIVERSE). The rows
+`bad-refl` and `u256-law` now expect PATH_END. pathtool quotes each term
+and parses it again: dependent symmetry and congruence, function
+extensionality, stuck `transp` and `hcomp`, Sigma and universe
+compositions, faces, and the kit row "hcomp over a literal word base".
+The existing EVM regressions still pass (evm 43, diff 15, emit 24).
+Path-specific coverage comes from the check and eval fixtures,
+pathtool, and `test/lower/path-word.lang`, which checks REFUSE_LOWER for
+a remaining hcomp at a word position. The hole that mutant M2 showed:
+`examples/paths.lang`
+alone does not see a `PathP` end checked at the wrong end; the pathtool
+row "a branch on a disjunctive face" kills it. Mutants M1 to M9 of S3
+are in `docs/STATUS.md`: 9 of 9 killed.
