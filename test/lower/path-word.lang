@@ -1,0 +1,9 @@
+-- REFUSE_LOWER (slice S3, kickoff 2.3): hcomp over a neutral U256 base. The curve word stays stuck (R17), so the composition stays an hcomp value, and an hcomp is not a word.
+state State := makeState (count : Nat)
+def init : State := makeState 0
+
+def pathWord : (env : Env) -> (s : State) -> U256 :=
+  fun (env : Env) (s : State) =>
+    hcomp U256 i0
+      (fun (i : I) => [ i0 -> first (ecAdd (pair 1u 2u) (pair 1u 2u)) ])
+      (first (ecAdd (pair 1u 2u) (pair 1u 2u)))
