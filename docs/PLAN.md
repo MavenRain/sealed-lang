@@ -102,28 +102,44 @@ does not use (O12).
 Core types: `Nat`, `Flag`, `U256`, `Addr`. No other base type. `G1`, `G2`,
 `Proof` and `VKey` are products of words, not base types.
 
-Core operations, by group:
+Core operations, by group. The exact S2 span is the BUILTINS table of
+`src/front/check.c` at commit bc8e168: 61 rows, which are 11 type formers
+(`Nat`, `Flag`, `U256`, `Addr`, `Unit`, `Prod`, `Sum`, `Option`, `List`,
+`Eq`, `Map`), 28 constructors and eliminators of F1 to F15, and 22 base
+operations (14 kept from the kit, 8 new in S2):
 
-- Kit, kept: `natAdd`, `natSub`, `natMul`, `natEq`, `natLe`, `flagIf`,
-  `u256Add`, `u256Sub`, `u256Eq`, `u256Le`, `addrEq`, `mapEmpty`,
+- Kit, kept: `natAdd`, `natSub`, `natEq`, `natLe`, `flagIf`, `u256Add`,
+  `u256Sub`, `u256Eq`, `u256Le`, `toU256`, `addrEq`, `mapEmpty`,
   `mapGet`, `mapSet`, the `Env` projections, the `Out` constructors `pay`
-  and `pull`, and the events. The S1 survey lists the exact kit set.
-- New, EVM precompiles: `hash`, `ecrecover`, `ecAdd`, `ecMul`,
-  `ecPairing`. In `langc eval`, `hash` computes (the kit has keccak); the
-  four curve operations are opaque: a closed application stays a neutral
-  term. On the EVM each is one STATICCALL to its precompile. The chain test
-  on `evm` is the differential gate for them (O5).
-- New, for the tree: the index arithmetic of a depth-32 tree needs a
-  halving and a parity test, as `natDiv2` and `natOdd`, or as `u256Shr`
-  and `u256And`. The S1 survey picks the pair the kit is closest to.
+  and `pull`, and the events. S2 removed `natMul`, `u256Mul`, `u256Div`
+  and `u256Min` (R19): the first draft of this section kept `natMul`.
+- New, EVM precompiles (S2, R16 to R18): `hash : U256 -> U256 -> U256`
+  (KECCAK256 of the two packed words, one IR op), `ecrecover : U256 ->
+  Nat -> U256 -> U256 -> Addr`, `ecAdd`, `ecMul`, `ecPairing`. In `langc
+  eval`, `hash` computes (the kit has keccak); the four curve operations
+  are opaque: a closed application stays a stuck term. On the EVM each
+  lowered curve statement executes one STATICCALL to its precompile
+  (1, 6, 7, 8). Call sharing and fold execution are described in
+  `docs/host/README.md`, section `The base span (slice S2)`. The result of
+  `ecAdd` and `ecMul` is a heap block of two words read by `first` and `second`. A
+  failed STATICCALL reverts. An empty `ecrecover` return reads as address
+  0. `test/precompile.sh` on `evm` is the differential gate for them (O5,
+  18 steps).
+- New, for the tree (S2, R14): `natDiv` and `natMod` (floor and
+  remainder, a divisor 0 traps). Halving is `natDiv i 2` and parity is
+  `natMod i 2`. R13 keeps `now` as TIMESTAMP: the slot is `natDiv (natSub
+  now genesis) slotLength` in the guest, with `genesis` and `slotLength`
+  fixed in `init`.
+- New, the address word (S2, R20): `addrToU256 : Addr -> U256`, the one
+  conversion from `Addr`. A leaf is `hash (addrToU256 a) c`.
 - New, core laws: `fold` on a QIT into `U256` needs a path for each path
   constructor. The commutation laws of `u256Max` (for `max`) and the laws
   the median fold needs are core path constants, trusted by the kernel and
   never run (O10). The S6 kickoff lists each law.
 
-Removed from the kit span: the sample domain (`Color`, `Item`, `Stack`,
-`Lot`), `Eq` with `refl`, `symm`, `trans`, `transport` and `cong` (O3), and
-each kit operation that no entry, view or helper of section 6 uses.
+Removed from the kit span in S2: the sample domain (`Color`, `Item`,
+`Stack`, `Lot`; R21) and the four pruned operations (R19). `Eq` with
+`refl`, `symm`, `trans`, `transport` and `cong` goes in S3 (O3, R3).
 
 ## 5. The cubical kernel
 
@@ -236,11 +252,15 @@ deploys the program on `evm` and replays the same scripts.
   implementation uses Poseidon in the circuits. A circuit that proves a
   keccak Merkle path is costly; an on-chain Poseidon is a library, not a
   base operation. Default: keccak now, Poseidon as a later library slice if
-  the circuits need it.
+  the circuits need it. S2: `hash` is KECCAK256 of two packed words
+  (R16); `src/keccak.c` computes it in `langc eval`.
 - O5: the four curve operations are opaque in `langc eval` and exact on
   the EVM. A C99 BN254 pairing under TinyCC is a later option. The
   Groth16 fixture for S5 is a known-good `(vk, inputs, proof)` triple; its
-  source is a ruling.
+  source is a ruling. S2 DONE: opaque in `langc eval` (a closed application
+  stays a stuck term), exact on the EVM; `test/precompile.sh` checks 18
+  steps with constants confirmed on `evm` 1.14.12. The fixture source
+  stays a ruling for S5.
 - O6: the deposit asset is an ERC-20 token through the kit `pull` and
   `pay`. Native value needs CALLVALUE and a value call, which the kit does
   not have.
@@ -261,8 +281,28 @@ deploys the program on `evm` and replays the same scripts.
   circle. No domain family has a loop constructor by default. Alternative:
   the slot clock as a cyclic quotient.
 - O12: `Π` enters one NOP tuple per call. Alternative: array arguments in
-  the ABI decoder (kit work).
-- O13: `now` is the slot number. The S1 survey tells which EVM word the
-  kit reads for `now`.
+  the ABI decoder (kit work). Note (S2): ENTRY_PARAMS_MAX is 32 (R23), so
+  one call carries at most 32 words.
+- O13 CLOSED (S2, R13): the kit reads TIMESTAMP for `now` and keeps it.
+  The slot is `natDiv (natSub now genesis) slotLength` in the guest.
 - O14: the proposer set is a `Map Addr Flag` fixed in `init`.
 - O15: tests in the guest language and `langc run` scripts only.
+
+The S1 kickoff added R16 to R23. The USER did not rule (RULED 2026-10-15);
+the defaults (a) were applied in S2:
+
+- O16 (R16): `hash` is 2-ary over U256 through the kit IR op KECCAK. A
+  list hash is not in the span.
+- O17 (R17): the result of `ecAdd` and `ecMul` is a heap block. A stuck
+  curve value lowers to IR_STMT_PRECOMPILE, `first` and `second` to
+  IR_EXPR_LOAD. The `ecPairing` input is a closed list of pairs.
+- O18 (R18): a STATICCALL that returns 0 reverts. An empty `ecrecover`
+  return reads as address 0, because the output word is stored 0 first.
+- O19 (R19): `natMul`, `u256Mul`, `u256Div` and `u256Min` are pruned
+  (the section 4 delta).
+- O20 (R20): `addrToU256 : Addr -> U256` is the one conversion from
+  `Addr`.
+- O21 (R21): the sample domain is out. S4 fills `domain.lang` with the
+  circle.
+- O22 (R22): `formers/tcc-evm-contract.md` is rewritten.
+- O23 (R23): ENTRY_PARAMS_MAX is 32 (`src/front/check.h`).
