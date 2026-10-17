@@ -47,3 +47,21 @@ def medianOdd : Option Nat := medianAt 1 (bagCons Nat 9 (bagCons Nat 3 (bagCons 
 def medianEven : Option Nat := medianAt 1 (bagCons Nat 8 (bagCons Nat 2 (bagCons Nat 6 (bagCons Nat 4 (bagNil Nat)))))
 def medianMissing : Option Nat := medianAt 1 (bagCons Nat 7 (bagCons Nat 4 (bagNil Nat)))
 def medianTooFew : Option Nat := medianAt 2 (bagCons Nat 3 (bagCons Nat 6 (bagNil Nat)))
+-- The word that a timestamper signs (S6 4.4, R55 (a)): hash cm (toU256 t),
+-- the pair (cm, t) of Algorithm 2. The signature is made outside the
+-- language.
+def signComWord : (cm : U256) -> (t : Nat) -> U256 :=
+  fun (cm : U256) (t : Nat) => hash cm (toU256 t)
+-- flagYes when (v, r, s) is a signature of the timestamper ts over the word
+-- w (the signedBy shape of deposit.lang). An invalid signature recovers the
+-- address 0, thus the address 0 never signs. ecrecover does not step in
+-- eval (O5), thus no eval row runs stampBy, and processBid takes the stamp
+-- check as a parameter (R56 (a)).
+def stampBy : (w : U256) -> (v : Nat) -> (r s : U256) -> (ts : Addr) -> Flag :=
+  fun (w : U256) (v : Nat) (r s : U256) (ts : Addr) =>
+    flagIf (u256Eq (addrToU256 ts) 0u) flagNo (addrEq (ecrecover w v r s) ts)
+-- The eval rows: the same two values in the two orders. A signComWord that
+-- hashes toU256 t before cm gives the value of the other row, thus it fails
+-- the two rows.
+def signComA : U256 := signComWord 12u 7
+def signComB : U256 := signComWord 7u 12
