@@ -870,9 +870,13 @@ static const Value *stuck_fold(Machine *m, uint32_t family, const Value *const *
 
 static const Value *fold_path(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x, const Value *p);
 static const Value *fold_hcomp(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x);
+static const Value *fold_path_field(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x, uint32_t field);
+static const Value *fold_square(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x, const Value *s);
+static const Value *kan_closure4(Machine *m, ValKind kind, ClosTag tag, uint32_t field, uint32_t argc, const Value *x, const Value *y, const Value *z, const Value *w);
 
 /* fold case... x over a domain family: the case of the constructor of X,
-   applied to its fields. A recursive field arrives folded. CASES holds
+   applied to its fields. A recursive field and a path field (S4 item 14)
+   arrive folded. CASES holds
    NCASES cases, then the result type RES. A formal hcomp goes to
    fold_hcomp. */
 static const Value *fold_family(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x) {
@@ -899,17 +903,19 @@ static const Value *fold_family(Machine *m, uint32_t family, const Value *const 
   ctor = &m->ctors[x->inst];
   if (x->inst < fam->first_ctor || x->inst - fam->first_ctor >= ncases || x->argc != fam->param_count + ctor->field_count + ctor->interval_count)
     return internal(m, "a fold of a constructor of another family");
-  if (ctor->interval_count > 1u)
-    return internal(m, "a fold of a constructor with 2 interval fields (S4c)");
+  if (ctor->interval_count > 2u)
+    return internal(m, "a fold of a constructor with more than 2 interval fields");
   if (!enter(m))
     return NULL;
   acc = cases[x->inst - fam->first_ctor];
   for (i = 0; i < ctor->field_count && acc != NULL; i++) {
     field = x->args[fam->param_count + i];
-    acc = apply_value(m, acc, ctor->fields[i].recursive ? fold_family(m, family, cases, ncases, field) : field);
+    acc = apply_value(m, acc, ctor->fields[i].recursive ? fold_family(m, family, cases, ncases, field) : ctor->fields[i].path ? fold_path_field(m, family, cases, ncases, x, i) : field);
   }
   if (ctor->interval_count == 1u && acc != NULL)
     acc = fold_path(m, family, cases, ncases, x, acc);
+  if (ctor->interval_count == 2u && acc != NULL)
+    acc = fold_square(m, family, cases, ncases, x, acc);
   m->depth--;
   return acc;
 }
@@ -932,6 +938,40 @@ static const Value *fold_path(Machine *m, uint32_t family, const Value *const *c
     ends[side] = fold_family(m, family, cases, ncases, val_ctor(m, x->inst, a, x->argc));
   }
   return path_apply(m, p, x->args[x->argc - 1u], ends[0], ends[1]);
+}
+
+/* The constructor value X with its 2 interval fields set to R1 and R2. At
+   an end it reduces to its boundary. */
+static const Value *ctor_at2(Machine *m, const Value *x, const Value *r1, const Value *r2) {
+  const Value **a = arena_alloc(m->arena, (size_t)x->argc * sizeof *a);
+  uint32_t i;
+  if (a == NULL || r1 == NULL || r2 == NULL)
+    return a == NULL ? oom(m) : NULL;
+  for (i = 0; i + 2u < x->argc; i++)
+    a[i] = x->args[i];
+  a[x->argc - 2u] = r1;
+  a[x->argc - 1u] = r2;
+  return val_ctor(m, x->inst, a, x->argc);
+}
+
+/* (case args') @ r1 @ r2 for the constructor value X with 2 interval
+   fields (S4 item 15). S is the case at the folded fields, a square. For
+   a neutral S, the outer ends are the folds of X at i0 and i1 in the
+   first interval field, as paths in the second (CLOS_FOLD_FACE); the
+   inner ends are the folds of X at r1 and i0, i1. */
+static const Value *fold_square(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x, const Value *s) {
+  const Value *stuck = stuck_fold(m, family, cases, ncases, x);
+  const Value *r1 = x->args[x->argc - 2u];
+  const Value *outer[2];
+  const Value *inner[2];
+  int side;
+  for (side = 0; side < 2; side++) {
+    outer[side] = kan_closure4(m, VAL_PLAM, CLOS_FOLD_FACE, family, 3u, x, val_iend(m, side), stuck, NULL);
+    inner[side] = fold_family(m, family, cases, ncases, ctor_at2(m, x, r1, val_iend(m, side)));
+    if (outer[side] == NULL || inner[side] == NULL)
+      return NULL;
+  }
+  return path_apply(m, path_apply(m, s, r1, outer[0], outer[1]), x->args[x->argc - 1u], inner[0], inner[1]);
 }
 
 /* 1 when the step result R ends the list. *TAIL is then the end. */
@@ -1423,21 +1463,57 @@ static const Value *sigma_up(Machine *m, const Value *line, const Value *phi, co
 }
 
 /* The type of the point field FIELD of the constructor INST at the
-   parameters of the family value T (S4 item 11). The field type is over
-   the parameters: the last one is index 0. */
-static const Value *field_type_at(Machine *m, uint32_t inst, uint32_t field, const Value *t) {
+   parameters of the family value T and the values EARLIER of the fields
+   before it (S4 items 11 and 13). The field type is over the parameters
+   and the earlier fields: the field before it is index 0. */
+static const Value *field_type_at(Machine *m, uint32_t inst, uint32_t field, const Value *t, const Value *const *earlier) {
   const Env *env = NULL;
   uint32_t i;
   if (t == NULL)
     return NULL;
   if (!val_is(t, OP_FAMILY) || inst >= m->ctor_count || t->inst != m->ctors[inst].family || field >= m->ctors[inst].field_count)
     return internal(m, "a line that changes its type former");
-  for (i = 0; i < t->argc; i++) {
-    env = env_push(m, env, t->args[i]);
+  for (i = 0; i < t->argc + field; i++) {
+    env = env_push(m, env, i < t->argc ? t->args[i] : earlier[i - t->argc]);
     if (env == NULL)
       return NULL;
   }
   return eval_core(m, env, m->ctors[inst].fields[field].type);
+}
+
+/* The line of the point field FIELD of the constructor value V under
+   transp L phi: L itself for a recursive field. */
+static const Value *field_line(Machine *m, const Value *line, const Value *phi, const Value *v, uint32_t field) {
+  return m->ctors[v->inst].fields[field].recursive ? line : kan_closure(m, VAL_PLAM, CLOS_FAMILY_FIELD, field, 3, line, v, phi);
+}
+
+/* The type at R of the point field FIELD of the constructor value V under
+   transp L phi (S4 item 13): the field type at the parameters of L(r) and
+   at the fills at R of the earlier fields. The fill of field k is
+   transp (fun j => line_k (r /\ j)) (phi \/ ~r) (field k of V), as
+   transp_sigma moves the first part. A field type that uses no earlier
+   field gets the fields of V, which it does not read. */
+static const Value *family_field_at(Machine *m, const Value *line, const Value *phi, const Value *v, uint32_t field, const Value *r) {
+  const Value *t = line_former(m, line_at(m, line, r), VAL_OP);
+  const Value **fills;
+  uint32_t p;
+  uint32_t k;
+  if (t == NULL)
+    return NULL;
+  if (!val_is(t, OP_FAMILY) || v->inst >= m->ctor_count || field >= m->ctors[v->inst].field_count || v->argc < t->argc + field)
+    return internal(m, "a line that changes its type former");
+  p = t->argc;
+  if (!m->ctors[v->inst].fields[field].dependent)
+    return field_type_at(m, v->inst, field, t, v->args + p);
+  fills = arena_alloc(m->arena, ((size_t)field + 1u) * sizeof *fills);
+  if (fills == NULL)
+    return oom(m);
+  for (k = 0; k < field; k++) {
+    fills[k] = transp(m, kan_closure(m, VAL_PLAM, CLOS_LINE_MEET, 0, 2, field_line(m, line, phi, v, k), r, NULL), ival_join(m, phi, ival_neg(m, r)), v->args[p + k]);
+    if (fills[k] == NULL)
+      return NULL;
+  }
+  return field_type_at(m, v->inst, field, t, fills);
 }
 
 static const Value *kan_apply(Machine *m, const Value *k, const Value *r) {
@@ -1503,9 +1579,19 @@ static const Value *kan_apply(Machine *m, const Value *k, const Value *r) {
       return internal(m, "a fold branch without its cases");
     return fold_family(m, k->field, a[1]->args, a[1]->argc - 2u, closure_apply(m, a[0], r));
   case CLOS_FAMILY_FIELD:
-    return field_type_at(m, a[1]->inst, k->field, line_former(m, line_at(m, a[0], r), VAL_OP));
+    return family_field_at(m, a[0], a[2], a[1], k->field, r);
   case CLOS_SYS_TRANSP:
     return transp(m, a[1], a[2], closure_apply(m, a[0], r));
+  case CLOS_LINE_MEET:
+    return line_at(m, a[0], ival_meet(m, a[1], r));
+  case CLOS_FOLD_PATH:
+    if (a[3]->argc < 2u)
+      return internal(m, "a folded path field without its cases");
+    return fold_family(m, k->field, a[3]->args, a[3]->argc - 2u, path_apply(m, a[0], r, a[1], a[2]));
+  case CLOS_FOLD_FACE:
+    if (a[2]->argc < 2u)
+      return internal(m, "a folded face without its cases");
+    return fold_family(m, k->field, a[2]->args, a[2]->argc - 2u, ctor_at2(m, a[0], a[1], r));
   case CLOS_CORE:
     break;
   }
@@ -1605,7 +1691,7 @@ static const Value *transp_family(Machine *m, const Value *line, const Value *ph
   for (i = 0; i < end->argc; i++)
     args[i] = end->args[i];
   for (i = end->argc; i < q; i++) {
-    args[i] = transp(m, ctor->fields[i - end->argc].recursive ? line : kan_closure(m, VAL_PLAM, CLOS_FAMILY_FIELD, i - end->argc, 2, line, base, NULL), phi, base->args[i]);
+    args[i] = transp(m, field_line(m, line, phi, base, i - end->argc), phi, base->args[i]);
     if (args[i] == NULL)
       return NULL;
   }
@@ -1869,6 +1955,15 @@ static const Value *hcomp_formal(Machine *m, const Value *ty, const Value *phi, 
   args[2] = sys;
   args[3] = base;
   return val_op(m, VAL_OP, OP_HCOMP, 0, 0, args, 4);
+}
+
+/* fun (k : I) => fold (p @ k) for the path field FIELD of the constructor
+   value X (S4 item 14). The ends of p are the fields ENDS of X. The
+   closure reads the cases from a stuck fold of X. */
+static const Value *fold_path_field(Machine *m, uint32_t family, const Value *const *cases, uint32_t ncases, const Value *x, uint32_t field) {
+  const FieldInfo *f = &m->ctors[x->inst].fields[field];
+  uint32_t p = m->families[family].param_count;
+  return kan_closure4(m, VAL_PLAM, CLOS_FOLD_PATH, family, 4u, x->args[p + field], x->args[p + f->ends[0]], x->args[p + f->ends[1]], stuck_fold(m, family, cases, ncases, x));
 }
 
 /* fold (hcomp F phi u u0) = hcomp RES phi (fun i => [ k -> fold (u i) ])

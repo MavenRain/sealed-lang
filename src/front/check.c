@@ -37,6 +37,12 @@ typedef struct {
   uint32_t eta_count;
   uint32_t self;      /* the family whose fields are checked, or NO_FAMILY */
   uint32_t self_uses; /* the uses of that family in the current field */
+  /* The levels of the earlier point fields of the current field, from
+     FIELD_BASE up to FIELD_TOP (S4 item 13), and the uses of them. */
+  uint32_t field_base;
+  uint32_t field_top;
+  int field_dep;
+  int field_rec;
 } Checker;
 
 typedef enum {
@@ -860,23 +866,49 @@ static const Core *fold_simple(Call *k, const Core *s, const Value *st) {
   return op3(c, list ? OP_FOLD_LIST : OP_FOLD_NAT, 0, 3, f, z, s);
 }
 
-/* The type of the fold case of CTOR: one argument for each field (a
-   recursive field arrives folded, so its type is RES), then RES. */
-static const Value *case_type(Checker *c, const CtorInfo *ctor, const Env *env, const Value *res) {
-  const Value *t = res;
-  uint32_t i = ctor->field_count;
-  while (i > 0u && t != NULL) {
-    const FieldInfo *field = &ctor->fields[--i];
-    t = val_arrow(c->m, field->recursive ? res : eval_core(c->m, env, field->type), t);
+/* The Pi telescope of the fold case of CTOR around BODY, a core at the
+   level c->level + field_count: one argument for each field (a recursive
+   field arrives folded, so its type is RES). Field k is the variable at
+   level c->level + k, its type at the parameters ENV and the earlier
+   fields (S4 item 13). A path field `Path F x y` arrives folded, so its
+   type is `Path RES x' y'` (S4 item 14). */
+static const Core *case_fields(Checker *c, const CtorInfo *ctor, const Env *env, const Value *res, const Core *body) {
+  Machine *m = c->m;
+  uint32_t n = ctor->field_count;
+  const Core **types = arena_alloc(m->arena, ((size_t)n + 1u) * sizeof *types);
+  const Core *t = body;
+  uint32_t i;
+  if (body == NULL)
+    return NULL;
+  if (types == NULL)
+    return nul(FAIL(c, "OOM", "out of memory"));
+  for (i = 0; i < n; i++) {
+    const FieldInfo *field = &ctor->fields[i];
+    uint32_t at = c->level + i;
+    if (field->over_recursive && !field->path)
+      return nul(FAIL(c, "HIT_BOUNDARY", "the fold of %s has no case type for the field %s: a field over an earlier recursive field must be Path F x y, with x and y earlier recursive fields", ctor->name, field->name));
+    types[i] = field->path ? core_ends(c, CORE_PATHP, "_", NULL, quote_value(m, at + 1u, res), quote_value(m, at, val_var(m, c->level + field->ends[0])), quote_value(m, at, val_var(m, c->level + field->ends[1]))) : quote_value(m, at, field->recursive ? res : eval_core(m, env, field->type));
+    env = env_push(m, env, val_var(m, c->level + i));
+    if (types[i] == NULL || env == NULL)
+      return NULL;
   }
+  for (i = n; i > 0u && t != NULL; i--)
+    t = core_bind(c, CORE_PI, ctor->fields[i - 1u].name, types[i - 1u], t);
   return t;
+}
+
+/* The type of the fold case of CTOR: the fields, then RES. */
+static const Value *case_type(Checker *c, const CtorInfo *ctor, const Env *env, const Value *res) {
+  return here(c, case_fields(c, ctor, env, res, quote_value(c->m, c->level + ctor->field_count, res)));
 }
 
 /* The fold image of V, a boundary value of a path constructor of FAM at the
    field variables (S4 R4 (a)). A field variable (a level from c->level up)
    is its folded variable; a point constructor is its case, one of the DONE
-   cases in CORES, at the images of its fields. */
-static const Value *fold_image(Checker *c, uint32_t fam, const Core *const *cores, uint32_t done, const Value *v) {
+   cases in CORES, at the images of its fields. Path fields are mapped
+   under a fresh interval binder. ENV and LEVEL include the boundary
+   fields and surrounding interval binders to preserve captures. */
+static const Value *fold_image(Checker *c, uint32_t fam, const Core *const *cores, uint32_t done, const Value *v, const Env *env, uint32_t level) {
   Machine *m = c->m;
   const FamilyInfo *f = &m->families[fam];
   const CtorInfo *ci;
@@ -886,48 +918,109 @@ static const Value *fold_image(Checker *c, uint32_t fam, const Core *const *core
     return NULL;
   if (v->kind == VAL_VAR && v->nat >= c->level)
     return v;
+  /* p @ r for a path field p (dimension 2, S4 item 15): the folded p has
+     the same level, and its ends are earlier recursive fields. */
+  if (v->kind == VAL_PAPP && v->dom != NULL && v->dom->kind == VAL_VAR && v->dom->nat >= c->level)
+    return v;
   if (!val_is(v, OP_CTOR) || v->inst < f->first_ctor || v->inst - f->first_ctor >= done || m->ctors[v->inst].interval_count != 0u)
-    return vnul(FAIL(c, "HIT_BOUNDARY", "the fold cannot map the boundary term %s: a boundary term must be a field or an earlier point constructor (path fields come in S4c)", show(c, v)));
+    return vnul(FAIL(c, "HIT_BOUNDARY", "the fold cannot map the boundary term %s: a boundary term must be a field, a path field at an interval, or an earlier point constructor", show(c, v)));
   ci = &m->ctors[v->inst];
   acc = here(c, cores[v->inst - f->first_ctor]);
-  for (i = 0; i < ci->field_count && acc != NULL; i++)
-    acc = apply_value(m, acc, ci->fields[i].recursive ? fold_image(c, fam, cores, done, v->args[f->param_count + i]) : v->args[f->param_count + i]);
+  for (i = 0; i < ci->field_count && acc != NULL; i++) {
+    const FieldInfo *field = &ci->fields[i];
+    const Value *arg = v->args[f->param_count + i];
+    if (field->recursive)
+      arg = fold_image(c, fam, cores, done, arg, env, level);
+    else if (field->path) {
+      const Value *r = val_ivar(m, level);
+      const Env *inner = env_push(m, env, r);
+      const Value *at = inner == NULL ? NULL : path_apply(m, arg, r, v->args[f->param_count + field->ends[0]], v->args[f->param_count + field->ends[1]]);
+      const Value *image = at == NULL ? NULL : fold_image(c, fam, cores, done, at, inner, level + 1u);
+      arg = image == NULL ? NULL : val_closure(m, VAL_PLAM, "_", NULL, env, quote_value(m, level + 1u, image));
+    }
+    acc = arg == NULL ? NULL : apply_value(m, acc, arg);
+  }
   return acc;
 }
 
-/* The type of the fold case of the path constructor INST (dimension 1):
-   (folded fields) -> PathP (fun (_ : I) => RES) B0 B1, with B0 and B1 the
-   fold images of the boundary at i0 and i1. Field k is the variable at
-   level c->level + k: the field in the boundary, its folded value in the
-   image. */
+/* The fold image of the constructor INST at the parameters of ST, the
+   field variables (field k at level c->level + k) and the interval values
+   R0 (and R1 at dimension 2). At an end it is the image of the boundary. */
+static const Value *case_image(Checker *c, uint32_t inst, const Value *st, const Core *const *cores, uint32_t done, const Value *r0, const Value *r1, uint32_t level) {
+  Machine *m = c->m;
+  const CtorInfo *ctor = &m->ctors[inst];
+  uint32_t p = st->argc;
+  uint32_t n = ctor->field_count;
+  uint32_t d = ctor->interval_count;
+  const Value **a = arena_alloc(m->arena, ((size_t)p + n + d) * sizeof *a);
+  const Env *env = c->env;
+  uint32_t i;
+  if (a == NULL)
+    return vnul(FAIL(c, "OOM", "out of memory"));
+  for (i = 0; i < p; i++)
+    a[i] = st->args[i];
+  for (i = 0; i < n; i++) {
+    a[p + i] = val_var(m, c->level + i);
+    env = env_push(m, env, a[p + i]);
+    if (env == NULL)
+      return NULL;
+  }
+  for (i = c->level + n; i < level; i++) {
+    env = env_push(m, env, val_ivar(m, i));
+    if (env == NULL)
+      return NULL;
+  }
+  a[p + n] = r0;
+  if (d == 2u)
+    a[p + n + 1u] = r1;
+  return fold_image(c, ctor->family, cores, done, val_ctor(m, inst, a, p + n + d), env, level);
+}
+
+/* The square type of the fold case of INST at dimension 2 (S4 item 15), a
+   core at L = c->level + field_count:
+   PathP (fun (i : I) => PathP (fun (_ : I) => RES) X(i) Y(i)) P Q,
+   with X(i) and Y(i) the images at (i, i0) and (i, i1), and P and Q the
+   paths fun (j : I) => the image at (i0, j) and (i1, j). For squash0 it is
+   Path (Path RES x' y') p' q' (with path eta, R11), so the case type is
+   isSet RES (R8 (a)). */
+static const Core *square_type(Checker *c, uint32_t inst, const Value *st, const Value *res, const Core *const *cores, uint32_t done) {
+  Machine *m = c->m;
+  uint32_t l = c->level + m->ctors[inst].field_count;
+  const Value *i = val_ivar(m, l);
+  const Core *x = quote_value(m, l + 1u, case_image(c, inst, st, cores, done, i, val_iend(m, 0), l + 1u));
+  const Core *y = x == NULL ? NULL : quote_value(m, l + 1u, case_image(c, inst, st, cores, done, i, val_iend(m, 1), l + 1u));
+  const Core *inner = y == NULL ? NULL : core_ends(c, CORE_PATHP, "_", NULL, quote_value(m, l + 2u, res), x, y);
+  const Core *ends[2];
+  int side;
+  for (side = 0; side < 2; side++) {
+    ends[side] = inner == NULL ? NULL : core_bind(c, CORE_PLAM, "_", NULL, quote_value(m, l + 1u, case_image(c, inst, st, cores, done, val_iend(m, side), i, l + 1u)));
+    if (ends[side] == NULL)
+      return NULL;
+  }
+  return core_ends(c, CORE_PATHP, "_", NULL, inner, ends[0], ends[1]);
+}
+
+/* The type of the fold case of the path constructor INST: (folded fields)
+   -> PathP (fun (_ : I) => RES) B0 B1 at dimension 1, with B0 and B1 the
+   fold images of the boundary at i0 and i1, or the square type at
+   dimension 2. Field k is the variable at level c->level + k: the field in
+   the boundary, its folded value in the image. */
 static const Value *path_case_type(Checker *c, uint32_t inst, const Value *st, const Value *res, const Core *const *cores, uint32_t done) {
   Machine *m = c->m;
   const CtorInfo *ctor = &m->ctors[inst];
   const Env *env = env_of(c, st->args, st->argc);
-  uint32_t p = st->argc;
-  uint32_t n = ctor->field_count;
+  uint32_t l = c->level + ctor->field_count;
   const Core *ends[2];
   const Core *t;
-  const Value **a;
-  uint32_t i;
   int side;
-  if (ctor->interval_count != 1u)
-    return vnul(FAIL(c, "HIT_BOUNDARY", "a fold of %s, a constructor with %u interval fields, comes in S4c: S4a folds dimension 1 only", ctor->name, (unsigned)ctor->interval_count));
-  for (side = 0; side < 2; side++) {
-    a = arena_alloc(m->arena, ((size_t)p + n + 1u) * sizeof *a);
-    if (a == NULL)
-      return vnul(FAIL(c, "OOM", "out of memory"));
-    for (i = 0; i < p; i++)
-      a[i] = st->args[i];
-    for (i = 0; i < n; i++)
-      a[p + i] = val_var(m, c->level + i);
-    a[p + n] = val_iend(m, side);
-    ends[side] = quote_value(m, c->level + n, fold_image(c, ctor->family, cores, done, val_ctor(m, inst, a, p + n + 1u)));
-  }
-  t = ends[0] == NULL || ends[1] == NULL ? NULL : core_ends(c, CORE_PATHP, "_", NULL, quote_value(m, c->level + n + 1u, res), ends[0], ends[1]);
-  for (i = n; i > 0u && t != NULL; i--)
-    t = core_bind(c, CORE_PI, ctor->fields[i - 1u].name, quote_value(m, c->level + i - 1u, ctor->fields[i - 1u].recursive ? res : eval_core(m, env, ctor->fields[i - 1u].type)), t);
-  return here(c, t);
+  if (ctor->interval_count != 1u && ctor->interval_count != 2u)
+    return vnul(FAIL(c, "HIT_BOUNDARY", "a fold of %s, a constructor with %u interval fields, is not in S4: S4 folds dimensions 1 and 2", ctor->name, (unsigned)ctor->interval_count));
+  if (ctor->interval_count == 2u)
+    return here(c, case_fields(c, ctor, env, res, square_type(c, inst, st, res, cores, done)));
+  for (side = 0; side < 2; side++)
+    ends[side] = quote_value(m, l, case_image(c, inst, st, cores, done, val_iend(m, side), NULL, l));
+  t = ends[0] == NULL || ends[1] == NULL ? NULL : core_ends(c, CORE_PATHP, "_", NULL, quote_value(m, l + 1u, res), ends[0], ends[1]);
+  return here(c, case_fields(c, ctor, env, res, t));
 }
 
 /* fold case... x over a domain family: one case for each constructor. */
@@ -1667,9 +1760,13 @@ static const Core *ctor_app(Call *k, uint32_t ctor) {
   if (!check_params(c, f, k->args, cores, vals))
     return NULL;
   env = env_of(c, vals, p);
+  /* Field j is checked at the parameters and the earlier field values. */
   for (j = 0; j < ci->field_count; j++) {
+    const Value *fv;
     cores[p + j] = check(c, k->args[p + j], eval_core(c->m, env, ci->fields[j].type));
-    if (cores[p + j] == NULL)
+    fv = here(c, cores[p + j]);
+    env = fv == NULL ? NULL : env_push(c->m, env, fv);
+    if (env == NULL)
       return NULL;
   }
   for (j = q; j < n; j++) {
@@ -1687,11 +1784,22 @@ static const Core *proj_app(Call *k, uint32_t ctor, uint32_t field) {
   const CtorInfo *ci = &c->m->ctors[ctor];
   const Value *xt = NULL;
   const Core *x = infer(c, k->args[0], &xt);
+  const Env *env;
+  uint32_t i;
   if (x == NULL)
     return NULL;
   if (!val_is(xt, OP_FAMILY) || xt->inst != ci->family)
     return nul(FAIL(c, "TYPE_MISMATCH", "%s needs a value of the family %s, found a term of type %s", ci->fields[field].name, c->m->families[ci->family].name, show(c, xt)));
-  k->type = eval_core(c->m, env_of(c, xt->args, xt->argc), ci->fields[field].type);
+  /* The field type at the parameters and the projections of the earlier
+     fields of X (S4 item 13), as the second part of a Sigma. */
+  env = env_of(c, xt->args, xt->argc);
+  for (i = 0; i < field; i++) {
+    const Value *fv = here(c, core_op(c, OP_PROJ, ctor, i, &x, 1));
+    env = fv == NULL ? NULL : env_push(c->m, env, fv);
+    if (env == NULL)
+      return NULL;
+  }
+  k->type = eval_core(c->m, env, ci->fields[field].type);
   return core_op(c, OP_PROJ, ctor, field, &x, 1);
 }
 
@@ -1846,6 +1954,10 @@ static const Core *var_core(Checker *c, const char *name, const Value **type) {
   uint32_t d = find_def(c->m, name);
   if (s != NULL) {
     *type = s->type;
+    if (s->level >= c->field_base && s->level < c->field_top) {
+      c->field_dep = 1;
+      c->field_rec |= val_is(s->type, OP_FAMILY) && s->type->inst == c->self;
+    }
     return core_index(c, CORE_VAR, c->level - 1u - s->level);
   }
   if (d != NO_DEF) {
@@ -2100,38 +2212,64 @@ static int name_free(Checker *c, const char *name) {
 }
 
 /* T is the family FAM at its own parameter variables `F p1 .. pn`, in
-   the context of the parameters (S4 item 9). */
-static int own_family(const Machine *m, uint32_t fam, const Core *t) {
+   the context of the parameters and SHIFT earlier fields (S4 items 9
+   and 13). */
+static int own_family(const Machine *m, uint32_t fam, const Core *t, uint32_t shift) {
   uint32_t p = m->families[fam].param_count;
   uint32_t k;
   if (t->kind != CORE_OP || t->op != OP_FAMILY || t->inst != fam || t->argc != p)
     return 0;
   for (k = 0; k < p; k++)
-    if (t->args[k]->kind != CORE_VAR || t->args[k]->index != p - 1u - k)
+    if (t->args[k]->kind != CORE_VAR || t->args[k]->index != p - 1u - k + shift)
       return 0;
   return 1;
 }
 
 /* A recursive field must be the whole field type, the family at its own
-   parameters. */
-static int check_field(Checker *c, uint32_t fam, const Field *field, FieldInfo *out) {
+   parameters. The EARLIER point fields are locals (S4 item 13). */
+static int check_field(Checker *c, uint32_t fam, const Field *field, FieldInfo *out, uint32_t earlier) {
   uint64_t level = 0;
   const Core *t;
   if (!name_free(c, field->name))
     return 0;
   c->self_uses = 0;
+  c->field_base = c->level - earlier;
+  c->field_top = c->level;
+  c->field_dep = 0;
+  c->field_rec = 0;
   t = check_type(c, field->type, &level);
+  c->field_top = c->field_base;
   if (t == NULL)
     return 0;
   if (level > c->m->families[fam].universe)
     c->m->families[fam].universe = level;
   out->name = field->name;
   out->type = t;
-  out->recursive = c->self_uses > 0u;
+  /* A path type over earlier recursive fields names the family, but it is
+     a path field, not a recursive field (S4 item 14). */
+  out->recursive = c->self_uses > 0u && !(t->kind == CORE_PATHP && c->field_rec);
+  out->dependent = c->field_dep;
+  out->over_recursive = c->field_rec;
   out->history = field->history;
-  if (out->recursive && !own_family(c->m, fam, t))
+  if (out->recursive && !own_family(c->m, fam, t, earlier))
     return FAIL(c, "DOMAIN_FAMILY", "the recursive field %s must have the type %s at its own parameters", field->name, c->m->families[fam].name);
   return 1;
+}
+
+/* The field EARLIER of FIELDS is a path field when it uses an earlier
+   recursive field and its type is `Path F x y`: F the family at its own
+   parameters, x and y earlier recursive fields (S4 item 14). An other
+   field over a recursive field has no fold case type. */
+static void path_field(const Machine *m, uint32_t fam, FieldInfo *fields, uint32_t earlier) {
+  FieldInfo *f = &fields[earlier];
+  const Core *t = f->type;
+  int side;
+  f->path = f->over_recursive && t->kind == CORE_PATHP && own_family(m, fam, t->b, earlier + 1u);
+  for (side = 0; side < 2; side++) {
+    const Core *e = f->path ? t->args[side] : NULL;
+    f->path = f->path && e != NULL && e->kind == CORE_VAR && e->index < earlier && fields[earlier - 1u - e->index].recursive;
+    f->ends[side] = f->path ? earlier - 1u - e->index : 0u;
+  }
 }
 
 /* A term that the checker makes, at the place of CTOR. */
@@ -2166,7 +2304,6 @@ static const Core *boundary_core(Checker *c, uint32_t fam, const Ctor *ctor, con
   Machine *m = c->m;
   uint32_t p = m->families[fam].param_count;
   const Value **params = arena_alloc(m->arena, ((size_t)p + 1u) * sizeof *params);
-  const Value **types = arena_alloc(m->arena, (points + 1u) * sizeof *types);
   Term *tube = arena_alloc(m->arena, sizeof *tube);
   const Term *cover = NULL;
   const Core *phi;
@@ -2175,14 +2312,13 @@ static const Core *boundary_core(Checker *c, uint32_t fam, const Ctor *ctor, con
   uint32_t n = 0;
   uint32_t i;
   size_t j;
-  if (params == NULL || types == NULL || tube == NULL)
+  if (params == NULL || tube == NULL)
     return nul(FAIL(c, "OOM", "out of memory"));
   for (i = 0; i < p; i++)
     params[i] = val_var(m, c->level - p + i);
+  /* Field j is over the earlier fields: evaluate it after they are pushed. */
   for (j = 0; j < points; j++)
-    types[j] = here(c, fields[j].type);
-  for (j = 0; j < points; j++)
-    if (!push(c, fields[j].name, types[j]))
+    if (!push(c, fields[j].name, here(c, fields[j].type)))
       return NULL;
   for (j = points; j < ctor->field_count; j++) {
     cover = cover_term(c, ctor, cover, ctor->fields[j].name);
@@ -2237,6 +2373,9 @@ static int check_ctor(Checker *c, uint32_t fam, const Ctor *ctor) {
   Machine *m = c->m;
   FieldInfo *fields = arena_alloc(m->arena, (ctor->field_count + 1u) * sizeof *fields);
   CtorInfo *ci = &m->ctors[m->ctor_count];
+  const Scope *scope = c->scope;
+  const Env *env = c->env;
+  uint32_t level = c->level;
   const Core *boundary = NULL;
   size_t points = 0;
   size_t j;
@@ -2255,10 +2394,18 @@ static int check_ctor(Checker *c, uint32_t fam, const Ctor *ctor) {
       return FAIL(c, "HIT_BOUNDARY", "the point field %s of %s must come before the interval fields", ctor->fields[j].name, ctor->name);
     if (interval && !name_free(c, ctor->fields[j].name))
       return 0;
-    if (!interval && !check_field(c, fam, &ctor->fields[j], &fields[j]))
+    if (!interval && !check_field(c, fam, &ctor->fields[j], &fields[j], (uint32_t)points))
+      return 0;
+    if (!interval)
+      path_field(m, fam, fields, (uint32_t)points);
+    /* A later field type can use this field (S4 item 13). */
+    if (!interval && !push(c, fields[j].name, here(c, fields[j].type)))
       return 0;
     points += !interval;
   }
+  c->scope = scope;
+  c->env = env;
+  c->level = level;
   if (ctor->field_count - points > 2u)
     return FAIL(c, "HIT_BOUNDARY", "%s has %u interval fields; a path constructor has 1 or 2", ctor->name, (unsigned)(ctor->field_count - points));
   if (points < ctor->field_count && ctor->boundary == NULL)
@@ -2313,6 +2460,11 @@ static int check_event(Checker *c, uint32_t fam, const Decl *d) {
     fields[j].name = ctor->fields[j].name;
     fields[j].type = t;
     fields[j].recursive = 0;
+    fields[j].dependent = 0;
+    fields[j].over_recursive = 0;
+    fields[j].path = 0;
+    fields[j].ends[0] = 0u;
+    fields[j].ends[1] = 0u;
     fields[j].history = 0;
   }
   ci->name = d->name;
@@ -2353,7 +2505,7 @@ static int check_family(Checker *c, const Decl *d) {
   for (i = 0; i < d->param_count; i++) {
     uint64_t level = 0;
     params[i] = check_type(c, d->params[i].type, &level);
-    if (!push(c, d->params[i].name, here(c, params[i])))
+    if (params[i] == NULL || !push(c, d->params[i].name, here(c, params[i])))
       return 0;
   }
   f->name = d->name;
@@ -2539,7 +2691,9 @@ static int first_order(const Value *t) {
    constructor and first-order fields. A history field is a Nat or a U256. */
 static int check_state(Checker *c, const Decl *d) {
   Machine *m = c->m;
-  const CtorInfo *ci;
+  CtorInfo *ci;
+  FieldInfo *fields;
+  const Env *env = c->env;
   uint32_t j;
   if (m->has_state)
     return FAIL(c, "REFUSE_STATE", "a program can declare one state only");
@@ -2550,15 +2704,27 @@ static int check_state(Checker *c, const Decl *d) {
   if (!name_free(c, d->name) || !check_family(c, d))
     return 0;
   ci = &m->ctors[m->families[m->family_count - 1u].first_ctor];
+  fields = arena_alloc(m->arena, ((size_t)ci->field_count + 1u) * sizeof *fields);
+  if (fields == NULL)
+    return FAIL(c, "OOM", "out of memory");
   for (j = 0; j < ci->field_count; j++) {
-    const Value *t = here(c, ci->fields[j].type);
+    const Value *t = eval_core(m, env, ci->fields[j].type);
     if (t == NULL)
       return 0;
     if (!first_order(t) && !val_is(t, OP_KMAP))
       return FAIL(c, "REFUSE_STATE", "the state field %s must have a first-order type: Nat, Flag, U256, Addr, Option, Prod or List of them, or a Map K V", ci->fields[j].name);
     if (ci->fields[j].history && t->op != OP_NAT && t->op != OP_U256)
       return FAIL(c, "REFUSE_STATE", "the history field %s must have the type Nat or U256", ci->fields[j].name);
+    /* First-order state types are closed after normalization. Keep that
+       form for lowering, which reads them without a field environment. */
+    fields[j] = ci->fields[j];
+    fields[j].type = quote_value(m, c->level, t);
+    fields[j].dependent = 0;
+    env = env_push(m, env, val_var(m, c->level + j));
+    if (fields[j].type == NULL || env == NULL)
+      return 0;
   }
+  ci->fields = fields;
   m->has_state = 1;
   m->state_family = m->family_count - 1u;
   return 1;

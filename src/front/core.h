@@ -189,8 +189,12 @@ typedef enum {
   CLOS_PATHP_END,      /* PLAM: i |-> the end FIELD of L(i); args: L */
   CLOS_SYS_FOLD,       /* PLAM: j |-> fold (b j) with the cases and RES of F; args: b, F (a stuck fold); field: the family */
   /* transp at a family with parameters (S4 item 11). */
-  CLOS_FAMILY_FIELD,   /* PLAM: r |-> the type of the point field FIELD of the constructor of v at the parameters of L(r); args: L, v */
-  CLOS_SYS_TRANSP      /* PLAM: j |-> transp L phi (b j); args: b, L, phi */
+  CLOS_FAMILY_FIELD,   /* PLAM: r |-> the type of the point field FIELD of the constructor of v at the parameters of L(r) and the fills at r of the earlier fields (item 13); args: L, v, phi */
+  CLOS_SYS_TRANSP,     /* PLAM: j |-> transp L phi (b j); args: b, L, phi */
+  CLOS_LINE_MEET,      /* PLAM: j |-> L (i /\ j); args: L, i */
+  /* S4 item 14. */
+  CLOS_FOLD_PATH,      /* PLAM: k |-> fold (p @ k) with the cases and RES of F; args: p, a, b (the ends of p), F (a stuck fold); field: the family */
+  CLOS_FOLD_FACE       /* PLAM: k |-> fold (X at the first interval E, the second k) with the cases and RES of F; args: X, E, F (a stuck fold); field: the family */
 } ClosTag;
 
 typedef struct Value Value;
@@ -226,9 +230,18 @@ struct Value {
 
 typedef struct {
   const char *name;
-  const Core *type; /* in the context of the family parameters */
-  int recursive;    /* the field type is the family itself */
-  int history;      /* a history field of the state (slice K3a) */
+  /* In the context of the family parameters and the earlier point fields
+     (S4 item 13): index 0 is the field before this one. */
+  const Core *type;
+  int recursive;      /* the field type is the family itself */
+  int dependent;      /* the field type uses an earlier point field */
+  int over_recursive; /* the field type uses an earlier recursive field */
+  /* A path field `Path F x y` (S4 item 14): x and y are the earlier
+     recursive fields ENDS[0] and ENDS[1]. The fold gives it the type
+     `Path RES x' y'`. */
+  int path;
+  uint32_t ends[2];
+  int history;        /* a history field of the state (slice K3a) */
 } FieldInfo;
 
 typedef struct {

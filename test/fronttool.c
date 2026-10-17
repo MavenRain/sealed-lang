@@ -18,6 +18,11 @@ static int domain(const char *text, const char *want) {
     && parse_source(&arena, "test-domain", ORIGIN_DOMAIN, &tokens, &decls, &diag)
     && check_program(&arena, &decls, &machine, &diag);
   int passed = want == NULL ? ok : !ok && diag.code != NULL && strcmp(diag.code, want) == 0;
+  if (passed && want == NULL && machine.has_state) {
+    const CtorInfo *ci = &machine.ctors[machine.families[machine.state_family].first_ctor];
+    for (uint32_t i = 0; i < ci->field_count; i++)
+      passed &= eval_core(&machine, NULL, ci->fields[i].type) != NULL;
+  }
   if (!passed) {
     fprintf(stderr, "FAIL domain: wanted %s, got %s: %s\n", want == NULL ? "ok" : want,
             ok ? "ok" : diag.code == NULL ? "no diagnostic" : diag.code, text);
@@ -82,6 +87,11 @@ int main(void) {
   ok &= domain("family U := makeU (decode : Type 0)\ndef good : Type 1 := U", NULL);
   ok &= domain("def bad : Type 0 := Path (Type 0) Nat Nat", "TYPE_MISMATCH");
   ok &= domain("def good : Type 1 := Path (Type 0) Nat Nat", NULL);
+  ok &= domain("def ConstNat : Nat -> Type 0 := fun n => Nat\n"
+               "state State := makeState (count : Nat) (other : ConstNat count)\n"
+               "def init : State := makeState 3 7\n"
+               "def value : Path Nat (other init) 7 := refl", NULL);
+  ok &= domain("state State := makeState (count : Nat) (proof : Path Nat count count)", "REFUSE_STATE");
   ok &= domain("family U := makeU (decode : Type 0)\n"
                "def bad : Type 0 := Path U (makeU Nat) (makeU Nat)", "TYPE_MISMATCH");
   ok &= domain("family U := makeU (decode : Type 0)\n"

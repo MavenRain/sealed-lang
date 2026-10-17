@@ -35,3 +35,15 @@ family S1 := base | loop (i : I) [ ~i -> base, i -> base ]
 -- any two points, so the squash1 fold case has the type isProp RES. A
 -- field name is a core name (rule R4), so the names have a family prefix.
 family Trunc1 (A : Type 0) := trunc1 (truncOf : A) | squash1 (squashFrom : Trunc1 A) (squashTo : Trunc1 A) (i : I) [ ~i -> squashFrom, i -> squashTo ]
+-- The set truncation (S4c, R5 (a)): squash0 is a square between any two
+-- paths with the same ends, so the squash0 fold case has the type isSet
+-- RES (R8 (a)). The case binds the folded ends and the folded paths.
+family Trunc0 (A : Type 0) := trunc0 (trunc0Of : A) | squash0 (squash0From : Trunc0 A) (squash0To : Trunc0 A) (squash0Left : Path (Trunc0 A) squash0From squash0To) (squash0Right : Path (Trunc0 A) squash0From squash0To) (i : I) (j : I) [ ~i -> squash0Left @ j, i -> squash0Right @ j, ~j -> squash0From, j -> squash0To ]
+-- The set quotient (S4c, R5 (a)): quotEq is a path from quot A R a to
+-- quot A R b for each proof r of R a b. The type of the R parameter uses
+-- the A parameter. quotSquash has the squash0 shape at Quot A R, so the
+-- quotSquash fold case has the type isSet RES (R8 (a)).
+family Quot (A : Type 0) (R : A -> A -> Type 0) := quot (quotOf : A)
+  | quotEq (quotA : A) (quotB : A) (quotR : R quotA quotB) (i : I) [ ~i -> quot A R quotA, i -> quot A R quotB ]
+  | quotSquash (quotFrom : Quot A R) (quotTo : Quot A R) (quotLeft : Path (Quot A R) quotFrom quotTo) (quotRight : Path (Quot A R) quotFrom quotTo) (i : I) (j : I)
+    [ ~i -> quotLeft @ j, i -> quotRight @ j, ~j -> quotFrom, j -> quotTo ]
