@@ -65,3 +65,84 @@ def stampBy : (w : U256) -> (v : Nat) -> (r s : U256) -> (ts : Addr) -> Flag :=
 -- the two rows.
 def signComA : U256 := signComWord 12u 7
 def signComB : U256 := signComWord 7u 12
+-- flagYes when a is an element of xs.
+def addrIn : (a : Addr) -> (xs : List Addr) -> Flag :=
+  fun (a : Addr) (xs : List Addr) =>
+    fold (fun (x : Addr) (acc : Flag) => flagIf (addrEq x a) flagYes acc) flagNo xs
+-- flagYes when a handle of pi is an element of slashed.
+def piSlashed : (pi : List U256) -> (slashed : List U256) -> Flag :=
+  fun (pi : List U256) (slashed : List U256) =>
+    fold (fun (h : U256) (acc : Flag) =>
+      flagIf (fold (fun (x : U256) (b : Flag) => flagIf (u256Eq x h) flagYes b) flagNo slashed) flagYes acc)
+      flagNo pi
+-- flagYes when the bid is late: the median of the stamps is none or above
+-- tEnd, or the clock is above the slot time.
+def tooLate : (f : Nat) -> (stamps : Bag Nat) -> (tEnd clock slot : Nat) -> Flag :=
+  fun (f : Nat) (stamps : Bag Nat) (tEnd clock slot : Nat) =>
+    flagIf (natLe clock slot)
+      (option flagYes (fun (m : Nat) => flagIf (natLe m tEnd) flagNo flagYes) (medianAt f stamps))
+      flagYes
+-- flagYes when each stamp word signComWord cm t passes stampOk. The fold
+-- goes over the list sortBag stamps, thus laws 3 and 4 cover it. A fold
+-- of the Bag into Flag needs a fifth law (out of R53 (a)).
+def stampsOk : (stampOk : U256 -> Flag) -> (cm : U256) -> (stamps : Bag Nat) -> Flag :=
+  fun (stampOk : U256 -> Flag) (cm : U256) (stamps : Bag Nat) =>
+    fold (fun (t : Nat) (acc : Flag) => flagIf (stampOk (signComWord cm t)) acc flagNo) flagYes (sortBag stamps)
+-- The bid check of the IL proposer (S6 4.5, Algorithm 3, R56 (a)). zkOk
+-- is the check of the auction proof and gets cm. stampOk is the check of
+-- one stamp word (stampBy with the signature and the timestamper of that
+-- stamp). The two checks do not step in eval (O5), thus they are
+-- parameters and the eval rows give fixtures. The output is inr the new
+-- pool, or inl the code of the first test that fails, in the paper order:
+-- 1 the auction proof fails, 2 a handle of pi is slashed (abort, the slash
+-- call of deposit.lang follows), 3 au is not a depositor, 4 the bid is
+-- late, 5 a stamp word fails stampOk. No test reads aucId: the proposer
+-- keeps one pool for each auction.
+def processBid : (zkOk : U256 -> Flag) -> (stampOk : U256 -> Flag) -> (pool : Bag Bid) ->
+  (deposits : List Addr) -> (slashed : List U256) -> (value cm : U256) -> (au : Addr) ->
+  (aucId : U256) -> (tEnd : Nat) -> (stamps : Bag Nat) -> (pi : List U256) -> (f clock slot : Nat) ->
+  Sum Nat (Bag Bid) :=
+  fun (zkOk : U256 -> Flag) (stampOk : U256 -> Flag) (pool : Bag Bid) (deposits : List Addr)
+      (slashed : List U256) (value cm : U256) (au : Addr) (aucId : U256) (tEnd : Nat)
+      (stamps : Bag Nat) (pi : List U256) (f clock slot : Nat) =>
+    flagIf (zkOk cm)
+      (flagIf (piSlashed pi slashed) (inl 2)
+        (flagIf (addrIn au deposits)
+          (flagIf (tooLate f stamps tEnd clock slot) (inl 4)
+            (flagIf (stampsOk stampOk cm stamps) (inr (bagCons Bid (pair value cm) pool)) (inl 5)))
+          (inl 3)))
+      (inl 1)
+-- The fixtures of the eval rows: the bid (9u, 12u) of the depositor
+-- 0x...a1, the stamps {9, 3, 5} (f = 1, the median is 5), tEnd 6, the
+-- clock 20 and the slot time 24. zkFix accepts the proof of cm 12u only.
+-- stampFix accepts the stamp words of cm 12u only, written with hash (not
+-- signComWord), thus a signComWord over the wrong word fails the accept
+-- row. stampOther accepts the stamp words of cm 13u (the stamps of an
+-- other bid).
+def zkFix : (w : U256) -> Flag := fun (w : U256) => u256Eq w 12u
+def zkOther : (w : U256) -> Flag := fun (w : U256) => u256Eq w 13u
+def stampFix : (w : U256) -> Flag :=
+  fun (w : U256) => flagIf (u256Eq w (hash 12u (toU256 3))) flagYes
+    (flagIf (u256Eq w (hash 12u (toU256 5))) flagYes (u256Eq w (hash 12u (toU256 9))))
+def stampOther : (w : U256) -> Flag :=
+  fun (w : U256) => flagIf (u256Eq w (hash 13u (toU256 3))) flagYes
+    (flagIf (u256Eq w (hash 13u (toU256 5))) flagYes (u256Eq w (hash 13u (toU256 9))))
+def poolFix : Bag Bid := bagCons Bid (pair 5u 1u) (bagNil Bid)
+def depositsFix : List Addr := cons 0x00000000000000000000000000000000000000a1 (cons 0x00000000000000000000000000000000000000a2 nil)
+def slashedFix : List U256 := cons 41u nil
+def stampsFix : Bag Nat := bagCons Nat 9 (bagCons Nat 3 (bagCons Nat 5 (bagNil Nat)))
+-- The eval rows: the accept row, then one row for each code. A reject row
+-- changes one input of the accept row, thus only its own test fails, and a
+-- processBid that skips that test accepts the bid.
+def procAccept : Sum Nat (Bag Bid) := processBid zkFix stampFix poolFix depositsFix slashedFix
+  9u 12u 0x00000000000000000000000000000000000000a1 3u 6 stampsFix (cons 30u (cons 31u nil)) 1 20 24
+def procProof : Sum Nat (Bag Bid) := processBid zkOther stampFix poolFix depositsFix slashedFix
+  9u 12u 0x00000000000000000000000000000000000000a1 3u 6 stampsFix (cons 30u (cons 31u nil)) 1 20 24
+def procSlashed : Sum Nat (Bag Bid) := processBid zkFix stampFix poolFix depositsFix slashedFix
+  9u 12u 0x00000000000000000000000000000000000000a1 3u 6 stampsFix (cons 30u (cons 41u nil)) 1 20 24
+def procDepositor : Sum Nat (Bag Bid) := processBid zkFix stampFix poolFix depositsFix slashedFix
+  9u 12u 0x00000000000000000000000000000000000000a3 3u 6 stampsFix (cons 30u (cons 31u nil)) 1 20 24
+def procLate : Sum Nat (Bag Bid) := processBid zkFix stampFix poolFix depositsFix slashedFix
+  9u 12u 0x00000000000000000000000000000000000000a1 3u 4 stampsFix (cons 30u (cons 31u nil)) 1 20 24
+def procStamp : Sum Nat (Bag Bid) := processBid zkFix stampOther poolFix depositsFix slashedFix
+  9u 12u 0x00000000000000000000000000000000000000a1 3u 6 stampsFix (cons 30u (cons 31u nil)) 1 20 24
