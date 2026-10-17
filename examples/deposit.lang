@@ -1,0 +1,137 @@
+-- The deposit contract (S5, docs/PLAN.md section 6), part 1 (S5 4.4): the state, init, the entries
+-- regAuction, registerDeposit and makeInactive, and the views. The entries addTuple, updateActivity,
+-- slashUsr, slash, withdraw and settle come in S5 4.5. The tree library (insertLeaf) and the verifier
+-- (verify) are in domain/domain.lang (R40 (a)). An entry reverts (none) when a check fails.
+-- The tree depth is the closed constant treeDepth (R42 (a)), thus the state has no depth field.
+-- rootAt is before filled: the build writes the fields in order, and the root must come first, so
+-- that the level values are shared words when the filled writes use them (S5 4.1). With filled
+-- first, the runtime code is longer than the EIP-170 limit (EVM_SIZE).
+state State := makeState (ctr : U256) (minDeposit : U256) (nA : Nat) (genesis : Nat) (slotLength : Nat)
+  (aucsPerSlot : Map Nat Nat) (aucItem : Map U256 U256) (aucStart : Map U256 Nat) (aucEnd : Map U256 Nat)
+  (amount : Map Addr U256) (leaf : Map Addr U256) (nextLeaf : Nat) (rootAt : Map Nat U256)
+  (filled : Map Nat U256) (inactiveSince : Map Addr Nat) (slashed : Map U256 Flag) (proposer : Map Addr Flag)
+  (piAcc : Map Addr U256) (piCount : Map Addr Nat) (piNonce : Map Addr Nat) (piHas : Map U256 Flag)
+  (winner : Map U256 Addr) (price : Map U256 U256)
+
+-- The ERC-20 asset and the receiver of a pull (R46 (a)). A deployment sets both defs.
+def asset : Addr := 0x00000000000000000000000000000000000000ee
+def vault : Addr := 0x0000000000000000000000007265636569766572
+
+-- The start state: minDeposit 100, nA 2 (the auctions per slot and the inactivity slots), genesis 0,
+-- slots of 10 seconds, and one proposer 0x..aa. The proposers are fixed here (O14).
+def init : State := makeState 0u 100u 2 0 10 mapEmpty mapEmpty mapEmpty mapEmpty mapEmpty mapEmpty 0
+  mapEmpty mapEmpty mapEmpty mapEmpty (mapSet mapEmpty 0x00000000000000000000000000000000000000aa flagYes)
+  mapEmpty mapEmpty mapEmpty mapEmpty mapEmpty mapEmpty
+
+-- The slot of the time t: (t - genesis) / slotLength.
+def slotOf : (s : State) -> (t : Nat) -> Nat :=
+  fun (s : State) (t : Nat) => natDiv (natSub t (genesis s)) (slotLength s)
+
+-- The offsets back from the final slot: at most 4 slots (R49 (a)). Subtraction keeps the
+-- unused offsets in range even when tend is the largest Nat. The closed fold unrolls.
+def aucSpan : List Nat := cons 0 (cons 1 (cons 2 (cons 3 nil)))
+-- flagYes when each slot from tstart to tend has fewer than nA auctions.
+def aucRoom : (s : State) -> (tstart : Nat) -> (tend : Nat) -> Flag :=
+  fun (s : State) (tstart : Nat) (tend : Nat) =>
+    fold
+      (fun (k : Nat) (ok : Flag) =>
+        flagIf (natLe k (natSub tend tstart))
+          (flagIf (natLe (natAdd (mapGet (aucsPerSlot s) (natSub tend k)) 1) (nA s)) ok flagNo)
+          ok)
+      flagYes aucSpan
+-- The slot counts after an auction from tstart to tend: each count + 1. An unused offset keeps
+-- the old count. The fold visits offset 0 last, including when subtraction saturates at slot 0.
+def aucCounts : (s : State) -> (tstart : Nat) -> (tend : Nat) -> Map Nat Nat :=
+  fun (s : State) (tstart : Nat) (tend : Nat) =>
+    fold
+      (fun (k : Nat) (m : Map Nat Nat) =>
+        mapSet m (natSub tend k)
+          (flagIf (natLe k (natSub tend tstart))
+            (natAdd (mapGet (aucsPerSlot s) (natSub tend k)) 1)
+            (mapGet (aucsPerSlot s) (natSub tend k))))
+      (aucsPerSlot s) aucSpan
+
+-- Entry: register an auction of the item from the slot tstart to the slot tend, with the id ctr.
+-- The caller is a proposer (R44 (a)), tstart <= tend, the span is at most 4 slots (R49 (a)), and
+-- each slot has fewer than nA auctions.
+def regAuction : (env : Env) -> (s : State) -> (item : U256) -> (tstart : Nat) -> (tend : Nat) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (item : U256) (tstart : Nat) (tend : Nat) =>
+    flagIf (mapGet (proposer s) (caller env))
+      (flagIf (natLe tstart tend)
+        (flagIf (natLe (natSub tend tstart) 3)
+          (flagIf (aucRoom s tstart tend)
+            (some (pair
+              (makeState (u256Add (ctr s) 1u) (minDeposit s) (nA s) (genesis s) (slotLength s)
+                (aucCounts s tstart tend) (mapSet (aucItem s) (ctr s) item) (mapSet (aucStart s) (ctr s) tstart)
+                (mapSet (aucEnd s) (ctr s) tend) (amount s) (leaf s) (nextLeaf s) (rootAt s) (filled s)
+                (inactiveSince s) (slashed s) (proposer s) (piAcc s) (piCount s) (piNonce s) (piHas s)
+                (winner s) (price s))
+              nil))
+            none)
+          none)
+        none)
+      none
+
+-- The last index representable by the closed tree depth. Later indices reuse the low bits.
+def depositLastLeaf : Nat := natSub (fold (fun (n : Nat) => natAdd n n) 1 treeDepth) 1
+
+-- Entry: the caller A_u deposits d of the asset with the commitment cu (C_u). A_u has no deposit,
+-- d >= minDeposit, and the tree has room. The leaf cu goes in the tree at nextLeaf, and the new
+-- root is the root of the current slot. The redex binds insertLeaf once, thus the root and the
+-- 32 filled writes use the same level values (the S5 4.1 share rule).
+def registerDeposit : (env : Env) -> (s : State) -> (cu : U256) -> (d : U256) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (cu : U256) (d : U256) =>
+    (fun (ins : Prod U256 (Map Nat U256)) =>
+      flagIf (natLe (nextLeaf s) depositLastLeaf)
+        (flagIf (u256Eq (mapGet (amount s) (caller env)) 0u)
+          (flagIf (u256Le (minDeposit s) d)
+            (some (pair
+              (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
+                (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s)
+                (mapSet (amount s) (caller env) d) (mapSet (leaf s) (caller env) cu) (natAdd (nextLeaf s) 1)
+                (mapSet (rootAt s) (slotOf s (now env)) (first ins)) (second ins)
+                (inactiveSince s) (slashed s) (proposer s) (piAcc s) (piCount s) (piNonce s) (piHas s)
+                (winner s) (price s))
+              (cons (pull asset (caller env) vault d) nil)))
+            none)
+          none)
+        none)
+      (insertLeaf (nextLeaf s) cu (filled s))
+
+-- Entry: start the inactivity timer of the user au. The caller is a proposer (R44 (a)), au has a
+-- deposit, and au is active. The field keeps the current slot + 1 (0 = active).
+def makeInactive : (env : Env) -> (s : State) -> (au : Addr) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (au : Addr) =>
+    flagIf (mapGet (proposer s) (caller env))
+      (flagIf (u256Eq (mapGet (amount s) au) 0u)
+        none
+        (flagIf (natEq (mapGet (inactiveSince s) au) 0)
+          (some (pair
+            (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
+              (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s) (amount s) (leaf s) (nextLeaf s)
+              (rootAt s) (filled s) (mapSet (inactiveSince s) au (natAdd (slotOf s (now env)) 1))
+              (slashed s) (proposer s) (piAcc s) (piCount s) (piNonce s) (piHas s) (winner s) (price s))
+            nil))
+          none))
+      none
+
+-- Views: one view per field of an auction record (O8), the root of a slot, the deposit of a user,
+-- a slashed handle, and the count of the pending tuples of a user.
+def aucItemOf : (env : Env) -> (s : State) -> (id : U256) -> U256 :=
+  fun (env : Env) (s : State) (id : U256) => mapGet (aucItem s) id
+def aucStartOf : (env : Env) -> (s : State) -> (id : U256) -> Nat :=
+  fun (env : Env) (s : State) (id : U256) => mapGet (aucStart s) id
+def aucEndOf : (env : Env) -> (s : State) -> (id : U256) -> Nat :=
+  fun (env : Env) (s : State) (id : U256) => mapGet (aucEnd s) id
+def winnerOf : (env : Env) -> (s : State) -> (id : U256) -> Addr :=
+  fun (env : Env) (s : State) (id : U256) => mapGet (winner s) id
+def priceOf : (env : Env) -> (s : State) -> (id : U256) -> U256 :=
+  fun (env : Env) (s : State) (id : U256) => mapGet (price s) id
+def rootOf : (env : Env) -> (s : State) -> (slot : Nat) -> U256 :=
+  fun (env : Env) (s : State) (slot : Nat) => mapGet (rootAt s) slot
+def depositOf : (env : Env) -> (s : State) -> (au : Addr) -> U256 :=
+  fun (env : Env) (s : State) (au : Addr) => mapGet (amount s) au
+def isSlashed : (env : Env) -> (s : State) -> (h : U256) -> Flag :=
+  fun (env : Env) (s : State) (h : U256) => mapGet (slashed s) h
+def pendingOf : (env : Env) -> (s : State) -> (au : Addr) -> Nat :=
+  fun (env : Env) (s : State) (au : Addr) => mapGet (piCount s) au

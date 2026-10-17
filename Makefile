@@ -82,6 +82,7 @@ check: build/langc build/asmtool build/fronttool build/pathtool build/runtool bu
 	sh test/dispatch.sh
 	sh test/evm.sh
 	sh test/precompile.sh
+	sh test/deposit.sh
 	sh test/mock.sh
 	sh test/diff.sh
 	sh test/review.sh
