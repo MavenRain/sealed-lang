@@ -95,3 +95,69 @@ def treePairLevel : (l : Nat) -> (xs : List U256) -> List U256 :=
 def rootOfLeaves : (leaves : List U256) -> U256 :=
   fun (leaves : List U256) =>
     fold (fun (x : U256) (acc : U256) => x) (zeroHash treeDepth) (fold treePairLevel leaves treeLevels)
+
+-- The verifier library (S5 4.3, R40 (a)): verify of a Groth16 proof on
+-- BN254 with the precompiles ecAdd, ecMul and ecPairing (EIP-196, EIP-197).
+-- A G2 point is in the EIP-197 input order: (x_im, x_re), (y_im, y_re).
+-- The key is ((alpha, beta), ((gamma, delta), ic)): ic is IC0, then one
+-- point for each public input. The proof is (A, (B, C)).
+def G1Point : Type 0 := Prod U256 U256
+def G2Point : Type 0 := Prod (Prod U256 U256) (Prod U256 U256)
+def VerifyKey : Type 0 := Prod (Prod G1Point G2Point) (Prod (Prod G2Point G2Point) (List G1Point))
+def VerifyProof : Type 0 := Prod G1Point (Prod G2Point G1Point)
+-- The first element of xs, or d for nil (the step of a list fold applies
+-- to the last element first, thus the first element is the last result).
+def listHead : (A : Type 0) -> (d : A) -> (xs : List A) -> A :=
+  fun (A : Type 0) (d : A) (xs : List A) => fold (fun (x : A) (acc : A) => x) d xs
+def listTailSeed : (A : Type 0) -> Prod (List A) (List A) := fun (A : Type 0) => pair nil nil
+-- xs without its first element (nil for nil). The accumulator is (the
+-- list after the current element, the list from the current element).
+def listTail : (A : Type 0) -> (xs : List A) -> List A :=
+  fun (A : Type 0) (xs : List A) =>
+    first (fold (fun (x : A) (acc : Prod (List A) (List A)) => pair (second acc) (cons x (second acc))) (listTailSeed A) xs)
+-- The pairs (input i, point i of ics), in the order of the inputs.
+-- verify checks that the input and point counts match before using them.
+def zipInputs : (inputs : List U256) -> (ics : List G1Point) -> List (Prod U256 G1Point) :=
+  fun (inputs : List U256) (ics : List G1Point) =>
+    unfold
+      (fun (st : Prod (List U256) (List G1Point)) =>
+        some (pair (pair (listHead U256 0u (first st)) (listHead G1Point (pair 0u 0u) (second st)))
+                   (pair (listTail U256 (first st)) (listTail G1Point (second st)))))
+      (fold (fun (x : U256) (n : Nat) => natAdd n 1) 0 inputs) (pair inputs ics)
+-- -a = (x, p - y), with p the BN254 base field modulus. The point at
+-- infinity (0, 0) stays (0, 0). Preserve a noncanonical y so that the
+-- precompile rejects it, rather than saturating p - y to zero.
+def g1Neg : (a : G1Point) -> G1Point :=
+  fun (a : G1Point) =>
+    pair (first a)
+      (flagIf (u256Le (second a) 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd46u)
+        (flagIf (u256Eq (second a) 0u) 0u
+          (u256Sub 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47u (second a)))
+        (second a))
+-- vk_x = IC0 + the sum of input i times IC point i + 1. The proof is
+-- valid when e(-A, B) e(alpha, beta) e(vk_x, gamma) e(C, delta) = 1. For
+-- a closed list of inputs, normalization unrolls the folds. Require IC0
+-- and exactly one IC point per input, and inputs below the BN254 scalar
+-- order (distinct from the base field modulus). Otherwise return flagNo.
+-- A point that
+-- is not on the curve makes the precompile fail, and the call reverts
+-- (R18). The evaluator keeps verify stuck (R17).
+def verify : (vk : VerifyKey) -> (inputs : List U256) -> (proof : VerifyProof) -> Flag :=
+  fun (vk : VerifyKey) (inputs : List U256) (proof : VerifyProof) =>
+    flagIf
+      (natEq (fold (fun (p : G1Point) (n : Nat) => natAdd n 1) 0 (second (second vk)))
+        (natAdd 1 (fold (fun (x : U256) (n : Nat) => natAdd n 1) 0 inputs)))
+      (flagIf
+        (fold (fun (x : U256) (ok : Flag) =>
+          flagIf (u256Le x 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000u) ok flagNo)
+          flagYes inputs)
+        (ecPairing
+      (cons (pair (g1Neg (first proof)) (first (second proof)))
+        (cons (pair (first (first vk)) (second (first vk)))
+          (cons (pair (fold (fun (p : Prod U256 G1Point) (acc : G1Point) => ecAdd acc (ecMul (second p) (first p)))
+                        (listHead G1Point (pair 0u 0u) (second (second vk)))
+                        (zipInputs inputs (listTail G1Point (second (second vk)))))
+                      (first (first (second vk))))
+            (cons (pair (second (second proof)) (second (first (second vk)))) nil)))))
+        flagNo)
+      flagNo

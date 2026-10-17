@@ -2,7 +2,7 @@
 state State := makeState (xs : List U256)
 def init : State := makeState nil
 
-def verify : (env : Env) -> (s : State) -> Flag :=
+def pairOpen : (env : Env) -> (s : State) -> Flag :=
   fun (env : Env) (s : State) =>
     ecPairing
       (fold

@@ -7,6 +7,8 @@
 # entered this file. `langc run` cannot give these words: the evaluator keeps a
 # curve op stuck (R17), thus this gate compares the chain result only. It needs
 # evm (go-ethereum), bc, od and build/slottool. Run it from the kit root.
+# Then deploy examples/groth16.lang (S5 4.3) and the verifier boundary
+# regressions, comparing valid and invalid inputs and proof coordinates.
 set -u
 fail=0
 steps=0
@@ -77,6 +79,38 @@ else
   call "out 4" leafStep 7
   call "out 3" leafStep 6
   call "out aa" addrWord 0x00000000000000000000000000000000000000aa
+fi
+
+# The Groth16 fixture (S5 4.3): verify accepts the inputs (2, 3) and rejects
+# the same proof with the inputs in the other order.
+prog=examples/groth16.lang
+if ! deploy "$prog"; then
+  echo "FAIL precompile deploy groth16: $(head -n 1 "$tmp/dump")"
+  fail=$((fail + 1))
+else
+  call "out 1" verifyOk
+  call "out 0" verifyBadOrder
+fi
+
+# Public inputs use the scalar field, while proof coordinates use the base
+# field. Test both boundaries, exact IC arity and the valid infinity point.
+prog=test/groth16-invalid.lang
+if ! deploy "$prog"; then
+  echo "FAIL precompile deploy groth16 boundaries: $(head -n 1 "$tmp/dump")"
+  fail=$((fail + 1))
+else
+  call "out 1" verifyScalar 2u 90u
+  call "out 0" verifyScalar 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000003u 90u
+  call "out 0" verifyScalar 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001u 68u
+  call "out 1" verifyScalar 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000u 57u
+  call "out 0" verifyExtraInput
+  call "out 0" verifyMissingInput
+  call "out 0" verifyMissingAll
+  call "out 0" verifyEmptyIC
+  call "out 1" verifyNoInputs
+  call "out 1" verifyPoint 0u
+  call revert verifyPoint 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47u
+  call revert verifyPoint 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffu
 fi
 
 rm -rf "$tmp"
