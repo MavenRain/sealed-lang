@@ -1,0 +1,7 @@
+-- REFUSE_LOWER (slice S4, rulings R31, R33): fold of a neutral loop into U256. The loop is in the system of a formal hcomp at S1, so the fold is an hcomp at U256 over a state read, and that hcomp is not a word.
+state State := makeState (count : U256)
+def init : State := makeState 0u
+
+def spin : (env : Env) -> (s : State) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) =>
+    some (pair (makeState (fold (count s) (fun (i : I) => count s) (hcomp S1 i0 (fun (i : I) => [ i0 -> loop i ]) base))) nil)

@@ -67,3 +67,17 @@ The kit `Eq` is out in S3 (O3): the six Eq rows of BUILTINS. `transport`,
 roundtrips. The existing EVM regressions still pass with the S2 counts
 (evm 43, diff 15, emit 24). Path-specific EVM coverage includes the
 refusal of a remaining hcomp at a word position (`test/lower/path-word.lang`).
+
+## HITs and QITs (slice S4)
+
+| Form | `check` and `eval` | EVM | Test |
+|---|---|---|---|
+| Path constructor | DONE: a `family` constructor with interval fields `(i : I)` and a boundary system; each boundary is checked (HIT_BOUNDARY). A constructor of dimension 2 (squash0, quotSquash) has path fields. At an end it reduces to its boundary; at a neutral interval it stays neutral. No rule makes `loop` equal to `refl`. | A point constructor value lowers as a family value. A path constructor residual is not a word: REFUSE_LOWER (R31). | `examples/circle.lang`; PATH_UIP row `loop-not-refl.lang`; fronttool `domain` rows (HIT_BOUNDARY); DOMAIN_FAMILY row `state-boundary.lang`; pathtool "path constructor at a neutral interval". |
+| `fold` over a HIT | DONE: one case for each path constructor, at the type of its boundary. A fold of Trunc0 or Quot needs the isSet case. `fold_path` applies the path case at the interval; `fold_hcomp` maps to `hcomp` on the target type (R33); `fold_square` folds the path fields of a square. | At an end the fold gives the point case. A stuck `hcomp` on a word type gives REFUSE_LOWER. | TYPE_MISMATCH rows `fold-missing-path.lang`, `trunc0-no-set.lang`; PATH_END row `fold-path-boundary.lang`; the eval rows `trunc truncMapped`, `quot toTrunc3`; `test/lower/loop-word.lang`; pathtool "fold boundary maps a point constructor path field", "fold square boundary preserves captured intervals in path fields". |
+| `hcomp` at a HIT | DONE: a composite of path constructor values is a formal hcomp (a canonical value). | Erased. REFUSE_LOWER at a word position. | `examples/circle.lang` `loop2`; pathtool "formal hcomp at a HIT". |
+| `transp` at a HIT | DONE: the identity at a family with no parameters. Along a parameter line `transp_family` reduces and keeps a boundary that depends on the parameter; squash0 stays stuck. | Erased. | `examples/circle.lang` `transpBase`; PATH_UIP row `squash0-not-rebuild.lang`; pathtool "transport of a formal hcomp at Trunc1 along a parameter line", "transport preserves a parameter-dependent HIT boundary", "transport of squash0 along a parameter line stays stuck". |
+
+S4 adds no BUILTINS row (66). The families S1, Trunc1, Trunc0 and Quot
+are in `domain/domain.lang` (R32). `build/pathtool` does 26 quote and
+parse roundtrips. The EVM regressions did not change at any S4 step (evm
+43, diff 15, emit 24, runs 5, run refusals 10): a HIT value is erased.

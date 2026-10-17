@@ -359,11 +359,18 @@ static int field_of(const Value *v, uint32_t level, uint32_t *field) {
   return 1;
 }
 
+/* S4 R31: a point constructor is a family value as before. A path
+   constructor residual (an interval argument that is not an end) and a
+   formal hcomp at a HIT (VAL_OP, not VAL_STUCK) are not words. */
 static const char *value_name(const Low *l, const Value *v) {
   if (v == NULL) return "no value";
   switch (v->kind) {
     case VAL_OP:
-    case VAL_STUCK: return op_name(l->m, v->op, v->inst, v->field);
+    case VAL_STUCK:
+      if (v->op == OP_CTOR && v->inst < l->m->ctor_count && l->m->ctors[v->inst].interval_count > 0u)
+        return "a path constructor";
+      if (v->kind == VAL_OP && v->op == OP_HCOMP) return "a formal hcomp";
+      return op_name(l->m, v->op, v->inst, v->field);
     case VAL_LAM: return "a closure";
     case VAL_UNIV: return "a universe";
     case VAL_PI: return "a Pi type";

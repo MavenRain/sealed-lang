@@ -83,7 +83,8 @@ pattern parses, and whether the kernel identifies `pack (witness s)
 ## 9. Equality
 
 <How a program writes `Path`, `transport` and `cong` (since S3, the kit
-`Eq` is out). Whether one family can
+`Eq` is out), and a family with path constructors (since S4: S1, Trunc1,
+Trunc0 and Quot in `domain/domain.lang`). Whether one family can
 serve each index type.>
 
 ## 10. Axiom detection

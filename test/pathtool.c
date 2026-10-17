@@ -15,6 +15,15 @@ static const char LOT[] = "family Lot (n : Nat) := makeLot (amount : Nat)\n";
 static const char TRANSPORT[] =
   "def transport : (X : Type 0) -> (Y : Type 0) -> Path (Type 0) X Y -> X -> Y :=\n"
   "  fun (X : Type 0) => fun (Y : Type 0) => fun (p : Path (Type 0) X Y) => fun (a : X) => transp (fun (i : I) => p @ i) i0 a\n";
+static const char S1[] = "family S1 := base | loop (i : I) [ ~i -> base, i -> base ]\n";
+static const char TRUNC0[] =
+  "family Trunc0 (A : Type 0) := trunc0 (trunc0Of : A) | squash0 (squash0From : Trunc0 A) (squash0To : Trunc0 A) (squash0Left : Path (Trunc0 A) squash0From squash0To) (squash0Right : Path (Trunc0 A) squash0From squash0To) (i : I) (j : I) [ ~i -> squash0Left @ j, i -> squash0Right @ j, ~j -> squash0From, j -> squash0To ]\n";
+static const char TRUNC1[] =
+  "family Trunc1 (A : Type 0) := trunc1 (truncOf : A) | squash1 (squashFrom : Trunc1 A) (squashTo : Trunc1 A) (i : I) [ ~i -> squashFrom, i -> squashTo ]\n";
+static const char PARAM_HIT[] =
+  "family Trunc1 (A : Type 0) := trunc1 (truncOf : A) | squash1 (squashFrom : Trunc1 A) (squashTo : Trunc1 A) (i : I) [ ~i -> squashFrom, i -> squashTo ]\n"
+  "family ParamHit (a : Trunc1 Nat) := paramPoint (paramValue : Trunc1 Nat) |\n"
+  "  paramLoop (i : I) [ ~i -> paramPoint a a, i -> paramPoint a a ]\n";
 
 static int checked(Arena *arena, Machine *m, Diag *diag, const char *source) {
   TokenList tokens = {0};
@@ -96,6 +105,43 @@ int main(void) {
   /* Kit-only row (sealed-lang S3, R27): a word base with no live branch is the base. */
   failed += !roundtrip("hcomp over a literal word base", "",
     "def original : U256 := hcomp U256 i0 (fun (i : I) => [ ]) 7u\n");
+  failed += !roundtrip("formal hcomp at a HIT", S1,
+    "def original : Path S1 base base := fun (j : I) => hcomp S1 (~j \\/ j) (fun (i : I) => [ ~j -> base, j -> loop i ]) (loop j)\n");
+  failed += !roundtrip("path constructor at a neutral interval", S1,
+    "def original : PathP (fun (i : I) => Path S1 base (loop i)) refl (fun (j : I) => loop j) := fun (i : I) => fun (j : I) => loop (i /\\ j)\n");
+  failed += !roundtrip("transport of a formal hcomp at Trunc1 along a parameter line", TRUNC1,
+    "def original : (A : Type 0) -> (B : Type 0) -> (p : Path (Type 0) A B) -> (a : A) -> (b : A) ->\n"
+    "  Path (Trunc1 B) (transp (fun (i : I) => Trunc1 (p @ i)) i0 (trunc1 A a)) (transp (fun (i : I) => Trunc1 (p @ i)) i0 (trunc1 A a)) :=\n"
+    "  fun (A : Type 0) => fun (B : Type 0) => fun (p : Path (Type 0) A B) => fun (a : A) => fun (b : A) => fun (j : I) =>\n"
+    "  transp (fun (i : I) => Trunc1 (p @ i)) i0 (hcomp (Trunc1 A) (~j \\/ j)\n"
+    "    (fun (i : I) => [ ~j -> trunc1 A a, j -> squash1 A (trunc1 A b) (trunc1 A a) i ]) (squash1 A (trunc1 A a) (trunc1 A b) j))\n");
+  failed += !roundtrip("transport preserves a parameter-dependent HIT boundary", PARAM_HIT,
+    "def endpoint : ParamHit (trunc1 Nat 1) :=\n"
+    "  transp (fun (i : I) => ParamHit (squash1 Nat (trunc1 Nat 0) (trunc1 Nat 1) i)) i0\n"
+    "    (paramPoint (trunc1 Nat 0) (trunc1 Nat 0))\n"
+    "def original : Path (ParamHit (trunc1 Nat 1)) endpoint endpoint :=\n"
+    "  fun (j : I) => transp (fun (i : I) => ParamHit (squash1 Nat (trunc1 Nat 0) (trunc1 Nat 1) i)) i0\n"
+    "    (paramLoop (trunc1 Nat 0) j)\n");
+  /* The transport of a dimension-2 constructor along a parameter line stays
+     stuck. Its boundary branches are path applications, not recursive
+     fields, so a field rebuild needs a boundary correction. */
+  failed += !roundtrip("transport of squash0 along a parameter line stays stuck", TRUNC0,
+    "def original : (A : Type 0) -> (B : Type 0) -> (p : Path (Type 0) A B) -> (x : Trunc0 A) -> (y : Trunc0 A) ->\n"
+    "  (u : Path (Trunc0 A) x y) -> (v : Path (Trunc0 A) x y) ->\n"
+    "  Path (Path (Trunc0 B) (transp (fun (k : I) => Trunc0 (p @ k)) i0 x) (transp (fun (k : I) => Trunc0 (p @ k)) i0 y))\n"
+    "    (fun (j : I) => transp (fun (k : I) => Trunc0 (p @ k)) i0 (u @ j)) (fun (j : I) => transp (fun (k : I) => Trunc0 (p @ k)) i0 (v @ j)) :=\n"
+    "  fun (A : Type 0) => fun (B : Type 0) => fun (p : Path (Type 0) A B) => fun (x : Trunc0 A) => fun (y : Trunc0 A) =>\n"
+    "  fun (u : Path (Trunc0 A) x y) => fun (v : Path (Trunc0 A) x y) =>\n"
+    "  fun (i : I) => fun (j : I) => transp (fun (k : I) => Trunc0 (p @ k)) i0 (squash0 A x y u v i j)\n");
+  /* Boundary images must fold path fields just as evaluation does. */
+  failed += !roundtrip("fold boundary maps a point constructor path field",
+    "family HH := hhBase | hhNode (hhX : HH) (hhY : HH) (hhP : Path HH hhX hhY) | hhLoop (i : I) [ ~i -> hhNode hhBase hhBase refl, i -> hhNode hhBase hhBase refl ]\n",
+    "def original : Path Nat 0 0 := fun (t : I) => fold 0 (fun (x : Nat) (y : Nat) (p : Path Nat x y) => p @ t) refl (hhLoop t)\n");
+  failed += !roundtrip("fold square boundary preserves captured intervals in path fields",
+    "family HH := hhBase | hhNode (hhX : HH) (hhY : HH) (hhP : Path HH hhX hhY)\n"
+    "  | hhSquare (hhU : HH) (hhV : Path HH hhU hhU) (i : I) (j : I) [ ~i -> hhNode hhU hhU (fun (k : I) => hhV @ (j /\\ ~j /\\ k /\\ ~k)),\n"
+    "      i -> hhNode hhU hhU (fun (k : I) => hhV @ (j /\\ ~j /\\ k /\\ ~k)), ~j -> hhNode hhU hhU refl, j -> hhNode hhU hhU refl ]\n",
+    "def original : HH -> HH := fun (z : HH) => fold hhBase (fun (x : HH) (y : HH) (p : Path HH x y) => hhNode x y p) (fun (x : HH) (p : Path HH x x) => fun (a : I) => fun (b : I) => hhSquare x p a b) z\n");
   if (failed == 0)
     puts("path regressions: passed");
   else

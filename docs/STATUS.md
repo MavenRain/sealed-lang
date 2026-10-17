@@ -117,3 +117,70 @@ with `make -B`.
 | M9 path word lowers to 0 | lower.c lower_expr: the word-position refusal returns a 0 word | lower refusal `path-word.lang`: want REFUSE_LOWER, got exit 0 and bytecode; build.sh 2 failures (also `nat-fold.lang`) | KILLED |
 
 Score: 9 of 9 killed.
+
+## S4
+
+Slice S4 (HITs and QITs) is complete at commit 0c72c03 plus step 4.6 (the
+lowering arms and the pathtool rows) and the docs of this section. The gate
+`make -B check` is GREEN: examples 24, parse refusals 15, check refusals
+83, evals 61, runs 5, run refusals 10, asmtool 8 of 8, builds 3, lower
+refusals 14, checks 31, dispatch 20, evm steps 43, precompile 18 steps and
+0 failures, mock 13 rows, diff 15 rows, emit 24, all regressions passed
+(path regressions too). Against S3: examples 21 -> 24, check refusals 77
+-> 83, evals 59 -> 61, lower refusals 13 -> 14, checks 30 -> 31, pathtool
+roundtrips 19 -> 26. The EVM counts (evm 43, precompile 18, mock 13, diff
+15, emit 24), runs 5 and run refusals 10 did not change at any S4 step: a
+HIT value is erased (R31, R37).
+
+A domain family can now have path constructors, as in coin-lang 8c79e9a,
+e0d4f3c and 25c14e0 (each Glue hunk dropped, R36): a constructor with
+interval fields `(i : I)` and a boundary system `[ ~i -> a, i -> b ]`.
+domain/domain.lang declares the circle S1, the propositional truncation
+Trunc1, the set truncation Trunc0 and the set quotient Quot after the S3
+path defs, with the guest defs isProp and isSet (R32). The checker checks
+each boundary (HIT_BOUNDARY). `fold` over a HIT needs one case for each
+path constructor, at the type of its boundary: a missing case gives
+TYPE_MISMATCH, a case with a wrong end gives PATH_END, and a fold of
+Trunc0 or Quot needs the isSet case. The evaluator reduces a path
+constructor at an end to its boundary and keeps it neutral at a neutral
+interval. A composite of path constructor values is a formal hcomp (a
+canonical value). `transp` along a family parameter line reduces
+(`transp_family`). BUILTINS stays 66 rows: S4 adds no operation.
+examples/circle.lang, examples/trunc.lang and examples/quot.lang are on
+Nat. R36 dropped the coin-lang defs that use ua or Fin, and with them the
+eval rows `circle loopAt0` and `circle loop2At0`, so evals is 61, not the
+kickoff 63. The new eval rows are `trunc truncMapped => trunc1 Nat 0` and
+`quot toTrunc3 => trunc0 Nat 2`. A path constructor residual or a formal
+hcomp at a word position gives REFUSE_LOWER (`test/lower/loop-word.lang`,
+R31 and R33). The helpers `system_branches`, `system_overlaps`,
+`system_core` (check.c) and `true_branch` (eval.c) are ported (R35); the
+kit `rule_hcomp` keeps its inline code beside them.
+
+Mutants M1 to M9 (kickoff section 5, step 4.7), one at a time on the 4.6
+tree 2e914236 (commit 0c72c03 plus the staged step 4.6). Each kill is a
+test failure, not a compile error. Each file was restored after its mutant
+from the staged blob and confirmed by shasum (eval.c 63a0060ae9ce, check.c
+2445a0e2b696, lower.c 82ead0b01620), then rebuilt with `make -B`.
+
+| Mutant | Edit | Killer | Verdict |
+|---|---|---|---|
+| M1 no fold path end check | check.c path_ends: the end check (not UIP) returns 1 | check refusal `fold-path-boundary.lang`: want PATH_END, got exit 0 | KILLED |
+| M2 missing path case accepted | check.c rule_fold and fold_family: a missing case of interval count 1 accepted | check refusal `fold-missing-path.lang`: want TYPE_MISMATCH, got exit 0 | KILLED |
+| M3 path constructor is its first boundary | eval.c reduce_ctor: the first boundary at every interval | check refusal `loop-not-refl.lang`: want PATH_UIP, got exit 0 | KILLED |
+| M4 no end rule | eval.c reduce_ctor: the end rule removed | check refusal `loop-not-refl.lang`: PATH_END "the path at i0 is loop i0, but the type needs base"; pathtool 7 rows fail | KILLED |
+| M5 fold of a formal hcomp is its base | eval.c fold_hcomp: returns the folded base | lower refusal `loop-word.lang`: want REFUSE_LOWER, got exit 0 (the pathtool S1 rows pass) | KILLED |
+| M6 no family transport | eval.c transp_family: returns the value unchanged | pathtool "transport preserves a parameter-dependent HIT boundary", "transport of a formal hcomp at Trunc1 along a parameter line", "transport of squash0 along a parameter line stays stuck" (the eval row `trunc truncMapped` passes) | KILLED |
+| M7 no isSet case | check.c: a missing squash0 (isSet) case accepted (M2 at interval count 2) | check refusal `trunc0-no-set.lang`: want TYPE_MISMATCH, got exit 0 | KILLED |
+| M8 square faces swapped | eval.c fold_square: the outer faces swapped | none: the full gate passes | SURVIVED (equivalent) |
+| M9 word hcomp lowers as its base | lower.c lower_expr: a word hcomp lowers as its base (USER ruling (a)) | lower refusals `loop-word.lang` and `path-word.lang`: want REFUSE_LOWER, got exit 0 | KILLED |
+
+Score: 8 of 9 killed, 1 equivalent. M8 is equivalent: the faces reach
+`path_apply` only as the stored ends of a neutral path application, and
+`fold_square` runs only at an interval that is not an end (at an end,
+`reduce_ctor` gives the squash0 boundary first). NbE does not substitute
+into a stuck value, so no program sees the swap, and no row was added. The
+kickoff M9 (the R31 arm returns a 0 word) had no target: no well-typed
+entry reaches the `value_name` arms, because an entry parameter has a word
+type and an interval binder occurs only under a system or a path
+abstraction. The kickoff killers of M4 and M5 (the eval rows `circle
+loopAt0` and `circle loop2At0`) were dropped by R36.

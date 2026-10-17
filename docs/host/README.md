@@ -27,6 +27,7 @@ The TinyCC host kit of retainer-lang. It compiles the contract language to EVM b
 | After K4d | None: retainer-lang closes at K4d | Closed |
 | S2 | sealed-lang base span: `natDiv`, `natMod`, `hash`, `addrToU256`, `ecrecover`, `ecAdd`, `ecMul`, `ecPairing`; four kit operations pruned | Done |
 | S3 | sealed-lang interval paths: `I`, `PathP`, `Path`, `refl`, `sym`, `cong`, `funExt`, `transp`, `hcomp`; the kit `Eq` removed | Done |
+| S4 | sealed-lang HITs and QITs: path constructors in `family`, `fold` with path cases, S1, Trunc1, Trunc0 and Quot in `domain/domain.lang`; erased at a word position | Done |
 
 
 ## U256 and Addr (slice K2)
@@ -298,6 +299,12 @@ EVM form: a residual curve application lowers to an IR_STMT_PRECOMPILE statement
 Slice S3 of sealed-lang replaces the kit `Eq` with the interval paths of coin-lang: `I`, `i0`, `i1`, `PathP`, `Path`, `refl`, `sym`, `cong`, `funExt`, `transp` and `hcomp` (BUILTINS 61 - 6 + 11 = 66 rows). `transport`, `subst`, `J`, `JRefl` and `trans` are guest defs in `domain/domain.lang`. `formers/tcc-evm-contract.md` section `Paths (slice S3)` gives each operation and its tests.
 
 Path computations normalize before lowering. A proof used only during checking has no runtime content. A remaining path or Kan operation at a word position gives REFUSE_LOWER (`test/lower/path-word.lang`); the EVM never tests two words for equality to check a path (R24). The existing EVM regressions still pass with the S2 counts: `test/evm.sh` 43 steps, `test/diff.sh` 15 rows and `build/emittool` 24 execution regressions. Path-specific coverage includes the refusal fixture and the 19 quote and parse roundtrips in `build/pathtool`.
+
+## HITs and QITs (slice S4)
+
+Slice S4 of sealed-lang adds the higher inductive types of coin-lang (8c79e9a, e0d4f3c and 25c14e0, without Glue): a `family` constructor can have interval fields and a boundary system, and `fold` takes one case for each path constructor. `domain/domain.lang` declares S1, Trunc1, Trunc0 and Quot, with the guest defs isProp and isSet. BUILTINS stays 66 rows. `formers/tcc-evm-contract.md` section `HITs and QITs (slice S4)` gives each form and its tests.
+
+Erasure: a point constructor value lowers as a family value lowers. A path constructor residual or a formal hcomp is not a word: at a word position it gives REFUSE_LOWER (`value_name` in `src/lower.c`, R31; the fixture `test/lower/loop-word.lang` is refused at the stuck `hcomp U256`, R33). A path at run time is that refusal (R37): `langc run` has no new row. The EVM counts did not change at any S4 step: `test/evm.sh` 43 steps, `test/diff.sh` 15 rows, `build/emittool` 24 execution regressions, `test/run.sh` 5 runs and 10 run refusals. HIT-specific coverage is in the check and eval fixtures, the lower refusal and the 26 quote and parse roundtrips in `build/pathtool` (19 -> 26).
 
 ## Commands
 

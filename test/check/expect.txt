@@ -80,3 +80,4 @@ fold-missing-path.lang TYPE_MISMATCH
 fold-path-boundary.lang PATH_END
 loop-not-refl.lang PATH_UIP
 trunc0-no-set.lang TYPE_MISMATCH
+squash0-not-rebuild.lang PATH_UIP

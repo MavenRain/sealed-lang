@@ -1,4 +1,4 @@
--- Paths: refl, sym and cong. trans and transport come back in S2 (hcomp and transp).
+-- Paths: refl, sym and cong. trans and transport are guest defs in domain/domain.lang (S3).
 def price : Nat := 1200
 def cost : Nat := 1200
 def same : Path Nat price cost := refl

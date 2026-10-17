@@ -150,6 +150,14 @@ added 11 path rows (`I`, `i0`, `i1`, `PathP`, `Path`, `refl`, `sym`,
 lowering; unsupported residuals at word positions give REFUSE_LOWER
 (`test/lower/path-word.lang`).
 
+The S4 span is the BUILTINS table at the S4 close: 66 rows, as in S3. S4
+adds no row. The HIT declaration form (a constructor with interval fields
+and a boundary system) is part of `family` in `domain/domain.lang`, and
+`fold` takes one case for each path constructor. The S4 families are S1,
+Trunc1, Trunc0 and Quot, with the guest defs isProp and isSet (R32). A
+path constructor residual or a formal hcomp at a word position gives
+REFUSE_LOWER (`test/lower/loop-word.lang`, R31).
+
 ## 5. The cubical kernel
 
 coin-lang (private MavenRain/coin-lang) built a CCHM kernel on the tcc-json
@@ -289,7 +297,10 @@ deploys the program on `evm` and replays the same scripts.
   finite model.
 - O11: loops come from the HIT declaration form; the kernel test is the
   circle. No domain family has a loop constructor by default. Alternative:
-  the slot clock as a cyclic quotient.
+  the slot clock as a cyclic quotient. Note (S4): the HIT declaration form
+  is in (R32). The kernel test is `examples/circle.lang` and the check rows
+  `fold-missing-path.lang`, `fold-path-boundary.lang` and
+  `loop-not-refl.lang`. No contract family has a path constructor.
 - O12: `Π` enters one NOP tuple per call. Alternative: array arguments in
   the ABI decoder (kit work). Note (S2): ENTRY_PARAMS_MAX is 32 (R23), so
   one call carries at most 32 words.
@@ -313,7 +324,8 @@ the defaults (a) were applied in S2:
 - O20 (R20): `addrToU256 : Addr -> U256` is the one conversion from
   `Addr`.
 - O21 (R21): the sample domain is out. S4 fills `domain.lang` with the
-  circle.
+  circle. Note (S4): `domain/domain.lang` holds the S3 path defs, isProp,
+  isSet, S1, Trunc1, Trunc0 and Quot (R32).
 - O22 (R22): `formers/tcc-evm-contract.md` is rewritten.
 - O23 (R23): ENTRY_PARAMS_MAX is 32 (`src/front/check.h`).
 
@@ -344,3 +356,47 @@ an existing program:
   coin-lang and the kit row "hcomp over a literal word base") and prints
   `path regressions: passed`, as the other regression tools do (the
   kickoff text "paths: N roundtrips passed" was not used).
+
+The S4 kickoff added R31 to R38. The USER did not rule (RULED 2026-10-16);
+the defaults (a) were applied in S4. For the mutant M9 the USER ruled (a).
+No ruling changes the EVM output of an existing program:
+
+- O31 (R31): a point constructor value lowers as a family value lowers. A
+  path constructor residual or a formal hcomp is not a word: `value_name`
+  (`src/lower.c`) names "a path constructor" and "a formal hcomp", and
+  the lowering gives REFUSE_LOWER. No well-typed entry reaches the two
+  arms (an entry parameter has a word type). The fixture
+  `test/lower/loop-word.lang` (a fold of a formal hcomp at S1 into U256)
+  is refused at the stuck `hcomp U256` (R33).
+- O32 (R32): Trunc1, Trunc0 and Quot are in `domain/domain.lang` below
+  S1, in the coin-lang text, because only `domain.lang` declares a family
+  (R1). `examples/trunc.lang` and `examples/quot.lang` hold the uses.
+- O33 (R33): no new base line. `fold_path` applies the path case at the
+  interval (an end gives the point case); `fold_hcomp` maps to `hcomp` on
+  the target type, and on a word type that is the R27 base line.
+- O34 (R34): `build/pathtool` has the 8c79e9a, e0d4f3c and 25c14e0
+  roundtrips in the kit `roundtrip(label, prelude, source)` shape, with
+  the preludes S1, TRUNC0, TRUNC1 and PARAM_HIT: 19 -> 26 rows (the Glue
+  row dropped). The 25c14e0 refusal "transport of squash0 is not the field
+  rebuild" is the check row `squash0-not-rebuild.lang` (PATH_UIP). The
+  tool prints `path regressions: passed`.
+- O35 (R35): `system_branches`, `system_overlaps`, `system_core`
+  (check.c, no Glue arm) and `true_branch` (eval.c) are ported. The kit
+  `rule_hcomp` keeps its inline code, and the helpers are beside it. No
+  fallback helper was necessary.
+- O36 (R36): each Glue hunk and each Glue arm is dropped. The Fin uses
+  moved to Nat (`trunc1 Nat 1` in place of `trunc1 (Fin 3) 1`). The
+  coin-lang defs that need ua or Fin are dropped: code2, loopT, loopAt0,
+  code3, loop2T and loop2At0 (circle), rot3, truncUa, truncAt, truncSq
+  and truncHcomp (trunc), and the eval rows `circle loopAt0`, `circle
+  loop2At0` and `trunc truncAt`. Kit-only: `toNat` (circle) and
+  `truncMapped` (trunc) with its eval row. Thus evals is 61, not the
+  kickoff 63.
+- O37 (R37): a path at run time is a path in an entry, and the EVM is the
+  run time of an entry: the R31 fixture is that refusal. `langc run` has
+  no new row (run refusals 10).
+- O38 (R38): the patch method was GNU patch `gpatch -p1 -N -F 1` per file,
+  with a placement check of each insert-only hunk; a rejected or misplaced
+  hunk went in by exact one-occurrence replacements. From step 4.5 the
+  auto-mode classifier denied `gpatch` on the repository: the USER ran the
+  4.5 patch script, and steps 4.6 and 4.8 used the Edit tool.

@@ -56,3 +56,23 @@ a remaining hcomp at a word position. The hole that mutant M2 showed:
 alone does not see a `PathP` end checked at the wrong end; the pathtool
 row "a branch on a disjunctive face" kills it. Mutants M1 to M9 of S3
 are in `docs/STATUS.md`: 9 of 9 killed.
+
+The S4 review (2026-10-16) adds 3 examples (`circle.lang`, `trunc.lang`,
+`quot.lang`), 6 check refusals, 2 eval rows (`trunc truncMapped`, `quot
+toTrunc3`), 1 lower refusal (`loop-word`), 1 build check and 7 pathtool
+roundtrips (19 -> 26). The check refusals cover a fold with a missing path
+case (`fold-missing-path`, TYPE_MISMATCH), a path case with a wrong end
+(`fold-path-boundary`, PATH_END), a claim that the loop is refl
+(`loop-not-refl`, PATH_UIP), a fold of Trunc0 with no isSet case
+(`trunc0-no-set`, TYPE_MISMATCH), a transport of squash0 as the field
+rebuild (`squash0-not-rebuild`, PATH_UIP), and a state constructor with a
+boundary (`state-boundary`, DOMAIN_FAMILY, a USER row). The fronttool
+`domain` USER rows add HIT_BOUNDARY for a fold over a family before all of
+its constructors are checked. The R36 holes: sealed-lang has no ua and no Fin,
+so the coin-lang rows that show the loop is not refl by a computation
+(`circle loopAt0`, `circle loop2At0`) are not here; `loop-not-refl.lang`
+checks it by refusal. The existing EVM regressions still pass (evm 43,
+diff 15, emit 24, runs 5, run refusals 10). The hole that mutant M8
+showed: `fold_square` runs only at an interval that is not an end, so its
+outer faces are not observable (equivalent). Mutants M1 to M9 of S4 are
+in `docs/STATUS.md`: 8 of 9 killed, 1 equivalent.
