@@ -26,7 +26,7 @@ prog=examples/contract.lang
 token=00000000000000000000000000000000000000ee
 user=00000000000000000000000000000000000000bb
 neg=$(printf '%62s' '' | tr ' ' f)e2
-topic=$(keccak "$(printf '%s' 'Transfer(address,address,uint256)' | od -An -tx1 | tr -d ' \n')")
+topic=$(keccak "$(printf '%s' 'Transfer(address,address,uint256)' | od -An -v -tx1 | tr -d ' \n')")
 build/asmtool mock >"$tmp/mock" || { echo "FAIL diff: asmtool mock"; exit 1; }
 
 # lg FROM TO AMOUNT: the logs line of one Transfer LOG3 of the mock.
@@ -189,12 +189,13 @@ script() {
   }
 }
 
-# Part 2: the 5 call scripts of test/evm.sh with mode 0.
+# Part 2: the 5 call scripts of test/evm.sh with mode 0, then the deposit script (S5 R47 (a)).
 script examples/contract.lang test/run/basic.script
 script examples/map.lang test/run/map.script
 script examples/residuals.lang test/run/residuals.script
 script examples/events.lang test/run/events.script
 script examples/lists.lang test/run/lists.script
+script examples/deposit.lang test/run/deposit.script
 
 rm -rf "$tmp"
 echo "diff gate: $rows rows, $fail failures"
