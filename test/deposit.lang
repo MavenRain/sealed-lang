@@ -55,3 +55,35 @@ def testAuctionReversed : Flag := flagIf (testAccepted
   (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa) init 1u 3 1)) flagNo flagYes
 def testAuctionLong : Flag := flagIf (testAccepted
   (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa) init 1u 1 5)) flagNo flagYes
+
+-- Public test key 1, address 0x7e5f...5bdf. The tuple (0, 2) gives piAcc
+-- 0x6ee3...68ad. Signatures below use cast wallet sign --no-hash with that
+-- test key and hash(piAcc, nonce), with each word encoded as 32 bytes.
+def testAuthUser : Addr := 0x7e5f4552091a69125d5dfcb7b8c2659029395bdf
+def testAuthPending : State := testResultState
+  (addTuple (makeEnv 0 0x00000000000000000000000000000000000000aa) init testAuthUser 0u 2u)
+def testAuthRepeated : State := testResultState
+  (addTuple (makeEnv 0 0x00000000000000000000000000000000000000aa)
+    (clearUser testAuthPending testAuthUser) testAuthUser 0u 2u)
+def testAuthNonce : Flag :=
+  flagIf (u256Eq (mapGet (piAcc testAuthPending) testAuthUser) (mapGet (piAcc testAuthRepeated) testAuthUser))
+    (natEq (mapGet (piNonce testAuthRepeated) testAuthUser) 1) flagNo
+
+-- These views run on the EVM because ecrecover is opaque to langc eval.
+def testSignature0 : (env : Env) -> (s : State) -> Flag :=
+  fun (env : Env) (s : State) => signedBy testAuthPending testAuthUser 28
+    0x394512031ecf8c355f8ebf02dbfcf4881348761e76ebd7ef8b7bfb370eec1c8eu
+    0x544f61e1bc9827bdfb3430f2c8c7e3d58945c9cb7ef032b37748e9e8dc5420cfu
+def testSignature1 : (env : Env) -> (s : State) -> Flag :=
+  fun (env : Env) (s : State) => signedBy testAuthRepeated testAuthUser 27
+    0x96e840dd75825d0ab1d6b53a507de4aa1e1768ff3babca6cae6e63ec654652edu
+    0x0a8e747b34fddf6101867498e56acce617fba425356b102330aecae58fdde119u
+def testSignatureReplay : (env : Env) -> (s : State) -> Flag :=
+  fun (env : Env) (s : State) => flagIf (signedBy testAuthRepeated testAuthUser 28
+    0x394512031ecf8c355f8ebf02dbfcf4881348761e76ebd7ef8b7bfb370eec1c8eu
+    0x544f61e1bc9827bdfb3430f2c8c7e3d58945c9cb7ef032b37748e9e8dc5420cfu) flagNo flagYes
+-- A signature over piAcc alone must also be rejected after reconstructing Pi.
+def testSignatureLegacy : (env : Env) -> (s : State) -> Flag :=
+  fun (env : Env) (s : State) => flagIf (signedBy testAuthRepeated testAuthUser 27
+    0x8028a63622d6a827bc6be9d1198143aa0ccb9094fa8e169be6ad0c462cd708e6u
+    0x7d118f1952dc10ca0d3ab6d921f6dba825a1e3847d935592123c9ff28d2339feu) flagNo flagYes

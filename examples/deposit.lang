@@ -1,6 +1,6 @@
--- The deposit contract (S5, docs/PLAN.md section 6), part 1 (S5 4.4): the state, init, the entries
--- regAuction, registerDeposit and makeInactive, and the views. The entries addTuple, updateActivity,
--- slashUsr, slash, withdraw and settle come in S5 4.5. The tree library (insertLeaf) and the verifier
+-- The deposit contract (S5, docs/PLAN.md section 6): the state, init, the entries regAuction,
+-- registerDeposit and makeInactive (S5 4.4), the entries addTuple, updateActivity, slashUsr, slash,
+-- withdraw and settle (S5 4.5), and the views. The tree library (insertLeaf) and the verifier
 -- (verify) are in domain/domain.lang (R40 (a)). An entry reverts (none) when a check fails.
 -- The tree depth is the closed constant treeDepth (R42 (a)), thus the state has no depth field.
 -- rootAt is before filled: the build writes the fields in order, and the root must come first, so
@@ -114,6 +114,163 @@ def makeInactive : (env : Env) -> (s : State) -> (au : Addr) -> Option (Prod Sta
             nil))
           none))
       none
+
+-- The Groth16 key of the slash proofs: the synthetic R39 (a) fixture of examples/groth16.lang, with
+-- 2 public inputs (a copy: a program cannot import another program, R40). Each G1 point is a
+-- multiple of G1 = (1, 2), and each G2 point is G2. A deployment sets the key of the real circuit.
+def slashG1 : G1Point := pair 1u 2u
+def slashG2 : G2Point :=
+  pair
+    (pair 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2u
+          0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6edu)
+    (pair 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975bu
+          0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daau)
+def slashKey : VerifyKey :=
+  pair (pair (ecMul slashG1 5u) slashG2)
+    (pair (pair slashG2 slashG2)
+      (cons (ecMul slashG1 7u) (cons (ecMul slashG1 11u) (cons (ecMul slashG1 13u) nil))))
+
+-- The proof (A, (B, C)) of 8 call words. A and C are G1 points. B is a G2 point in the EIP-197 order.
+def proofOf : (ax ay bxi bxr byi byr cx cy : U256) -> VerifyProof :=
+  fun (ax ay bxi bxr byi byr cx cy : U256) =>
+    pair (pair ax ay) (pair (pair (pair bxi bxr) (pair byi byr)) (pair cx cy))
+
+-- flagYes when input 0 is the handle hu (R50 (a)) and the proof is valid for the 2 inputs.
+def eligible : (hu : U256) -> (p : VerifyProof) -> (i0 i1 : U256) -> Flag :=
+  fun (hu : U256) (p : VerifyProof) (i0 i1 : U256) =>
+    flagIf (u256Eq i0 hu) (verify slashKey (cons i0 (cons i1 nil)) p) flagNo
+
+-- flagYes when the caller is the user au or a proposer.
+def byUserOrProposer : (env : Env) -> (s : State) -> (au : Addr) -> Flag :=
+  fun (env : Env) (s : State) (au : Addr) =>
+    flagIf (addrEq (caller env) au) flagYes (mapGet (proposer s) (caller env))
+
+-- flagYes when (v, r, w) is a signature of au over hash piAcc[au] piNonce[au]. Binding the
+-- nonce prevents a signature from authorizing a later Pi with the same tuples after a reset.
+-- w is the s word of the signature. An invalid signature recovers the address 0 (R18), thus the
+-- address 0 never signs.
+def signedBy : (s : State) -> (au : Addr) -> (v : Nat) -> (r w : U256) -> Flag :=
+  fun (s : State) (au : Addr) (v : Nat) (r w : U256) =>
+    flagIf (u256Eq (addrToU256 au) 0u) flagNo
+      (addrEq (ecrecover (hash (mapGet (piAcc s) au) (toU256 (mapGet (piNonce s) au))) v r w) au)
+
+-- The piHas key of the handle h in the pending Pi of au: hash (hash au nonce) h (R45 (a)). A Pi
+-- reset increments the nonce, thus the keys of an old Pi do not match again.
+def piKey : (s : State) -> (au : Addr) -> (h : U256) -> U256 :=
+  fun (s : State) (au : Addr) (h : U256) =>
+    hash (hash (addrToU256 au) (toU256 (mapGet (piNonce s) au))) h
+
+-- Entry: add the tuple (id, h) to the pending Pi of the user au (R45 (a)). The caller is au or a
+-- proposer. piAcc[au] := hash piAcc[au] (hash id h), piCount[au] + 1, and piHas of h under the
+-- current nonce of au.
+def addTuple : (env : Env) -> (s : State) -> (au : Addr) -> (id h : U256) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (au : Addr) (id h : U256) =>
+    flagIf (byUserOrProposer env s au)
+      (some (pair
+        (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
+          (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s) (amount s) (leaf s) (nextLeaf s)
+          (rootAt s) (filled s) (inactiveSince s) (slashed s) (proposer s)
+          (mapSet (piAcc s) au (hash (mapGet (piAcc s) au) (hash id h)))
+          (mapSet (piCount s) au (natAdd (mapGet (piCount s) au) 1)) (piNonce s)
+          (mapSet (piHas s) (piKey s au h) flagYes) (winner s) (price s))
+        nil))
+      none
+
+-- Entry: the user au is active again. The caller is au or a proposer, au is inactive, and (v, r, w)
+-- is a signature of au over hash piAcc[au] piNonce[au]. The timer stops (0), and the pending Pi resets: piAcc and
+-- piCount are 0, and piNonce + 1.
+def updateActivity : (env : Env) -> (s : State) -> (au : Addr) -> (v : Nat) -> (r w : U256) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (au : Addr) (v : Nat) (r w : U256) =>
+    flagIf (byUserOrProposer env s au)
+      (flagIf (natEq (mapGet (inactiveSince s) au) 0)
+        none
+        (flagIf (signedBy s au v r w)
+          (some (pair
+            (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
+              (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s) (amount s) (leaf s) (nextLeaf s)
+              (rootAt s) (filled s) (mapSet (inactiveSince s) au 0) (slashed s) (proposer s)
+              (mapSet (piAcc s) au 0u) (mapSet (piCount s) au 0)
+              (mapSet (piNonce s) au (natAdd (mapGet (piNonce s) au) 1)) (piHas s) (winner s) (price s))
+            nil))
+          none))
+      none
+
+-- Entry: mark the handle hu as slashed. Two valid proofs with input 0 = hu (R50 (a)) and two
+-- different commitments cm1 and cm2 show a double commit. Each proof is 8 words, then its 2 inputs:
+-- 1 + 2 (1 + 8 + 2) = 23 words. Any caller (R44 (a)). The binding of cm to the proof is the circuit
+-- of the paper, out of S5.
+def slashUsr : (env : Env) -> (s : State) ->
+  (hu cm1 a1x a1y b1xi b1xr b1yi b1yr c1x c1y i1a i1b cm2 a2x a2y b2xi b2xr b2yi b2yr c2x c2y i2a i2b : U256) ->
+  Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State)
+    (hu cm1 a1x a1y b1xi b1xr b1yi b1yr c1x c1y i1a i1b cm2 a2x a2y b2xi b2xr b2yi b2yr c2x c2y i2a i2b : U256) =>
+    flagIf (u256Eq cm1 cm2)
+      none
+      (flagIf (eligible hu (proofOf a1x a1y b1xi b1xr b1yi b1yr c1x c1y) i1a i1b)
+        (flagIf (eligible hu (proofOf a2x a2y b2xi b2xr b2yi b2yr c2x c2y) i2a i2b)
+          (some (pair
+            (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
+              (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s) (amount s) (leaf s) (nextLeaf s)
+              (rootAt s) (filled s) (inactiveSince s) (mapSet (slashed s) hu flagYes) (proposer s)
+              (piAcc s) (piCount s) (piNonce s) (piHas s) (winner s) (price s))
+            nil))
+          none)
+        none)
+
+-- The state after the user au leaves (slash or withdraw): the deposit and the leaf are 0, and the
+-- pending Pi resets. The timer also stops (0): a later deposit of au starts active, thus it cannot
+-- use the old timer to withdraw at once.
+def clearUser : (s : State) -> (au : Addr) -> State :=
+  fun (s : State) (au : Addr) =>
+    makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
+      (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s) (mapSet (amount s) au 0u) (mapSet (leaf s) au 0u)
+      (nextLeaf s) (rootAt s) (filled s) (mapSet (inactiveSince s) au 0) (slashed s) (proposer s)
+      (mapSet (piAcc s) au 0u) (mapSet (piCount s) au 0)
+      (mapSet (piNonce s) au (natAdd (mapGet (piNonce s) au) 1)) (piHas s) (winner s) (price s)
+
+-- Entry: slash the user au. (v, r, w) signs hash piAcc[au] piNonce[au], the pending Pi of au has
+-- the handle hu, and hu is slashed. Any caller (R44 (a)). The deposit stays with the contract.
+def slash : (env : Env) -> (s : State) -> (au : Addr) -> (hu : U256) -> (v : Nat) -> (r w : U256) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (au : Addr) (hu : U256) (v : Nat) (r w : U256) =>
+    flagIf (signedBy s au v r w)
+      (flagIf (mapGet (piHas s) (piKey s au hu))
+        (flagIf (mapGet (slashed s) hu) (some (pair (clearUser s au) nil)) none)
+        none)
+      none
+
+-- Entry: pay minDeposit of the asset to the user au (PLAN section 2), and au leaves. au has a
+-- deposit, au is inactive for at least nA slots, and (v, r, w) signs hash piAcc[au] piNonce[au].
+-- The timer is the start slot + 1, thus the slot check is timer + nA <= slot + 1.
+def withdraw : (env : Env) -> (s : State) -> (au : Addr) -> (v : Nat) -> (r w : U256) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (au : Addr) (v : Nat) (r w : U256) =>
+    flagIf (u256Eq (mapGet (amount s) au) 0u)
+      none
+      (flagIf (natEq (mapGet (inactiveSince s) au) 0)
+        none
+        (flagIf (natLe (natAdd (mapGet (inactiveSince s) au) (nA s)) (natAdd (slotOf s (now env)) 1))
+          (flagIf (signedBy s au v r w)
+            (some (pair (clearUser s au) (cons (pay asset au (minDeposit s)) nil)))
+            none)
+          none))
+
+-- Entry: settle the auction id (R43 (a)). The caller is the winner at the price bid and pays bid of
+-- the asset. The auction exists (id < ctr), it has no winner, and its end slot has passed. The
+-- choice of the winner from the sealed bids is S6 (processBid).
+def settle : (env : Env) -> (s : State) -> (id bid : U256) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (id bid : U256) =>
+    flagIf (u256Le (ctr s) id)
+      none
+      (flagIf (u256Eq (addrToU256 (mapGet (winner s) id)) 0u)
+        (flagIf (natLe (slotOf s (now env)) (mapGet (aucEnd s) id))
+          none
+          (some (pair
+            (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
+              (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s) (amount s) (leaf s) (nextLeaf s)
+              (rootAt s) (filled s) (inactiveSince s) (slashed s) (proposer s)
+              (piAcc s) (piCount s) (piNonce s) (piHas s)
+              (mapSet (winner s) id (caller env)) (mapSet (price s) id bid))
+            (cons (pull asset (caller env) vault bid) nil))))
+        none)
 
 -- Views: one view per field of an auction record (O8), the root of a slot, the deposit of a user,
 -- a slashed handle, and the count of the pending tuples of a user.

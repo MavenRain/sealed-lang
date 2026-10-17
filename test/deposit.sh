@@ -10,7 +10,7 @@ rows=0
 for name in testLastLeaf testFullTree testBeyondTree testMaxAuction testMaxAuctionSpan testZeroAuction testOutsideAuction \
   testFirstAmount testSecondIndex testFirstRoot testSecondRoot testSmallDeposit testDuplicateDeposit \
   testInactiveSlot testInactiveAgain testInactiveCaller testInactiveMissing testFirstSlotCount testOverlapCount \
-  testLastSlotCount testAuctionLimit testAuctionCaller testAuctionReversed testAuctionLong; do
+  testLastSlotCount testAuctionLimit testAuctionCaller testAuctionReversed testAuctionLong testAuthNonce; do
   rows=$((rows + 1))
   result=$(build/langc eval "$tmp/deposit.lang" "$name" 2>&1) || true
   if [ "$result" != 1 ]; then
@@ -87,6 +87,15 @@ else
   chain revert 30 "$proposer" registerDeposit 11u 100u
   next_leaf 100000001
   chain revert 30 "$proposer" registerDeposit 11u 100u
+fi
+if ! deploy "$tmp/deposit.lang"; then
+  echo 'FAIL deposit EVM signature deployment'
+  fail=$((fail + 1))
+else
+  prog="$tmp/deposit.lang"
+  for name in testSignature0 testSignature1 testSignatureReplay testSignatureLegacy; do
+    chain 'out 1' 0 "$user" "$name"
+  done
 fi
 echo "deposit EVM: $chain_rows calls, $fail total failures"
 [ "$fail" -eq 0 ]
