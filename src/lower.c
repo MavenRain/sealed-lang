@@ -245,12 +245,22 @@ struct Stmts {
 };
 
 /* A curve-op value lowered in this entry (S2, R17): LOCAL holds the block of
-   the STATICCALL output of STMT. */
+   the STATICCALL output of STMT. A word that the share rule hoists (S5 R41):
+   STMT sets LOCAL to the word. */
 typedef struct {
   const Value *value;
   const IrStmt *stmt;
   uint32_t local;
 } CurveMemo;
+
+/* A set of values with one mark (1 or 2) each, open addressing on the
+   pointer (the share rule, S5 R41). CAP is 0 or a power of 2. */
+typedef struct {
+  const Value **keys;
+  unsigned char *marks;
+  size_t cap;
+  size_t count;
+} ValueSet;
 
 typedef struct {
   Machine *m;
@@ -261,6 +271,7 @@ typedef struct {
   CurveMemo *memo;
   size_t memo_count;
   size_t memo_cap;
+  ValueSet pure; /* 1: the word value cannot trap, 2: it can (S5 R41) */
 } Low;
 
 static void *low_alloc(Low *l, size_t size) {
@@ -429,9 +440,13 @@ static const IrExpr *list_base(Low *l, uint32_t field) {
   return base;
 }
 
-/* flagIf at a word position: an IF that sets one local in each branch. */
+static int share_arms(Low *l, Stmts *b, const Value *v);
+
+/* flagIf at a word position: an IF that sets one local in each branch. The
+   share rule (S5 R41) first puts the words that both arms use into B. */
 static const IrExpr *lower_if_value(Low *l, Stmts *b, const Value *v) {
   const IrExpr *cond = lower_expr(l, b, v->args[0]);
+  if (cond != NULL && !share_arms(l, b, v)) return NULL;
   uint32_t local = l->locals++;
   Stmts arms[2] = {{NULL, 0, 0, b}, {NULL, 0, 0, b}};
   IrStmt *s = cond != NULL ? new_stmt(l, IR_STMT_IF) : NULL;
@@ -543,6 +558,126 @@ static int memo_add(Low *l, const Value *v, const IrStmt *stmt, uint32_t local) 
   return 1;
 }
 
+/* The memo entry of V that B can read (STMT in B or in a block that runs
+   before B), or memo_count when there is none. */
+static size_t memo_find(const Low *l, const Stmts *b, const Value *v) {
+  for (size_t i = 0; i < l->memo_count; i++)
+    if (l->memo[i].value == v && block_has(b, l->memo[i].stmt)) return i;
+  return l->memo_count;
+}
+
+static size_t set_slot(const ValueSet *s, const Value *v) {
+  size_t i = (size_t)((uintptr_t)v / sizeof *v) & (s->cap - 1u);
+  while (s->keys[i] != NULL && s->keys[i] != v) i = (i + 1u) & (s->cap - 1u);
+  return i;
+}
+
+/* The mark of V in S, or 0 when V is not in S. */
+static unsigned set_get(const ValueSet *s, const Value *v) {
+  size_t i = s->cap > 0 ? set_slot(s, v) : 0;
+  return s->cap > 0 && s->keys[i] == v ? s->marks[i] : 0u;
+}
+
+static int set_put(Low *l, ValueSet *s, const Value *v, unsigned char mark) {
+  if (2u * (s->count + 1u) > s->cap) {
+    ValueSet grown = {NULL, NULL, s->cap == 0 ? 64u : s->cap * 2u, 0};
+    grown.keys = low_alloc(l, grown.cap * sizeof *grown.keys);
+    grown.marks = grown.keys != NULL ? low_alloc(l, grown.cap) : NULL;
+    if (grown.marks == NULL) return 0;
+    for (size_t i = 0; i < s->cap; i++)
+      if (s->keys[i] != NULL) {
+        size_t j = set_slot(&grown, s->keys[i]);
+        grown.keys[j] = s->keys[i];
+        grown.marks[j] = s->marks[i];
+        grown.count++;
+      }
+    *s = grown;
+  }
+  size_t i = set_slot(s, v);
+  if (s->keys[i] == NULL) s->count++;
+  s->keys[i] = v;
+  s->marks[i] = mark;
+  return 1;
+}
+
+/* The values that the share rule hoists (S5 R41): a hash and a word flagIf. */
+static int shareable(const Value *v) {
+  return (is_op(v, OP_HASH) && v->argc == 2) || (is_op(v, OP_FLAG_IF) && v->argc == 3);
+}
+
+static int pure_word(Low *l, const Value *v);
+
+/* 1 when the word value V cannot trap: a constant, a local, a load, now or
+   caller, a hash, a comparison or a subtraction of such values, a natDiv or
+   a natMod of such a value by a nonzero constant, and a word flagIf over such
+   values. Each of these lowers with no refusal. */
+static int pure_word_of(Low *l, const Value *v) {
+  static const Op pure_binary[] = {OP_HASH,   OP_NAT_SUB, OP_NAT_EQ,  OP_NAT_LE,
+                                   OP_U256_SUB, OP_U256_LE, OP_U256_EQ, OP_ADDR_EQ};
+  uint32_t f;
+  if (v == NULL) return 0;
+  if (v->kind == VAL_NAT || v->kind == VAL_WORD || val_is(v, OP_FLAG_YES) || val_is(v, OP_FLAG_NO)) return 1;
+  if (v->kind == VAL_VAR) return v->nat >= 2u;
+  if (field_of(v, 1u, &f)) return form_at(l, f) == FORM_WORD;
+  if (field_of(v, 0u, &f))
+    return l->env != NULL && f < l->env->field_count &&
+      (strcmp(l->env->fields[f].name, "now") == 0 || strcmp(l->env->fields[f].name, "caller") == 0);
+  if ((is_op(v, OP_TO_U256) || is_op(v, OP_ADDR_TO_U256)) && v->argc == 1) return pure_word(l, v->args[0]);
+  if (is_op(v, OP_KMAP_GET) && v->argc == 3 && field_of(v->args[1], 1u, &f) && form_at(l, f) == FORM_MAP)
+    return pure_word(l, v->args[2]);
+  if (is_op(v, OP_FLAG_IF) && v->argc == 3)
+    return pure_word(l, v->args[0]) && pure_word(l, v->args[1]) && pure_word(l, v->args[2]);
+  if ((is_op(v, OP_NAT_DIV) || is_op(v, OP_NAT_MOD)) && v->argc == 2)
+    return v->args[1]->kind == VAL_NAT && v->args[1]->nat != 0u && pure_word(l, v->args[0]);
+  for (size_t k = 0; v->argc == 2 && k < sizeof pure_binary / sizeof pure_binary[0]; k++)
+    if (is_op(v, pure_binary[k])) return pure_word(l, v->args[0]) && pure_word(l, v->args[1]);
+  return 0;
+}
+
+/* pure_word_of with the result of each value in l->pure: a shared value is
+   checked once, not once for each path to it. */
+static int pure_word(Low *l, const Value *v) {
+  unsigned mark = set_get(&l->pure, v);
+  if (mark != 0u) return mark == 1u;
+  int pure = pure_word_of(l, v);
+  return set_put(l, &l->pure, v, pure ? 1u : 2u) && pure;
+}
+
+/* SEEN gets each value of the tree of V, each shared value once. */
+static int share_mark(Low *l, ValueSet *seen, const Value *v) {
+  if (v == NULL || set_get(seen, v) != 0u) return 1;
+  if (!set_put(l, seen, v, 1u)) return 0;
+  for (uint32_t i = 0; (v->kind == VAL_OP || v->kind == VAL_STUCK) && i < v->argc; i++)
+    if (!share_mark(l, seen, v->args[i])) return 0;
+  return 1;
+}
+
+/* B gets local := V for each hash or word flagIf V in the tree of the value
+   that is also in FIRST and that cannot trap, and the memo gets V. The walk
+   does not go into a hoisted value. */
+static int share_hoist(Low *l, Stmts *b, const ValueSet *first, ValueSet *seen, const Value *v) {
+  if (v == NULL || set_get(seen, v) != 0u) return 1;
+  if (!set_put(l, seen, v, 1u)) return 0;
+  if (shareable(v) && set_get(first, v) != 0u && pure_word(l, v)) {
+    if (memo_find(l, b, v) < l->memo_count) return 1;
+    const IrExpr *e = lower_expr(l, b, v);
+    if (e != NULL && e->kind != IR_EXPR_LOCAL) e = ir_set(l, b, e);
+    return e != NULL && b->count > 0 && memo_add(l, v, b->items[b->count - 1u], e->local);
+  }
+  for (uint32_t i = 0; (v->kind == VAL_OP || v->kind == VAL_STUCK) && i < v->argc; i++)
+    if (!share_hoist(l, b, first, seen, v->args[i])) return 0;
+  return 1;
+}
+
+/* The share rule (S5 R41) for the word flagIf V: a word that cannot trap and
+   that both arms use is lowered once into a local in B, before the IF. A
+   later use in B, or in a block that runs after B, reads the local (the R17
+   memo rule, for words). Thus an unrolled tree insert is linear in the depth. */
+static int share_arms(Low *l, Stmts *b, const Value *v) {
+  ValueSet first = {NULL, NULL, 0, 0}, seen = {NULL, NULL, 0, 0};
+  return share_mark(l, &first, v->args[1]) && share_hoist(l, b, &first, &seen, v->args[2]);
+}
+
 static const IrExpr *lower_curve(Low *l, Stmts *b, const Value *v);
 
 /* The words of a precompile argument (S2, R17): a pair gives the words of
@@ -584,8 +719,8 @@ static const IrExpr *lower_curve(Low *l, Stmts *b, const Value *v) {
   uint32_t argc = list != NULL ? 0 : v->argc;
   size_t count = 0, n = 0;
   int ok = 1;
-  for (size_t i = 0; i < l->memo_count; i++)
-    if (l->memo[i].value == v && block_has(b, l->memo[i].stmt)) return ir_local(l, l->memo[i].local);
+  size_t hit = memo_find(l, b, v);
+  if (hit < l->memo_count) return ir_local(l, l->memo[hit].local);
   if (list != NULL && !closed_list(list))
     return refuse(l, list, "at a pairing position (want a closed list of pairs)"), NULL;
   for (const Value *c = list; is_op(c, OP_CONS); c = c->args[1]) count += point_word_count(c->args[0]);
@@ -606,6 +741,8 @@ static const IrExpr *lower_curve(Low *l, Stmts *b, const Value *v) {
 
 static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
   uint32_t f;
+  size_t hit = shareable(v) ? memo_find(l, b, v) : l->memo_count;
+  if (hit < l->memo_count) return ir_local(l, l->memo[hit].local);
   if (v != NULL && v->kind == VAL_TRAP) return push(l, b, new_stmt(l, IR_STMT_TRAP)) ? ir_const(l, 0) : NULL;
   if (v != NULL && v->kind == VAL_NAT) return ir_const(l, v->nat);
   if (val_is(v, OP_FLAG_YES) || val_is(v, OP_FLAG_NO)) return ir_const(l, (uint64_t)val_is(v, OP_FLAG_YES));
@@ -898,7 +1035,7 @@ static int lower_entries(Machine *m, const CtorInfo *ci, IrProgram *program, con
     int role = residualize(m, env, out, i, &r);
     if (role < 0) return 0;
     if (role == 0) continue;
-    Low l = {m, ci, env < m->family_count ? &m->ctors[m->families[env].first_ctor] : NULL, r.arg_count, m->defs[i].name, NULL, 0, 0};
+    Low l = {m, ci, env < m->family_count ? &m->ctors[m->families[env].first_ctor] : NULL, r.arg_count, m->defs[i].name, NULL, 0, 0, {NULL, NULL, 0, 0}};
     Stmts b = {NULL, 0, 0, NULL};
     IrScalar *params = r.arg_count > 0 ? low_alloc(&l, r.arg_count * sizeof *params) : NULL;
     if ((r.arg_count > 0 && params == NULL)

@@ -271,6 +271,44 @@ static int fold_regression(const char *name, const char *step, const char *seed,
   return ok;
 }
 
+/* The share rule (S5 R41): an unrolled depth-32 tree insert, level form
+   `flagIf b (hash cur z) (hash f cur)`, builds under EIP-170. Without the
+   rule the code doubles at each level (depth 8 = 24311 bytes). */
+static int insert_regression(void) {
+  static const char head[] =
+    "state State := makeState (root : U256) (fill : U256)\ndef init : State := makeState 0u 0u\n"
+    "def level : (b : Flag) -> (z : U256) -> (f : U256) -> (cur : U256) -> U256 :=\n"
+    "  fun (b : Flag) (z : U256) (f : U256) (cur : U256) => flagIf b (hash cur z) (hash f cur)\n"
+    "def insert : (env : Env) -> (s : State) -> (idx : Nat) -> (leaf : U256) -> Option (Prod State (List Out)) :=\n"
+    "  fun (env : Env) (s : State) (idx : Nat) (leaf : U256) => some (pair (makeState ";
+  char source[8192];
+  size_t n = (size_t)snprintf(source, sizeof source, "%s", head);
+  for (unsigned k = 1; k <= 32 && n < sizeof source; k++)
+    n += (size_t)snprintf(source + n, sizeof source - n, "(level (natEq (natMod (natDiv idx %llu) 2) 1) 0u (fill s) ",
+                          (unsigned long long)1u << (32u - k));
+  for (unsigned k = 0; k <= 32 && n < sizeof source; k++)
+    n += (size_t)snprintf(source + n, sizeof source - n, "%s", k == 0 ? "leaf" : ")");
+  if (n < sizeof source) n += (size_t)snprintf(source + n, sizeof source - n, " (fill s)) nil)\n");
+  Arena arena;
+  Diag diag;
+  DeclList decls;
+  Machine machine;
+  FILE *out = tmpfile();
+  if (out == NULL || n >= sizeof source) return 0;
+  arena_init(&arena, (size_t)1 << 25);
+  diag_init(&diag);
+  int ok = front_load(&arena, "insert-depth-32", source, n, &decls, &diag)
+    && check_program(&arena, &decls, &machine, &diag)
+    && lower_build(&machine, TARGET_PART_RUNTIME, out) == 0 && diag.code == NULL;
+  if (!ok) {
+    fputs("FAIL insert-depth-32: a depth-32 insert must build under EIP-170\n", stderr);
+    if (diag.set) diag_print(&diag, stderr);
+  }
+  fclose(out);
+  arena_release(&arena);
+  return ok;
+}
+
 int main(void) {
   int ok = 1;
   const char *head = "fun (x : U256) (acc : U256) => x";
@@ -393,6 +431,7 @@ int main(void) {
     "some (pair (makeState 9) (cons (pay " TOKEN " " TOKEN " 7u) nil))\n", 0);
   ok &= order_regression("call-order-stored-pull", ENTRY
     "some (pair (makeState 9) (flagIf (natEq (counter s) 0) nil (cons (pull " TOKEN " " TOKEN " " TOKEN " 7u) nil)))\n", 1);
+  ok &= insert_regression();
   if (ok) puts("lower regressions: passed");
   return ok ? 0 : 1;
 }
