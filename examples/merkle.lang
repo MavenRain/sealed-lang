@@ -1,0 +1,19 @@
+-- The tree library (S5 4.2, R40 (a)): insertLeaf, zeroHash and rootOfLeaves are in domain/domain.lang.
+-- The eval rows insert 1, 2 and 3 leaves in a chain from an empty tree, and compare each root with
+-- rootOfLeaves of the same leaves (1 = the same root).
+state State := makeState (filled : Map Nat U256)
+
+def init : State := makeState mapEmpty
+
+def chain1 : Prod U256 (Map Nat U256) := insertLeaf 0 7u mapEmpty
+def chain2 : Prod U256 (Map Nat U256) := insertLeaf 1 8u (second chain1)
+def chain3 : Prod U256 (Map Nat U256) := insertLeaf 2 9u (second chain2)
+
+def sameOne : Flag := u256Eq (first chain1) (rootOfLeaves (cons 7u nil))
+def sameTwo : Flag := u256Eq (first chain2) (rootOfLeaves (cons 7u (cons 8u nil)))
+def sameThree : Flag := u256Eq (first chain3) (rootOfLeaves (cons 7u (cons 8u (cons 9u nil))))
+
+-- The view for the chain: the root after the leaf at idx, with the filled subtrees in the state.
+-- Normalization unrolls the 32 levels; the share rule (S5 4.1) keeps the runtime code linear in the depth.
+def rootAfter : (env : Env) -> (s : State) -> (idx : Nat) -> (leaf : U256) -> U256 :=
+  fun (env : Env) (s : State) (idx : Nat) (leaf : U256) => first (insertLeaf idx leaf (filled s))

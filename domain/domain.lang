@@ -47,3 +47,51 @@ family Quot (A : Type 0) (R : A -> A -> Type 0) := quot (quotOf : A)
   | quotEq (quotA : A) (quotB : A) (quotR : R quotA quotB) (i : I) [ ~i -> quot A R quotA, i -> quot A R quotB ]
   | quotSquash (quotFrom : Quot A R) (quotTo : Quot A R) (quotLeft : Path (Quot A R) quotFrom quotTo) (quotRight : Path (Quot A R) quotFrom quotTo) (i : I) (j : I)
     [ ~i -> quotLeft @ j, i -> quotRight @ j, ~j -> quotFrom, j -> quotTo ]
+
+-- The tree library (S5, R40 (a)): an incremental Merkle tree of keccak
+-- hashes with a closed depth (R42 (a)). Level 0 is the leaf level. An
+-- empty leaf is 0u, and zeroHash l is the root of an empty subtree of
+-- height l. All folds here are over a closed Nat or a closed list, thus
+-- normalization unrolls them (32 levels) and an entry or a view can use
+-- insertLeaf.
+def treeDepth : Nat := 32
+-- The levels from treeDepth - 1 down to 0. A list fold applies its step
+-- to the last element first, thus level 0 is the inner step.
+def treeLevels : List Nat := unfold (fun (n : Nat) => some (pair n (natSub n 1))) treeDepth (natSub treeDepth 1)
+def zeroHash : (l : Nat) -> U256 := fun (l : Nat) => fold (fun (acc : U256) => hash acc acc) 0u l
+-- flagYes when bit l of idx is 0: the node at level l is a left child.
+def treeLeft : (idx : Nat) -> (l : Nat) -> Flag :=
+  fun (idx : Nat) (l : Nat) => natEq (natMod (natDiv idx (fold (fun (a : Nat) => natAdd a a) 1 l)) 2) 0
+-- One level (the 4.1 form, which the share rule keeps linear in the
+-- depth): a left child cur hashes with the empty subtree z, a right child
+-- hashes with the filled subtree f.
+def treeLevel : (b : Flag) -> (z : U256) -> (f : U256) -> (cur : U256) -> U256 :=
+  fun (b : Flag) (z : U256) (f : U256) (cur : U256) => flagIf b (hash cur z) (hash f cur)
+-- Insert the leaf cur at the index idx. The result is the new root and
+-- the new filled subtrees: a left child at level l becomes filled at l.
+-- The insert writes each level, with the old value for a right child.
+def insertLeaf : (idx : Nat) -> (cur : U256) -> (filled : Map Nat U256) -> Prod U256 (Map Nat U256) :=
+  fun (idx : Nat) (cur : U256) (filled : Map Nat U256) =>
+    fold
+      (fun (l : Nat) (acc : Prod U256 (Map Nat U256)) =>
+        pair (treeLevel (treeLeft idx l) (zeroHash l) (mapGet filled l) (first acc))
+          (mapSet (second acc) l (flagIf (treeLeft idx l) (first acc) (mapGet filled l))))
+      (pair cur filled) treeLevels
+-- The root of a closed list of leaves (the eval side of the tree rows):
+-- each level hashes the nodes in pairs, and an odd last node hashes with
+-- zeroHash l. The pair fold reads the list from the end, thus it starts
+-- with the pending node zeroHash l when the length is odd.
+def treePairSeed : (z : U256) -> (odd : Flag) -> Prod (List U256) (Prod U256 Flag) :=
+  fun (z : U256) (odd : Flag) => pair nil (pair z odd)
+def treePairStep : (x : U256) -> (acc : Prod (List U256) (Prod U256 Flag)) -> Prod (List U256) (Prod U256 Flag) :=
+  fun (x : U256) (acc : Prod (List U256) (Prod U256 Flag)) =>
+    flagIf (second (second acc))
+      (pair (cons (hash x (first (second acc))) (first acc)) (pair 0u flagNo))
+      (pair (first acc) (pair x flagYes))
+def treePairLevel : (l : Nat) -> (xs : List U256) -> List U256 :=
+  fun (l : Nat) (xs : List U256) =>
+    first (fold treePairStep
+      (treePairSeed (zeroHash l) (natEq (natMod (fold (fun (x : U256) (n : Nat) => natAdd n 1) 0 xs) 2) 1)) xs)
+def rootOfLeaves : (leaves : List U256) -> U256 :=
+  fun (leaves : List U256) =>
+    fold (fun (x : U256) (acc : U256) => x) (zeroHash treeDepth) (fold treePairLevel leaves treeLevels)
