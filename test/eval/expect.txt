@@ -65,3 +65,7 @@ merkle sameThree => 1
 protocol winnerOf3 => pair 7u 2u
 protocol tieBid => pair 7u 4u
 protocol emptyPool => pair 0u 0u
+protocol medianOdd => some 5
+protocol medianEven => some 4
+protocol medianMissing => some 7
+protocol medianTooFew => none

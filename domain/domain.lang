@@ -78,6 +78,27 @@ def bidMax : (a : Bid) -> (b : Bid) -> Bid :=
 -- it.
 axiom bidMaxSwap : (x : Bid) -> (y : Bid) -> (r : Bid) -> Path Bid (bidMax x (bidMax y r)) (bidMax y (bidMax x r))
 axiom bidSet : isSet Bid
+-- The sort of the timestamps (S6 4.3, the median of Lemma 11): insNat x l
+-- is l with x before the first element that is greater than x, or l with
+-- x at the end when no element is greater. The step of the list fold
+-- applies to the last element first. The accumulator is (the list from the
+-- current element, the same list with x in it).
+def insNatSeed : (x : Nat) -> Prod (List Nat) (List Nat) := fun (x : Nat) => pair nil (cons x nil)
+def insNat : (x : Nat) -> (l : List Nat) -> List Nat :=
+  fun (x : Nat) (l : List Nat) =>
+    second (fold
+      (fun (y : Nat) (acc : Prod (List Nat) (List Nat)) =>
+        pair (cons y (first acc)) (flagIf (natLe y x) (cons y (second acc)) (cons x (cons y (first acc)))))
+      (insNatSeed x) l)
+-- The core laws 3 and 4 (S6 R52 (a), R53 (a)). Law 3 is true for each list
+-- l, also when l is not sorted: the proof is by induction on l, as for the
+-- Isabelle lemma List.insort_left_comm. Two equal Nat values are the same
+-- value, thus the order of x and y is not important when x = y. Law 4 is
+-- true because the lists of Nat have a decidable equality (Hedberg). A
+-- fold of a Bag into List Nat uses law 3 as the swap case and law 4 as the
+-- trunc case.
+axiom insSwap : (x : Nat) -> (y : Nat) -> (l : List Nat) -> Path (List Nat) (insNat x (insNat y l)) (insNat y (insNat x l))
+axiom listNatSet : isSet (List Nat)
 
 -- The tree library (S5, R40 (a)): an incremental Merkle tree of keccak
 -- hashes with a closed depth (R42 (a)). Level 0 is the leaf level. An

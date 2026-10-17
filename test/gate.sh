@@ -8,6 +8,8 @@ count=0
 # get a line here.
 report='axiom bidMaxSwap
 axiom bidSet
+axiom insSwap
+axiom listNatSet
 ok'
 for prog in examples/*.lang; do
   out=$(build/langc check "$prog" 2>&1) || true

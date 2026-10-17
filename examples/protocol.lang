@@ -18,3 +18,32 @@ def bidMaxSwapAt : Path Bid (bidMax (pair 5u 1u) (bidMax (pair 7u 2u) (pair 3u 9
 def winnerOf3 : Bid := bagMax (bagCons Bid (pair 5u 1u) (bagCons Bid (pair 7u 2u) (bagCons Bid (pair 3u 9u) (bagNil Bid))))
 def tieBid : Bid := bagMax (bagCons Bid (pair 7u 2u) (bagCons Bid (pair 7u 4u) (bagNil Bid)))
 def emptyPool : Bid := bagMax (bagNil Bid)
+-- The timestamps of a slot (S6 4.3, Lemma 11) are a Bag of Nat. sortBag b
+-- is the sorted list of the stamps, the fold of insNat over b. The fold
+-- goes into List Nat, thus the swap case is law 3 (insSwap) and the trunc
+-- case is law 4 (listNatSet).
+def sortBag : (b : Bag Nat) -> List Nat :=
+  fun (b : Bag Nat) => fold nil insNat
+    (fun (x : Nat) (y : Nat) (r : List Nat) => insSwap x y r) listNatSet b
+-- The median (R54 (a)): the stamp at index f of sortBag b. The f folds of
+-- listTail remove the f smallest stamps, and the list fold gives the first
+-- stamp that stays. A bag with f stamps or less gives none (a missing
+-- stamp is infinite, as in Lemma 11). An even count uses the same rule: f
+-- sets the index, not the count.
+def medianAt : (f : Nat) -> (b : Bag Nat) -> Option Nat :=
+  fun (f : Nat) (b : Bag Nat) =>
+    fold (fun (x : Nat) (acc : Option Nat) => some x) none
+      (fold (fun (l : List Nat) => listTail Nat l) (sortBag b) f)
+-- An instance of law 3 at closed values, with a list that is not sorted.
+-- The proof is refl, thus an insNat that makes law 3 false at these values
+-- fails the check. This row does not prove the law.
+def insSwapAt : Path (List Nat) (insNat 5 (insNat 2 (cons 7 (cons 1 nil))))
+  (insNat 2 (insNat 5 (cons 7 (cons 1 nil)))) := refl
+-- The eval rows, all with f = 1 except the last: an odd count, an even
+-- count, a missing stamp (two stamps of three) and too few stamps (f = 2,
+-- two stamps). The median at index f + 1 fails the odd, even and missing
+-- rows. An insNat that sorts down fails the even and missing rows.
+def medianOdd : Option Nat := medianAt 1 (bagCons Nat 9 (bagCons Nat 3 (bagCons Nat 5 (bagNil Nat))))
+def medianEven : Option Nat := medianAt 1 (bagCons Nat 8 (bagCons Nat 2 (bagCons Nat 6 (bagCons Nat 4 (bagNil Nat)))))
+def medianMissing : Option Nat := medianAt 1 (bagCons Nat 7 (bagCons Nat 4 (bagNil Nat)))
+def medianTooFew : Option Nat := medianAt 2 (bagCons Nat 3 (bagCons Nat 6 (bagNil Nat)))
