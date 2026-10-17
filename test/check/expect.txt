@@ -1,5 +1,6 @@
 data.lang REFUSE_DATA
 axiom.lang REFUSE_AXIOM
+axiom-type.lang REFUSE_AXIOM_TYPE
 rec.lang REFUSE_REC
 self.lang REFUSE_REC
 later.lang REFUSE_REC
@@ -78,6 +79,7 @@ trans-unit.lang PATH_UIP
 state-boundary.lang DOMAIN_FAMILY
 fold-missing-path.lang TYPE_MISMATCH
 fold-path-boundary.lang PATH_END
+bag-swap-boundary.lang PATH_END
 loop-not-refl.lang PATH_UIP
 trunc0-no-set.lang TYPE_MISMATCH
 squash0-not-rebuild.lang PATH_UIP

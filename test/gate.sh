@@ -3,10 +3,16 @@
 set -eu
 fail=0
 count=0
+# The axiom report (SPEC section 8, S6 R52 (a)): `langc check` prints each
+# domain law in the order of the domain file, then ok. Each new law must
+# get a line here.
+report='axiom bidMaxSwap
+axiom bidSet
+ok'
 for prog in examples/*.lang; do
   out=$(build/langc check "$prog" 2>&1) || true
   count=$((count + 1))
-  if [ "$out" != "ok" ]; then
+  if [ "$out" != "$report" ]; then
     echo "FAIL $prog: $out"
     fail=$((fail + 1))
   fi

@@ -62,3 +62,6 @@ quot toTrunc3 => trunc0 Nat 2
 merkle sameOne => 1
 merkle sameTwo => 1
 merkle sameThree => 1
+protocol winnerOf3 => pair 7u 2u
+protocol tieBid => pair 7u 4u
+protocol emptyPool => pair 0u 0u

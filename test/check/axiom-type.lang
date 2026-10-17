@@ -1,0 +1,3 @@
+-- The type of an axiom must be a Path or a PathP after its Pi binders
+-- (S6 R52 (a)). Nat is not a law.
+axiom magic : (n : Nat) -> Nat

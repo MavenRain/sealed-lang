@@ -151,7 +151,8 @@ typedef enum {
   VAL_PLAM,  /* a path abstraction (a closure on an interval variable) */
   VAL_PATHP, /* a path type: the line is the closure, args[0..1] the ends */
   VAL_IVAL,  /* an interval term in normal form */
-  VAL_PAPP   /* neutral: a neutral path at an interval value */
+  VAL_PAPP,  /* neutral: a neutral path at an interval value */
+  VAL_AXIOM  /* neutral: a domain axiom (S6 R52); nat: the definition number, name: its name */
 } ValKind;
 
 /* An interval literal is level * 2 + 1 for a negated variable, else
@@ -305,6 +306,8 @@ typedef struct {
 const Value *val_nat(Machine *m, uint64_t n);
 const Value *val_word(Machine *m, uint64_t sort, const U256 *word);
 const Value *val_var(Machine *m, uint32_t level);
+/* The domain axiom with the definition number INDEX and the name NAME. */
+const Value *val_axiom(Machine *m, uint32_t index, const char *name);
 /* The interval variable at LEVEL. */
 const Value *val_ivar(Machine *m, uint32_t level);
 /* i0 when SIDE is 0, else i1. */

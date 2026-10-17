@@ -144,6 +144,15 @@ const Value *val_var(Machine *m, uint32_t level) {
   return v;
 }
 
+const Value *val_axiom(Machine *m, uint32_t index, const char *name) {
+  Value *v = new_value(m, VAL_AXIOM);
+  if (v != NULL) {
+    v->nat = index;
+    v->name = name;
+  }
+  return v;
+}
+
 const Value *val_univ(Machine *m, uint64_t level) {
   Value *v = new_value(m, VAL_UNIV);
   if (v != NULL)
@@ -521,6 +530,7 @@ static Scrut scrut_of(const Value *v) {
   case VAL_TRAP:
     return SCRUT_TRAP;
   case VAL_VAR:
+  case VAL_AXIOM:
   case VAL_APP:
   case VAL_STUCK:
   case VAL_PAPP:
@@ -632,6 +642,7 @@ const Value *apply_value(Machine *m, const Value *fn, const Value *arg) {
   case VAL_TRAP:
     return fn;
   case VAL_VAR:
+  case VAL_AXIOM:
   case VAL_APP:
   case VAL_STUCK:
   case VAL_PAPP:
@@ -1851,6 +1862,7 @@ static const Value *transp(Machine *m, const Value *line, const Value *phi, cons
   case VAL_PATHP: /* rule 7 */
     return kan_closure(m, VAL_PLAM, CLOS_TRANSP_PATHP, 0, 3, line, face, base);
   case VAL_VAR:
+  case VAL_AXIOM:
   case VAL_APP:
   case VAL_STUCK:
   case VAL_PAPP:
@@ -2150,6 +2162,7 @@ static const Value *hcomp(Machine *m, const Value *ty, const Value *phi, const V
     return internal(m, "an hcomp in a value that is not a type");
   case VAL_UNIV:
   case VAL_VAR:
+  case VAL_AXIOM:
   case VAL_APP:
   case VAL_STUCK:
   case VAL_PAPP:
@@ -2433,6 +2446,7 @@ static int conv_loop(Machine *m, uint32_t level, const Value *a, const Value *b)
     case VAL_NAT:
     case VAL_UNIV:
     case VAL_VAR:
+    case VAL_AXIOM:
       return a->nat == b->nat;
     case VAL_TRAP:
       return 1;
@@ -2661,6 +2675,12 @@ static const Core *quote_inner(Machine *m, uint32_t level, const Value *v) {
     return core_leaf(m, CORE_UNIV, v->nat);
   case VAL_VAR:
     return quote_var(m, level, v);
+  case VAL_AXIOM: {
+    Core *g = new_core(m, CORE_GLOBAL);
+    if (g != NULL)
+      g->index = (uint32_t)v->nat;
+    return g;
+  }
   case VAL_APP:
     return quote_app(m, level, v);
   case VAL_LAM:
@@ -2758,6 +2778,9 @@ static int print_name_taken(const Printer *p, const char *name) {
   for (size_t i = 0; i < sizeof OP_NAMES / sizeof OP_NAMES[0]; i++)
     if (strcmp(OP_NAMES[i], name) == 0)
       return 1;
+  for (uint32_t i = 0; i < p->m->def_count; i++)
+    if (p->m->defs[i].body == NULL && strcmp(p->m->defs[i].name, name) == 0)
+      return 1;
   for (uint32_t i = 0; i < p->m->family_count; i++)
     if (strcmp(p->m->families[i].name, name) == 0)
       return 1;
@@ -2821,6 +2844,7 @@ static void print_binder(Printer *p, const Value *v) {
   case VAL_UNIV:
   case VAL_OP:
   case VAL_VAR:
+  case VAL_AXIOM:
   case VAL_APP:
   case VAL_STUCK:
   case VAL_IVAL:
@@ -2919,6 +2943,9 @@ static void print_other(Printer *p, const Value *v, int atom) {
   case VAL_VAR:
     put(p, var_name(p, v->nat));
     return;
+  case VAL_AXIOM:
+    put(p, v->name);
+    return;
   case VAL_OP:
   case VAL_STUCK:
     put(p, op_name(p->m, v->op, v->inst, v->field));
@@ -2964,6 +2991,7 @@ static void print_other(Printer *p, const Value *v, int atom) {
   case VAL_WORD:
   case VAL_TRAP:
   case VAL_VAR:
+  case VAL_AXIOM:
   case VAL_OP:
   case VAL_STUCK:
   case VAL_IVAL:

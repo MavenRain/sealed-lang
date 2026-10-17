@@ -178,6 +178,9 @@ static int run(const Options *opt, Arena *arena, Diag *diag) {
   if (!check_program(arena, &decls, &machine, diag)) return 1;
   switch (opt->command) {
     case CMD_CHECK:
+      /* The axiom report (SPEC section 8, S6 R52 (a)): each law that the
+         program trusts, then ok. */
+      report_axioms(&machine, stdout);
       puts("ok");
       return 0;
     case CMD_EVAL:

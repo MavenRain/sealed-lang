@@ -48,6 +48,37 @@ family Quot (A : Type 0) (R : A -> A -> Type 0) := quot (quotOf : A)
   | quotSquash (quotFrom : Quot A R) (quotTo : Quot A R) (quotLeft : Path (Quot A R) quotFrom quotTo) (quotRight : Path (Quot A R) quotFrom quotTo) (i : I) (j : I)
     [ ~i -> quotLeft @ j, i -> quotRight @ j, ~j -> quotFrom, j -> quotTo ]
 
+-- The finite multiset Bag A (S6, R51 (a)): a list with a path that swaps
+-- the first two elements, and the set truncation in the squash0 shape. A
+-- fold into RES asks c0 : RES, c1 : A -> RES -> RES, a swap case with
+-- the type Path RES (c1 x (c1 y r)) (c1 y (c1 x r)), and a trunc case
+-- with the type isSet RES.
+family Bag (A : Type 0) := bagNil
+  | bagCons (bagHead : A) (bagTail : Bag A)
+  | bagSwap (bagX : A) (bagY : A) (bagRest : Bag A) (i : I)
+    [ ~i -> bagCons A bagX (bagCons A bagY bagRest), i -> bagCons A bagY (bagCons A bagX bagRest) ]
+  | bagTrunc (bagFrom : Bag A) (bagTo : Bag A) (bagLeft : Path (Bag A) bagFrom bagTo) (bagRight : Path (Bag A) bagFrom bagTo) (i : I) (j : I)
+    [ ~i -> bagLeft @ j, i -> bagRight @ j, ~j -> bagFrom, j -> bagTo ]
+
+-- The bids of a slot (S6 4.2, PLAN section 3): a bid is (value, cm).
+-- bidLe is the lexicographic order: on equal values the cm decides, thus
+-- the order is total and the larger cm wins a tie (R55 (a); the paper has
+-- no tie rule). bidMax a b is the larger of the two bids.
+def Bid : Type 0 := Prod U256 U256
+def bidLe : (a : Bid) -> (b : Bid) -> Flag :=
+  fun (a : Bid) (b : Bid) => flagIf (u256Eq (first a) (first b)) (u256Le (second a) (second b)) (u256Le (first a) (first b))
+def bidMax : (a : Bid) -> (b : Bid) -> Bid :=
+  fun (a : Bid) (b : Bid) => flagIf (bidLe a b) b a
+-- The core laws 1 and 2 (S6 R52 (a), R53 (a)): domain axioms, with no
+-- proof in the kernel. Law 1 is true because bidLe is a total order, thus
+-- the two sides are the largest of x, y and r. Law 2 is true because two
+-- pairs of U256 words have a decidable equality (Hedberg). A fold of a Bag
+-- into Bid uses law 1 as the swap case and law 2 as the trunc case. A law
+-- has no run-time value: eval keeps it as a neutral and lowering refuses
+-- it.
+axiom bidMaxSwap : (x : Bid) -> (y : Bid) -> (r : Bid) -> Path Bid (bidMax x (bidMax y r)) (bidMax y (bidMax x r))
+axiom bidSet : isSet Bid
+
 -- The tree library (S5, R40 (a)): an incremental Merkle tree of keccak
 -- hashes with a closed depth (R42 (a)). Level 0 is the leaf level. An
 -- empty leaf is 0u, and zeroHash l is the root of an empty subtree of

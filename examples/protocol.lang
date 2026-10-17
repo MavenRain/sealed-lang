@@ -1,0 +1,20 @@
+-- The protocol layer (S6, R60 (a)): the off-chain logic of the IL
+-- proposer. The EVM never sees these defs: a path or a Bag value in an
+-- entry is REFUSE_LOWER.
+-- The bid pool of a slot (S6 4.2, PLAN section 3) is a Bag of bids. The
+-- winner is bagMax pool, the fold of bidMax over the pool. The fold goes
+-- into Bid, thus the swap case is law 1 (bidMaxSwap) and the trunc case is
+-- law 2 (bidSet). The empty pool gives (0, 0).
+def bagMax : (pool : Bag Bid) -> Bid :=
+  fun (pool : Bag Bid) => fold (pair 0u 0u) bidMax
+    (fun (x : Bid) (y : Bid) (r : Bid) => bidMaxSwap x y r) bidSet pool
+-- An instance of law 1 at closed bids. The proof is refl, thus a bidMax
+-- that makes law 1 false at these bids fails the check. This row does not
+-- prove the law.
+def bidMaxSwapAt : Path Bid (bidMax (pair 5u 1u) (bidMax (pair 7u 2u) (pair 3u 9u)))
+  (bidMax (pair 7u 2u) (bidMax (pair 5u 1u) (pair 3u 9u))) := refl
+-- The eval rows: the largest of three bids (not the first bid), a tie on
+-- value (the larger cm wins, R55 (a)) and the empty pool.
+def winnerOf3 : Bid := bagMax (bagCons Bid (pair 5u 1u) (bagCons Bid (pair 7u 2u) (bagCons Bid (pair 3u 9u) (bagNil Bid))))
+def tieBid : Bid := bagMax (bagCons Bid (pair 7u 2u) (bagCons Bid (pair 7u 4u) (bagNil Bid)))
+def emptyPool : Bid := bagMax (bagNil Bid)

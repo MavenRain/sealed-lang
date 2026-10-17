@@ -1,0 +1,6 @@
+-- The swap case of a Bag fold must be a path from c1 x (c1 y r) to
+-- c1 y (c1 x r). This path is constant, so its end at i1 is wrong.
+def copyBag : (b : Bag Nat) -> Bag Nat := fun (b : Bag Nat) => fold (bagNil Nat)
+  (fun (x : Nat) (r : Bag Nat) => bagCons Nat x r)
+  (fun (x : Nat) (y : Nat) (r : Bag Nat) => fun (i : I) => bagCons Nat x (bagCons Nat y r))
+  (fun (s : Bag Nat) (t : Bag Nat) (p : Path (Bag Nat) s t) (q : Path (Bag Nat) s t) => fun (i : I) => fun (j : I) => bagTrunc Nat s t p q i j) b

@@ -2578,6 +2578,7 @@ static int mentions_state(Machine *m, uint32_t level, const Value *v) {
   case VAL_PATHP:
     return mentions_state(m, level, v->args[0]) || mentions_state(m, level, v->args[1]) || mentions_state(m, level + 1u, closure_apply(m, v, val_ivar(m, level)));
   case VAL_IVAL:
+  case VAL_AXIOM:
     return 0;
   case VAL_LAM:
   case VAL_STUCK:
@@ -2730,6 +2731,46 @@ static int check_state(Checker *c, const Decl *d) {
   return 1;
 }
 
+/* The law form (S6 R52 (a)): after its Pi binders, the type of an axiom is
+   a Path or a PathP. The type is a value, so a definition such as isSet is
+   unfolded. */
+static int law_type(Checker *c, const Value *t) {
+  uint32_t level = c->level;
+  while (t != NULL && t->kind == VAL_PI) {
+    t = closure_apply(c->m, t, val_var(c->m, level));
+    level++;
+  }
+  return t != NULL && t->kind == VAL_PATHP;
+}
+
+/* A domain axiom (S6 R52 (a)): the type is checked and is a law. The axiom
+   has no body. Its value is a neutral, so eval never steps it and lowering
+   refuses it. */
+static int check_axiom(Checker *c, const Decl *d) {
+  Machine *m = c->m;
+  uint64_t level = 0;
+  const Core *t = check_type(c, d->type, &level);
+  const Value *tv = here(c, t);
+  DefInfo *info = &m->defs[m->def_count];
+  if (tv == NULL)
+    return 0;
+  if (!law_type(c, tv))
+    return FAIL(c, "REFUSE_AXIOM_TYPE", "the type of the axiom %s must be a Path or a PathP after its Pi binders (rule R2)", d->name);
+  if (d->origin == ORIGIN_PROGRAM)
+    return FAIL(c, "REFUSE_AXIOM", "an axiom has no proof (rule R2); only domain/domain.lang can declare a law");
+  if (!name_free(c, d->name))
+    return 0;
+  info->name = d->name;
+  info->origin = d->origin;
+  info->body = NULL;
+  info->type = tv;
+  info->value = val_axiom(m, m->def_count, d->name);
+  if (info->value == NULL)
+    return 0;
+  m->def_count++;
+  return 1;
+}
+
 static int check_decl(Checker *c, const Decl *d) {
   if (d->is_event)
     return 1;
@@ -2738,7 +2779,7 @@ static int check_decl(Checker *c, const Decl *d) {
   if (d->kind == DECL_FAMILY && d->origin == ORIGIN_PROGRAM)
     return FAIL(c, "REFUSE_DATA", "a program cannot declare a family (rule R1); only domain/domain.lang can");
   if (d->kind == DECL_AXIOM)
-    return FAIL(c, "REFUSE_AXIOM", "an axiom has no proof (rule R2)");
+    return check_axiom(c, d);
   if (d->is_rec)
     return FAIL(c, "REFUSE_REC", "def rec is refused (rule R3); use fold or unfold");
   if (!name_free(c, d->name))
@@ -2780,6 +2821,13 @@ int check_program(Arena *arena, const DeclList *decls, Machine *m, Diag *diag) {
   }
   m->def = NULL;
   return 1;
+}
+
+void report_axioms(const Machine *m, FILE *out) {
+  for (uint32_t i = 0; i < m->def_count; i++) {
+    if (m->defs[i].body == NULL)
+      fprintf(out, "axiom %s\n", m->defs[i].name);
+  }
 }
 
 int entry_of(Machine *m, const Value *type, Entry *out) {
@@ -2901,6 +2949,7 @@ static int print_result(Machine *m, const char *name, const Value *v, FILE *out,
   case VAL_PI:
   case VAL_SIGMA:
   case VAL_VAR:
+  case VAL_AXIOM:
   case VAL_APP:
   case VAL_STUCK:
   case VAL_PLAM:

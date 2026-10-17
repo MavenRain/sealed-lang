@@ -1,1 +1,2 @@
-axiom magic : Nat
+-- A law type, but a program cannot declare an axiom (rule R2, S6 R52 (a)).
+axiom magic : Path Nat 0 1
