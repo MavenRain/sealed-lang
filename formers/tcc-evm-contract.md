@@ -81,3 +81,27 @@ S4 adds no BUILTINS row (66). The families S1, Trunc1, Trunc0 and Quot
 are in `domain/domain.lang` (R32). `build/pathtool` does 26 quote and
 parse roundtrips. The EVM regressions did not change at any S4 step (evm
 43, diff 15, emit 24, runs 5, run refusals 10): a HIT value is erased.
+
+## The deposit contract (slice S5)
+
+| Form | `check` and `eval` | EVM | Test |
+|---|---|---|---|
+| Tree library | DONE: guest defs in `domain/domain.lang:51-97` (R40). `treeDepth` is 32 (R42); `zeroHash l` is the root of an empty subtree; `insertLeaf idx cur filled` gives the new root and the new filled subtrees; `rootOfLeaves` gives the root of a closed list of leaves. | An unrolled depth-32 insert, linear in the depth by the share rule. | The eval rows `merkle sameOne`, `sameTwo`, `sameThree`; lowertool row `insert-depth-32`; `test/run/deposit.out` `rootOf`. |
+| Groth16 verifier | DONE: `verify vk inputs proof` in `domain/domain.lang:99-163` (R40). It gives flagNo unless the key has one IC point per input plus IC0 and each input is below the scalar order r; then one `ecPairing` on (-A, B), (alpha, beta), (vk_x, gamma), (C, delta). Stuck in `langc eval` (O5). | Exact on the precompiles 6, 7 and 8. A point that is not on the curve reverts (R18). | `test/precompile.sh` steps `verifyOk` (1), `verifyBadOrder` (0) and the 12 `test/groth16-invalid.lang` steps (precompile 32). |
+| Share rule | n/a (lowering only). | `share_arms` in `src/lower.c` (R41): a pure word value that both arms of a word `flagIf` use is lowered once into a local before the IF. No expected output of an existing program changed. | lowertool row `insert-depth-32`; the build, emit and evm regressions. |
+| Deposit entries | DONE: `examples/deposit.lang`, 9 entries (R43) and 9 views (O8). The Π path is `addTuple` and a signature over `hash piAcc[au] piNonce[au]` (R45). | 17119 runtime bytes (R48). `pull` and `pay` move the deposit through `asset` and `vault` (R46). | `test/deposit.lang` (25 assertions); `test/run/deposit.script` (23 calls, R47); `test/diff.sh` row 16; `test/deposit.sh` (41 chain calls: the signed and proof calls). |
+
+S5 adds no BUILTINS row (66). `langc run` stops with EVAL_ENTRY at a
+successful signed or proof call (USER ruling, O47): the chain rows of
+`test/deposit.sh` test those calls. The run counts changed at step 4.6
+only: runs 5 -> 6, diff 15 -> 16. Mutants M1 to M9 and M9b of S5 are in
+`docs/STATUS.md`: 9 of 9 killed, and M9b killed.
+
+The deposit example uses the synthetic R39 key. `slashUsr` accepts the
+same proof with inputs (2, 3) for unequal cm words 5 and 6: neither cm
+is bound to the proof inputs, and replacing the key alone does not add
+that binding (O50). `settle` accepts any caller and supplied price after
+the auction ends; selecting the winner from sealed bids is S6
+(`processBid`, O7/O44). `vault` must equal the executing deposit
+contract's address, since `pull` credits `vault` and `pay` spends the
+executing contract's balance (O46).

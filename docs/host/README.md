@@ -28,6 +28,7 @@ The TinyCC host kit of retainer-lang. It compiles the contract language to EVM b
 | S2 | sealed-lang base span: `natDiv`, `natMod`, `hash`, `addrToU256`, `ecrecover`, `ecAdd`, `ecMul`, `ecPairing`; four kit operations pruned | Done |
 | S3 | sealed-lang interval paths: `I`, `PathP`, `Path`, `refl`, `sym`, `cong`, `funExt`, `transp`, `hcomp`; the kit `Eq` removed | Done |
 | S4 | sealed-lang HITs and QITs: path constructors in `family`, `fold` with path cases, S1, Trunc1, Trunc0 and Quot in `domain/domain.lang`; erased at a word position | Done |
+| S5 | sealed-lang deposit contract: the tree and Groth16 verifier libraries in `domain/domain.lang`, the share rule in `src/lower.c`, `examples/deposit.lang` (9 entries, 17119 runtime bytes), the run script and the chain rows | Done |
 
 
 ## U256 and Addr (slice K2)
@@ -305,6 +306,16 @@ Path computations normalize before lowering. A proof used only during checking h
 Slice S4 of sealed-lang adds the higher inductive types of coin-lang (8c79e9a, e0d4f3c and 25c14e0, without Glue): a `family` constructor can have interval fields and a boundary system, and `fold` takes one case for each path constructor. `domain/domain.lang` declares S1, Trunc1, Trunc0 and Quot, with the guest defs isProp and isSet. BUILTINS stays 66 rows. `formers/tcc-evm-contract.md` section `HITs and QITs (slice S4)` gives each form and its tests.
 
 Erasure: a point constructor value lowers as a family value lowers. A path constructor residual or a formal hcomp is not a word: at a word position it gives REFUSE_LOWER (`value_name` in `src/lower.c`, R31; the fixture `test/lower/loop-word.lang` is refused at the stuck `hcomp U256`, R33). A path at run time is that refusal (R37): `langc run` has no new row. The EVM counts did not change at any S4 step: `test/evm.sh` 43 steps, `test/diff.sh` 15 rows, `build/emittool` 24 execution regressions, `test/run.sh` 5 runs and 10 run refusals. HIT-specific coverage is in the check and eval fixtures, the lower refusal and the 26 quote and parse roundtrips in `build/pathtool` (19 -> 26).
+
+## The deposit contract (slice S5)
+
+Slice S5 of sealed-lang adds the deposit contract of the paper (`examples/deposit.lang`) and two guest libraries in `domain/domain.lang`: an incremental Merkle tree of depth 32 over `hash` and a Groth16 verifier over `ecAdd`, `ecMul` and `ecPairing`. BUILTINS stays 66 rows. `formers/tcc-evm-contract.md` section `The deposit contract (slice S5)` gives each form and its tests.
+
+The S5 example uses a synthetic verifier fixture. `slashUsr` does not bind cm to the proof inputs: the same proof with inputs (2, 3) is accepted for cm1 = 5 and cm2 = 6. Replacing the key alone does not add that binding (O50). `settle` accepts any caller and supplied price after the auction ends; winner selection from sealed bids is S6 (`processBid`, O7/O44). Set `asset` to the token and `vault` to the executing deposit contract's address: `pull` credits `vault`, but `pay` spends the executing contract's balance (O46).
+
+Share rule (R41): `src/lower.c` lowers a residual word value that cannot trap (a `hash`, a word `flagIf` over such values, a load, a local) and that both arms of a word `flagIf` use once into a local before the IF (`share_arms`). Without it an unrolled tree insert doubles its code at each level. With it a depth-32 insert is linear in the depth: the lowertool row `insert-depth-32` checks it under EIP-170. No expected output of an existing program changed. The runtime of `examples/deposit.lang` is 17119 bytes (`langc build --runtime`, EIP-170 24576).
+
+Run time: `langc eval` keeps `ecrecover` and the curve operations stuck, so `langc run` stops with EVAL_ENTRY at a successful signed or proof call. `test/run/deposit.script` holds the 23 calls that eval can step, and `test/diff.sh` replays it on `evm` with the mock token (diff 15 -> 16, runs 5 -> 6). The signed and proof calls are chain rows in `test/deposit.sh` (41 calls). `test/evmchain.sh`, `test/dispatch.sh`, `test/mock.sh` and `test/diff.sh` call `od -v`: without `-v`, `od` writes `*` for a repeated 16-byte row, so the hex of a signature with 6 or more uint256 arguments, and thus its selector, is wrong.
 
 ## Commands
 

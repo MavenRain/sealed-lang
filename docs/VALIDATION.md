@@ -76,3 +76,30 @@ diff 15, emit 24, runs 5, run refusals 10). The hole that mutant M8
 showed: `fold_square` runs only at an interval that is not an end, so its
 outer faces are not observable (equivalent). Mutants M1 to M9 of S4 are
 in `docs/STATUS.md`: 8 of 9 killed, 1 equivalent.
+
+The S5 review (2026-10-17) adds 3 examples (`merkle.lang`, `groth16.lang`,
+`deposit.lang`), 3 eval rows (`merkle sameOne`, `sameTwo`, `sameThree`),
+14 precompile steps (18 -> 32; 12 of them are the USER rows of
+`test/groth16-invalid.lang`), 1 lowertool row (`insert-depth-32`), 1 run
+(`test/run/deposit.script`, 23 calls, runs 5 -> 6), 1 diff row (15 ->
+16), `test/deposit.lang` (25 eval assertions) and `test/deposit.sh` (41
+chain calls). The verifier rows check the R39 fixture on `evm`: a valid
+proof gives 1, the inputs in the other order give 0, a wrong IC count or
+an input not below r gives 0, and a noncanonical y of A reaches the
+precompile unchanged and reverts. The
+deposit rows check each caller check, the minimum deposit, the slot limit
+of `regAuction`, the inactivity round trip, a replay of a signature, an
+early and a late `withdraw`, the slash path with the fixture
+proof, and `settle`. The existing EVM regressions still pass (evm 43,
+emit 24, run refusals 10). The holes: `langc eval` cannot step
+`ecrecover` or the curve operations, so the signed and proof calls are
+chain rows only, with no eval differential (O47); `test/diff.sh` cannot
+kill a mutant in the source that eval and the EVM share (M1, M8), and the
+expected output `deposit.out` kills it; neither cm is bound to the proof
+inputs, and the chain test accepts the same proof with inputs (2, 3) for
+cm1 = 5 and cm2 = 6 (R50). Replacing the key alone does not fix this;
+the fixture is synthetic (R39), so this test does not establish real
+eligibility or a double commitment. `settle` records any caller and
+supplied price after the end slot; winner selection from sealed bids is
+deferred to S6. Mutants M1 to M9 of S5 are in `docs/STATUS.md`: 9 of
+9 killed, and the extra M9b killed.

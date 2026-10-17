@@ -184,3 +184,99 @@ entry reaches the `value_name` arms, because an entry parameter has a word
 type and an interval binder occurs only under a system or a path
 abstraction. The kickoff killers of M4 and M5 (the eval rows `circle
 loopAt0` and `circle loop2At0`) were dropped by R36.
+
+## S5
+
+Slice S5 (the deposit contract) is complete at commit 656df7d and the
+docs of this section. The gate `make -B check` is GREEN: examples 27,
+parse refusals 15, check refusals 83, evals 64, runs 6, run refusals 10,
+asmtool 8 of 8, builds 3, lower refusals 14, checks 31, dispatch 20, evm
+steps 43, precompile 32 steps and 0 failures, deposit 25 assertions,
+deposit EVM 41 calls and 0 failures, mock 13 rows, diff 16 rows, emit 24,
+all regressions passed (the lower regressions with the row
+`insert-depth-32`). Against S4: examples 24 -> 27, evals 61 -> 64, runs 5
+-> 6, precompile 18 -> 32, diff 15 -> 16, and the new gate lines
+`deposit: 25 assertions` and `deposit EVM: 41 calls`. The runtime of
+`examples/deposit.lang` is 17119 bytes (EIP-170 24576, R48).
+
+`examples/deposit.lang` implements the S5 deposit interface of the paper
+(Algorithm 1) on the kit contract form, with the fixture limits below.
+It has 9 entries (`regAuction`,
+`registerDeposit`, `makeInactive`, `addTuple`, `updateActivity`,
+`slashUsr`, `slash`, `withdraw`, `settle`; R43) and 9 views (O8). The
+tree library (`treeDepth` 32, `zeroHash`, `insertLeaf`, `rootOfLeaves`)
+and the Groth16 verifier library (`verify`: a fold of `ecMul` and `ecAdd`
+over the public inputs, then one `ecPairing` on four pairs) are guest
+defs in `domain/domain.lang` below Quot (R40). `examples/merkle.lang`
+checks that the root of 1, 2 and 3 leaves by `insertLeaf` equals
+`rootOfLeaves` (3 eval rows). `examples/groth16.lang` has the views
+`verifyOk` (1) and `verifyBadOrder` (0) on the R39 fixture. `verify` stays
+stuck in `langc eval` (O5), thus `test/precompile.sh` checks it on `evm`:
+precompile 18 -> 20, then 32 with the USER rows of
+`test/groth16-invalid.lang` (the IC count, each input below r, a
+noncanonical y in `g1Neg`). The share rule in `src/lower.c` (R41) lowers
+a pure word value that both arms of a word `flagIf` use once into a
+local. Thus the depth-32 insert is linear in the depth (lowertool row
+`insert-depth-32`). S5 adds no BUILTINS row (66).
+
+S5 does not establish the paper's eligibility or winner guarantees.
+`slashUsr` checks unequal cm words but does not bind them to the proof
+inputs: `test/deposit.sh` accepts the same synthetic proof with inputs
+(2, 3) for cm1 = 5 and cm2 = 6 (O50). Replacing the key alone does not
+add the missing binding. `settle` records any caller and supplied price
+after the auction ends; selecting the winner from sealed bids is S6
+(`processBid`, O7/O44). For token custody, `vault` must be the executing
+deposit contract's address: `pull` credits it, while `pay` spends the
+executing contract's balance (O46).
+
+The deposit tests are in four places. `test/deposit.lang` has 25 eval
+assertions. `test/run/deposit.script` and `test/run/deposit.out` hold 23
+calls that `langc eval` can step: two auctions and a refused third in the
+same slot, a deposit below minDeposit, two deposits, `rootOf`, `addTuple`,
+`makeInactive` by a user and by the proposer, `updateActivity` by another
+user, an early `withdraw`, `slashUsr` with cm1 = cm2, and `settle` early,
+once and twice, with the views. `test/diff.sh` replays the script on `evm`
+with the mock token (diff 16). `test/deposit.sh` has 41 chain calls: the
+signed calls with test key 1 and the slash path with the fixture
+proof. USER ruling (s7): `langc run` stops with EVAL_ENTRY at a
+successful signed or proof call, because `ecrecover` and the curve
+operations are stuck in `langc eval` (O47). Deviations from the kickoff
+(step 4.5): `slash` and `withdraw` also clear the timer of the user
+(`clearUser`), `withdraw` also requires a nonzero amount, and `settle`
+also requires `id < ctr`. The USER commit 86eb3d6 binds the signature to
+the nonce: `signedBy` checks `hash piAcc[au] piNonce[au]` (O45).
+
+Step 4.6 fixed the kit helper `sel` in `test/evmchain.sh`. `od -An -tx1`
+without `-v` writes `*` in place of a repeated 16-byte row, so the hex of
+a signature with 6 or more uint256 arguments had an odd length, and the
+call reverted. USER ruling (s8): `-v` at the 4 kit `od` sites
+(`test/evmchain.sh` and `test/dispatch.sh` `sel`, `test/mock.sh` and
+`test/diff.sh` Transfer topic). The hex of each other signature did not
+change. lang-template has the same line in 7 files; that fix is a
+separate unit.
+
+Mutants M1 to M9 (kickoff section 6, step 4.7) and the extra M9b, one at
+a time on the tree 867ff888 (commit 656df7d). Each kill is a test
+failure, not a compile error. Each file was restored by `git checkout`
+and confirmed by its blob hash, then rebuilt with `make -B`.
+
+| Mutant | Edit | Killer | Verdict |
+|---|---|---|---|
+| M1 wrong root | domain.lang:69 `treeLevel`: the left child is `hash z cur` | gate `merkle sameOne`, `sameTwo`, `sameThree`: want 1, got 0; run deposit.out call 11 `rootOf` and the final state differ | KILLED |
+| M2 wrong public input order | domain.lang:159 `verify`: the 2 inputs zipped in the other order | precompile `verifyOk`: want out 1, got out 0 (also `verifyBadOrder`, `verifyScalar` x2, `verifyPoint`); deposit EVM `slashUsr`: want ok, got revert | KILLED |
+| M3 missing caller check | deposit.lang:105 `makeInactive`: `flagIf flagYes` (no proposer check) | run deposit.out call 14 `makeInactive` revert became ok; deposit `testInactiveCaller` 0; deposit EVM `chain revert 20 "$user" makeInactive` got ok | KILLED |
+| M4 timer that does not expire | deposit.lang:250 `withdraw`: compares with the timer, not the current slot | deposit EVM `chain ok 60 "$signer" withdraw`: want ok, got revert | KILLED |
+| M5 no minimum deposit | deposit.lang:87 `registerDeposit`: `flagIf flagYes` (no `d >= minDeposit`) | run deposit.out call 6 `registerDeposit` revert became ok (pull 99u) | KILLED |
+| M6 equal commits slash | deposit.lang:207 `slashUsr`: `flagIf flagNo` (cm1 = cm2 passes) | run exit 1: EVAL_ENTRY `slashUsr` at deposit.script:29 (call 18 reaches `verify`, which is stuck in eval) | KILLED |
+| M7 A in place of -A | domain.lang:155 `verify`: pairs A, not -A | precompile `verifyOk`: want out 1, got out 0 (also `verifyScalar` x2, `verifyNoInputs`) | KILLED |
+| M8 nextLeaf kept | deposit.lang:91 `registerDeposit`: keeps `nextLeaf s` | run deposit.out call 11 `rootOf` and the final state differ | KILLED |
+| M9 share rule off | lower.c:678 `share_arms` returns `1 \|\|` (R41) | lowertool `FAIL insert-depth-32`, diag `OOM: out of memory` | KILLED |
+| M9b auction count off by one (extra) | deposit.lang:39 `aucRoom`: count <= nA | run deposit.out call 5 `regAuction` revert became ok | KILLED |
+
+Score: 9 of 9 killed, and M9b killed. diff.sh cannot kill a mutant in
+shared library code or in the program source (M1, M8): `test/diff.sh`
+compares `langc run` with the EVM run of the same source, and the mutant
+changes both runs in the same way. The run script (`deposit.out`, the
+expected output) and the eval rows kill them. For M9 the kickoff expected
+EVM_SIZE: the 32 MiB arena of `build/lowertool` fills first, and the row
+fails with OOM.

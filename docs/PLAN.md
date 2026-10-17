@@ -158,6 +158,11 @@ Trunc1, Trunc0 and Quot, with the guest defs isProp and isSet (R32). A
 path constructor residual or a formal hcomp at a word position gives
 REFUSE_LOWER (`test/lower/loop-word.lang`, R31).
 
+The S5 span is the BUILTINS table at the S5 close: 66 rows, as in S4. S5
+adds no row. The tree library and the Groth16 verifier library are guest
+defs in `domain/domain.lang` over `hash`, `ecAdd`, `ecMul` and
+`ecPairing` (R40), and `src/lower.c` has the share rule (R41).
+
 ## 5. The cubical kernel
 
 coin-lang (private MavenRain/coin-lang) built a CCHM kernel on the tcc-json
@@ -278,19 +283,37 @@ deploys the program on `evm` and replays the same scripts.
   source is a ruling. S2 DONE: opaque in `langc eval` (a closed application
   stays a stuck term), exact on the EVM; `test/precompile.sh` checks 18
   steps with constants confirmed on `evm` 1.14.12. The fixture source
-  stays a ruling for S5.
+  stays a ruling for S5. Note (S5): the fixture is R39 (O39). `verify`
+  stays stuck in `langc eval`; `test/precompile.sh` checks it on `evm`
+  (32 steps), and `test/deposit.sh` checks the slash path with
+  the fixture proof on the chain.
 - O6: the deposit asset is an ERC-20 token through the kit `pull` and
   `pay`. Native value needs CALLVALUE and a value call, which the kit does
-  not have.
+  not have. Note (S5): `examples/deposit.lang` has `def asset` (the mock
+  token address of `test/diff.sh`) and `def vault` (the chain receiver
+  address); `pull` moves a deposit to the vault. `pay` calls
+  `transfer` from the executing contract's balance, so a deployment must
+  set `vault` to that contract's address and set `asset` to its token
+  (R46). An external vault would receive deposits but would not fund
+  withdrawals.
 - O7: `settle(id, bid)` is an entry of the same contract: it records the
   winner and pulls the payment. The paper leaves settlement to the bid
-  transaction. Alternative: out of scope.
+  transaction. Alternative: out of scope. Note (S5): `settle` is in, with
+  the 8 entries of O7 and `addTuple` (R43). `settle` also requires `id <
+  ctr`, and a second `settle` of the same auction reverts. It accepts
+  any caller and supplied price after the auction ends; selecting the
+  winner from sealed bids is deferred to S6 (`processBid`).
 - O8: a `Map` value is a word, so an auction record is one map per field
   and `getAucRecord` is one view per field. Alternative: extend `Map` to
-  product values (kit work).
+  product values (kit work). Note (S5): the record views are `aucItemOf`,
+  `aucStartOf`, `aucEndOf`, `winnerOf` and `priceOf`; the other views are
+  `rootOf`, `depositOf`, `isSlashed` and `pendingOf`.
 - O9: the registry is an incremental Merkle tree of depth 32 with a root
   per slot, as a guest library. Alternative: a list of leaves with a full
-  recomputation per insert.
+  recomputation per insert. Note (S5): the tree library is in
+  `domain/domain.lang` (R40), the depth is the constant `treeDepth` 32
+  (R42), and the share rule of `src/lower.c` keeps the depth-32 insert
+  below EIP-170 (R41). `registerDeposit` reverts when the tree is full.
 - O10: no Glue and no univalence (not in the request). The core laws for
   the QIT folds are path constants of the span, listed one by one in the
   S6 kickoff. Alternative: port coin-lang S3 and prove the laws on a
@@ -303,10 +326,16 @@ deploys the program on `evm` and replays the same scripts.
   `loop-not-refl.lang`. No contract family has a path constructor.
 - O12: `Π` enters one NOP tuple per call. Alternative: array arguments in
   the ABI decoder (kit work). Note (S2): ENTRY_PARAMS_MAX is 32 (R23), so
-  one call carries at most 32 words.
+  one call carries at most 32 words. Note (S5): a tuple is two words (id,
+  h), and `addTuple` adds one tuple to the pending accumulator `piAcc` of
+  the user (R45). The user signs `hash piAcc[au] piNonce[au]`; a use of
+  the tuples resets the counter and increments the nonce, so a signature
+  over an empty Π does not replay.
 - O13 CLOSED (S2, R13): the kit reads TIMESTAMP for `now` and keeps it.
   The slot is `natDiv (natSub now genesis) slotLength` in the guest.
-- O14: the proposer set is a `Map Addr Flag` fixed in `init`.
+- O14: the proposer set is a `Map Addr Flag` fixed in `init`. Note (S5):
+  `init` sets one proposer (0x..aa). `regAuction` and `makeInactive`
+  revert for any other caller (R44).
 - O15: tests in the guest language and `langc run` scripts only.
 
 The S1 kickoff added R16 to R23. The USER did not rule (RULED 2026-10-15);
@@ -400,3 +429,71 @@ No ruling changes the EVM output of an existing program:
   hunk went in by exact one-occurrence replacements. From step 4.5 the
   auto-mode classifier denied `gpatch` on the repository: the USER ran the
   4.5 patch script, and steps 4.6 and 4.8 used the Edit tool.
+
+The S5 kickoff added R39 to R50. The USER did not rule (RULED 2026-10-16);
+the defaults (a) were applied in S5. Two USER rulings came later: `langc
+run` cannot step a successful signed or proof call (s7, O47), and `od -v`
+at the 4 kit `od` sites (s8). No ruling changes the EVM output of an
+existing program:
+
+- O39 (R39): the synthetic fixture is candidate 1 of the kickoff (section 3), with
+  n = 2 distinct public inputs, so the input order is observable. The key,
+  the inputs and the proof are constants in `examples/groth16.lang`;
+  `slashKey` in `examples/deposit.lang` is a copy of the key.
+- O40 (R40): the tree library and the verifier library are guest defs in
+  `domain/domain.lang` below Quot. `examples/merkle.lang`,
+  `examples/groth16.lang` and `examples/deposit.lang` use them.
+- O41 (R41): the share rule in `src/lower.c`. A residual word value that
+  cannot trap (a `hash`, a word `flagIf` over such values, a load, a
+  local) and that both arms of a word `flagIf` use is lowered once into a
+  local before the IF (`share_arms`, the R17 memo rule for pure words).
+  The insert is then linear in the depth. The lowertool row
+  `insert-depth-32` checks a depth-32 insert under EIP-170. No expected
+  output of an existing program changed.
+- O42 (R42): `treeDepth` is the closed constant 32. The sketch field
+  `depth` of section 6 is dropped.
+- O43 (R43): 9 entries: the 8 of O7 and `addTuple` (the Π path of R45).
+- O44 (R44): `regAuction` and `makeInactive` need a proposer. `slashUsr`
+  and `slash` take any caller, with proof and signature checks subject
+  to the fixture limits of O50. `settle` takes any caller as payer and
+  winner at the supplied price, with no proof or signature check and no
+  sealed-bid winner validation (S6). `addTuple` and `updateActivity` need
+  the user or a proposer.
+- O45 (R45): a Π tuple is two words (id : U256, h : U256). `addTuple au
+  id h` sets `piAcc[au] := hash piAcc[au] (hash id h)`, `piCount[au] +
+  1` and `piHas[piKey au nonce h] := flagYes`. The user signs `hash
+  piAcc[au] piNonce[au]` with ecrecover (v, r, w; w is the s word, because
+  s names the state). The signed message was `piAcc[au]` in step 4.5; the
+  USER commit 86eb3d6 added the nonce, so a signature over an empty Π
+  does not replay.
+- O46 (R46): `def asset` is the mock token address of `test/diff.sh`,
+  `def vault` is the chain receiver. A deployment sets `asset` to the
+  token and `vault` to the executing deposit contract's address: `pull`
+  credits `vault`, but `pay` spends the executing contract's balance.
+- O47 (R47): one row `script examples/deposit.lang test/run/deposit.script`
+  in `test/diff.sh` part 2 (diff 15 -> 16); the mock serves `pull` and
+  `pay`. `test/evm.sh` has no row. USER ruling (s7): `langc run` stops
+  with EVAL_ENTRY at a successful signed or proof call, because
+  `ecrecover` and the curve operations stay stuck in `langc eval` (O5).
+  Thus `test/run/deposit.script` holds the calls that eval can step (23
+  calls, runs 5 -> 6), and the signed and proof calls are chain rows of
+  `test/deposit.sh` (41 calls).
+- O48 (R48): the runtime of `examples/deposit.lang` (`langc build
+  --runtime`) was measured at each step: 11725 bytes at 4.4, 17020 at
+  4.5, 17119 at the S5 close (EIP-170 24576, 7457 bytes free). No limit
+  stopped a step. The field `rootAt` comes before `filled`: in the other
+  order the build is EVM_SIZE (step 4.4).
+- O49 (R49): `regAuction` covers at most 4 slots (`tend - tstart <= 3`):
+  `aucRoom` and `aucCounts` check and increment 4 offsets, counted back
+  from tend (`natSub tend k`, a USER row).
+- O50 (R50): the n public inputs of a proof are n words of the call after
+  the proof. `eligible` checks that input 0 equals hu. Neither cm is
+  passed to `eligible` or compared with its public inputs. In
+  `test/deposit.sh`, the same fixture proof with inputs (2, 3) is accepted
+  for cm1 = 5 and cm2 = 6. This exercises the verifier and slash path;
+  it does not establish two distinct proven commitments or real
+  eligibility. A real eligibility circuit and an entry check binding each
+  cm to its proof's public inputs are outside S5; replacing `slashKey`
+  alone does not add that binding. `slashUsr` takes 23 words: hu, then
+  for each of the two commits a cm word, a proof (8 words) and its 2
+  inputs.
