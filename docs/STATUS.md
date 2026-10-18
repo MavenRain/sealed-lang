@@ -419,8 +419,8 @@ compile error. In the table, `accept` is the output of `procAccept`:
 | M7 `processBid` skips the depositor test | protocol.lang:110 `processBid`: `flagIf flagYes` | eval `procDepositor` want inl 3, got `accept` | KILLED |
 | M8 the tie rule flipped | domain.lang:69 `bidLe`: `u256Le (second b) (second a)` | eval `tieBid` want pair 7u 4u, got pair 7u 2u | KILLED |
 | M9 `insNat` sorts down | domain.lang:91 `insNat`: `natLe x y` | eval `medianEven` want some 4, got some 6; `medianMissing` want some 7, got some 4 | KILLED |
-| M10 the axiom origin test dropped | check.c:2759 `check_axiom`: `if (0)` for `d->origin == ORIGIN_PROGRAM` | check axiom.lang: want exit 1 and REFUSE_AXIOM, got exit 0 | KILLED |
-| M11 the law type test dropped | check.c:2757 `check_axiom`: `if (0)` for `!law_type(c, tv)` | check axiom-type.lang: want REFUSE_AXIOM_TYPE, got REFUSE_AXIOM | KILLED |
+| M10 the axiom origin test dropped | check.c:2725 `check_axiom`: `if (0)` for `d->origin == ORIGIN_PROGRAM` | check axiom.lang: want exit 1 and REFUSE_AXIOM, got exit 0 | KILLED |
+| M11 the law type test dropped | check.c:2723 `check_axiom`: `if (0)` for `!law_type(c, tv)` | check axiom-type.lang: want REFUSE_AXIOM_TYPE, got REFUSE_AXIOM | KILLED |
 
 Score: 11 of 11 killed, and M4strict killed. No mutant is equivalent.
 Notes on the predictions of the kickoff:
@@ -454,7 +454,7 @@ The rulings R61 to R71 are RULED 2026-10-18, defaults (a).
 
 - 7.1 (bbe668d): the M11 row (R61 (a)). `test/fronttool.c` gets the row
   `domain("axiom notLaw : Nat", "REFUSE_AXIOM_TYPE")`. M11 changes
-  `!law_type(c, tv)` to `0` in `check_axiom` (`src/front/check.c:2757`).
+  `!law_type(c, tv)` to `0` in `check_axiom` (`src/front/check.c:2723`).
   With M11, the only FAIL line is `FAIL domain: wanted REFUSE_AXIOM_TYPE,
   got ok: axiom notLaw : Nat`. Thus the row kills M11. After the restore,
   fronttool prints `domain regressions: passed`.
@@ -488,7 +488,7 @@ docs only.
 Stale cites with no S7 owner (recorded, not fixed):
 
 - `docs/host/README.md:189` (more than 16 event fields):
-  `src/front/check.c:2447-2448` uses ENTRY_PARAMS_MAX 32
+  `src/front/check.c:2413-2414` uses ENTRY_PARAMS_MAX 32
   (`src/front/check.h:8`).
 - `docs/host/README.md:245` (`Nat` and `U256` mul and div): S2 removed
   them.

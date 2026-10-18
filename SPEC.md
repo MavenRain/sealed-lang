@@ -64,15 +64,15 @@ R1 to R5, :45-59):
 
 | Form | Code | Source |
 |---|---|---|
-| a `family` (R1: only the domain declares a family) | REFUSE_DATA | `src/front/check.c:2780` |
-| an `axiom` whose type is not a Path or PathP after its Pi binders | REFUSE_AXIOM_TYPE | `src/front/check.c:2757-2758` |
-| an `axiom` with a law type (R2: only the domain declares a law) | REFUSE_AXIOM | `src/front/check.c:2760` |
-| `def rec`, or a reference to a later name or to its own name (R3) | REFUSE_REC | `src/front/check.c:2784`, :1851 |
-| a definition with a core name or a prelude name (R4) | REFUSE_NAME | `src/front/check.c:2211` |
-| a state that is not the one `State` above, or a state field containing a nested `Map` | REFUSE_STATE | `src/front/check.c:2700-2718`, `docs/host/README.md:94`, :174 |
-| a `Map` key outside `Nat`, `U256`, `Addr`, or a value outside `Nat`, `Flag`, `U256`, `Addr` | REFUSE_MAP | `src/front/check.c:1607-1609` |
-| an event with more than 32 fields, a field that is not a word, or two fields with one name | REFUSE_EVENT | `src/front/check.c:2447-2459` |
-| a write to a `history` field that rule D-9 does not accept | REFUSE_HISTORY_WRITE | `src/front/check.c:2619-2644` |
+| a `family` (R1: only the domain declares a family) | REFUSE_DATA | `src/front/check.c:2746` |
+| an `axiom` whose type is not a Path or PathP after its Pi binders | REFUSE_AXIOM_TYPE | `src/front/check.c:2723-2724` |
+| an `axiom` with a law type (R2: only the domain declares a law) | REFUSE_AXIOM | `src/front/check.c:2726` |
+| `def rec`, or a reference to a later name or to its own name (R3) | REFUSE_REC | `src/front/check.c:2750`, :1817 |
+| a definition with a core name or a prelude name (R4) | REFUSE_NAME | `src/front/check.c:2177` |
+| a state that is not the one `State` above, or a state field containing a nested `Map` | REFUSE_STATE | `src/front/check.c:2666-2684`, `docs/host/README.md:94`, :174 |
+| a `Map` key outside `Nat`, `U256`, `Addr`, or a value outside `Nat`, `Flag`, `U256`, `Addr` | REFUSE_MAP | `src/front/check.c:1573-1575` |
+| an event with more than 32 fields, a field that is not a word, or two fields with one name | REFUSE_EVENT | `src/front/check.c:2413-2425` |
+| a write to a `history` field that rule D-9 does not accept | REFUSE_HISTORY_WRITE | `src/front/check.c:2585-2610` |
 
 Thus a program cannot add a data type, an unproved fact or general
 recursion. Recursion comes only from `fold` and `unfold` (F6, F7).

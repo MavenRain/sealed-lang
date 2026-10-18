@@ -1470,15 +1470,9 @@ static const Core *rule_hcomp(Call *k) {
   const Core *phi;
   const Core *u0;
   const Core *args[4];
-  const Core **sys;
-  const Value *join;
-  const Value *pf;
-  const Term *cell;
   Branch *bs;
   uint32_t n;
-  uint32_t count;
   uint32_t i;
-  uint32_t j;
   if (av == NULL)
     return NULL;
   if (av->kind == VAL_UNIV)
@@ -1488,53 +1482,25 @@ static const Core *rule_hcomp(Call *k) {
     return NULL;
   if (tube->kind != TERM_LAM || (tube->left != NULL && !is_interval(c, tube->left)) || tube->right == NULL || tube->right->kind != TERM_SYSTEM)
     return nul(FAIL(c, "TYPE_MISMATCH", "the tube of hcomp must be a system abstraction fun (i : I) => [ phi -> t, ... ]"));
-  n = system_size(tube->right);
-  bs = arena_alloc(c->m->arena, ((size_t)n + 1u) * sizeof *bs);
-  if (bs == NULL)
-    return nul(FAIL(c, "OOM", "out of memory"));
-  join = val_iend(c->m, 0);
-  for (cell = tube->right, i = 0; i < n; cell = cell->right, i++) {
-    bs[i].term = cell->left;
-    bs[i].key = check(c, cell->left->left, interval_type(c));
-    bs[i].face = face_norm(c->m, here(c, bs[i].key));
-    if (bs[i].face == NULL)
-      return NULL;
-    join = face_join(c->m, join, bs[i].face);
-  }
-  pf = face_norm(c->m, here(c, phi));
-  if (join == NULL || pf == NULL)
-    return NULL;
-  if (!conv_values(c->m, c->level, join, pf))
-    return nul(FAIL(c, "SYSTEM_COVER", "the keys of the system must cover %s, but their join is %s", show(c, pf), show(c, join)));
-  bs = split_branches(c, bs, n, &count);
+  bs = system_branches(c, tube, here(c, phi), &n);
   if (bs == NULL)
     return NULL;
-  n = count;
-  sys = arena_alloc(c->m->arena, (2u * (size_t)n + 1u) * sizeof *sys);
-  if (sys == NULL)
-    return nul(FAIL(c, "OOM", "out of memory"));
   for (i = 0; i < n; i++) {
     bs[i].body = hcomp_branch(c, tube->name, a, &bs[i]);
     if (bs[i].body == NULL)
       return NULL;
   }
-  for (i = 0; i < n; i++)
-    for (j = i + 1u; j < n; j++)
-      if (!hcomp_overlap(c, tube->name, face_meet(c->m, bs[i].face, bs[j].face), &bs[i], &bs[j]))
-        return NULL;
+  if (!system_overlaps(c, tube->name, bs, n))
+    return NULL;
   u0 = check(c, k->args[3], av);
   if (u0 == NULL)
     return NULL;
   for (i = 0; i < n; i++)
     if (!hcomp_cap(c, u0, &bs[i]))
       return NULL;
-  for (i = 0; i < n; i++) {
-    sys[2u * i] = bs[i].key;
-    sys[2u * i + 1u] = core_bind(c, CORE_PLAM, path_binder(tube->name), NULL, bs[i].body);
-  }
   args[0] = a;
   args[1] = phi;
-  args[2] = core_op(c, OP_SYSTEM, 0, 0, sys, 2u * n);
+  args[2] = system_core(c, path_binder(tube->name), bs, n);
   args[3] = u0;
   k->type = av;
   return core_op(c, OP_HCOMP, 0, 0, args, 4);
