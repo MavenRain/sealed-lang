@@ -276,6 +276,10 @@ geth `evm` 1.14.12-stable. These probe facts set the design:
 - Each CALL forwards all gas and 0 wei. The return must be the word 1, or
   empty with EXTCODESIZE not zero, else a REVERT with empty data (:28-29).
 
+`probe/CAPABILITY.md` gives these facts for each probe question, with the
+commands, the cost data and the consequences for M0. Sealed-lang ran no
+new probe (R68 (a)).
+
 The axiom report (S6, R52 (a)). `langc check FILE` prints one line
 `axiom NAME` for each law of `domain/domain.lang`, in the order of the
 domain file, then `ok`. At S6 the report is:
@@ -297,20 +301,160 @@ that each of the four laws is true.
 
 ## 9. Open items
 
-> Write here: one item for each open question. Number the items O1, O2 and
-> so on. Mark each decision as "RULED YYYY-MM-DD (USER): <the ruling>". Mark
-> each fact that a probe found as "Probe-forced".
+Each item is one row of `docs/PLAN.md` section 8 (:269-548), with its
+status at S7: done in the slice that built it, closed (not taken), or
+open. O1 to O15 are the builder's calls, and the USER did not rule them
+(`docs/PLAN.md:18-19`). PLAN gives "RULED 2026-10-15" for O16 to O30
+(:352, :372) and "RULED 2026-10-16" for O31 to O50 (:400, :444). For O51
+to O60 (2026-10-17) the USER said "Take defaults for R51 to R60"
+(:512-513). Each time the defaults (a) apply. Later USER rulings: the
+mutant M9 (a) (:401), `langc run` cannot step a successful signed or
+proof call (s7, O47) and `od -v` at the 4 kit `od` sites (s8, :445-447).
+"Probe-forced" marks an item that a host probe fact forced (sections 5
+and 7, `probe/CAPABILITY.md`).
 
-- O1. <question>.
+Open at S7 (not built):
+
+- O7, O44: `settle` (`docs/PLAN.md:469-471`, `docs/STATUS.md:346`).
+- O46: `vault` (`docs/STATUS.md:346`,
+  `formers/tcc-evm-contract.md:106-108`).
+- O50, O58: the binding of each cm to the public inputs of its proof (R50,
+  `docs/PLAN.md:506-508`, :538-539).
+- O57: `processBid` is off chain only. No entry calls it
+  (`docs/PLAN.md:535-537`).
+- O35: the R35 refactor of `rule_hcomp` (S4, `docs/STATUS.md:344`).
+- O48: the R48 EIP-170 budget. The deposit runtime code is 17119 bytes,
+  7457 bytes under 24576 (`docs/PLAN.md:494`).
+- The lang-template `od -v` unit: the same `od` line in 7 lang-template
+  files (`docs/STATUS.md:255-256`). It stays open (R64 (a)). It is not an
+  O row.
+- F15 PARTIAL: only the domain file declares an indexed family, and EVM
+  output is planned (`formers/FORMERS.md:300`, R1, O32). No new O row.
+
+M11 is not open: the 7.1 row of `test/fronttool.c` kills it (R61 (a),
+bbe668d).
+
+The items (PLAN line, status):
+
+- O1 (:271). The name is sealed-lang. Done in S0.
+- O2 (:272). The host is the kit tcc-evm-contract with the cubical
+  kernel. Done in S0; the kernel port in S3 and S4.
+- O3 (:275). `Path` replaces the kit `Eq`. Closed in S3 (R3).
+- O4 (:278). `hash` is KECCAK256 (R16). Done in S2. No Poseidon library
+  (:281).
+- O5 (:284). The curve operations are opaque in `langc eval`. Done in S2;
+  the fixture in S5 (R39).
+- O6 (:294). The asset is an ERC-20 token through `pull` and `pay`. Done
+  in S5. No native value (:295).
+- O7 (:303). The `settle` entry. S5 built the entry. Open (above).
+- O8 (:310). A Map value is a word, with one view for each field. Done in
+  S5. Probe-forced (section 5).
+- O9 (:315). An incremental Merkle tree of depth 32. Done in S5 (R40 to
+  R42).
+- O10 (:321). No Glue: the laws are domain axioms. Done in S6 (R52, R53).
+- O11 (:332). Loops through a HIT form, the circle. Done in S4.
+- O12 (:338). An entry takes one tuple for each call. Done in S2 (at most
+  32 words) and S5 (R45). Probe-forced (section 5).
+- O13 (:345). `now` is TIMESTAMP. Closed in S2 (R13): the kit form stays.
+  Probe-forced (section 5).
+- O14 (:347). The proposer set is a `Map Addr Flag`. Done in S5 (R44).
+- O15 (:350). The tests are guest programs and `langc run`, with no new
+  harness. Done: the rule holds from S0 to S7.
+- O16 (:355). `hash` is 2-ary over U256 through KECCAK. Done in S2.
+  RULED 2026-10-15.
+- O17 (:357). The result of `ecAdd` and `ecMul` is a heap block. Done in
+  S2. RULED 2026-10-15.
+- O18 (:360). A STATICCALL that returns 0 reverts. Done in S2. RULED
+  2026-10-15.
+- O19 (:362). `natMul`, `u256Mul`, `u256Div` and `u256Min` are pruned.
+  Done in S2. RULED 2026-10-15.
+- O20 (:364). `addrToU256` is the one conversion from `Addr`. Done in S2.
+  RULED 2026-10-15.
+- O21 (:366). The sample domain is out. Done in S2; S4 fills
+  `domain/domain.lang`. RULED 2026-10-15.
+- O22 (:369). `formers/tcc-evm-contract.md` is rewritten. Done in S2.
+  RULED 2026-10-15.
+- O23 (:370). ENTRY_PARAMS_MAX is 32 (`src/front/check.h:8`). Done in S2.
+  RULED 2026-10-15. Probe-forced (section 5).
+- O24 (:376). A Path on a word type is never an equality test. Done in
+  S3. RULED 2026-10-15.
+- O25 (:379). `transport` and `J` are guest definitions. Done in S3.
+  RULED 2026-10-15.
+- O26 (:382). The refusal fixture `path-word.lang`. Done in S3. RULED
+  2026-10-15.
+- O27 (:384). The base lines in the Kan rules. Done in S3. RULED
+  2026-10-15.
+- O28 (:390). `hcomp` uses fuel. Done in S3. RULED 2026-10-15.
+- O29 (:392). `funExt` at check time only. Done in S3. RULED 2026-10-15.
+- O30 (:394). pathtool has 19 roundtrips. Done in S3. RULED 2026-10-15.
+- O31 (:404). A point constructor lowers. A path constructor gives
+  REFUSE_LOWER. Done in S4. RULED 2026-10-16.
+- O32 (:411). `Trunc1`, `Trunc0` and `Quot` in the domain. Done in S4.
+  RULED 2026-10-16.
+- O33 (:414). No new base line. Done in S4. RULED 2026-10-16.
+- O34 (:417). pathtool goes from 19 to 26 rows. Done in S4. RULED
+  2026-10-16.
+- O35 (:423). The system helpers are ported. Done in S4. The R35 refactor
+  is open (above). RULED 2026-10-16.
+- O36 (:427). The Glue hunks are dropped. Done in S4. RULED 2026-10-16.
+- O37 (:435). A path at run time gives REFUSE_LOWER. Done in S4. RULED
+  2026-10-16.
+- O38 (:438). The patch method. Done in S4. RULED 2026-10-16.
+- O39 (:450). A synthetic Groth16 fixture. Done in S5. RULED 2026-10-16.
+- O40 (:454). The tree and verifier libraries are in the domain. Done in
+  S5. RULED 2026-10-16.
+- O41 (:457). The share rule in `src/lower.c`. Done in S5 (43fb213).
+  RULED 2026-10-16.
+- O42 (:464). The tree depth is the constant 32. Done in S5. RULED
+  2026-10-16.
+- O43 (:466). The deposit contract has 9 entries. Done in S5. RULED
+  2026-10-16.
+- O44 (:467). The caller rules. Done in S5; `settle` is open (above).
+  RULED 2026-10-16.
+- O45 (:473). One tuple for each entry, and a signature bound to a nonce.
+  Done in S5 (86eb3d6). RULED 2026-10-16.
+- O46 (:480). The `asset` and `vault` definitions. S5 built them; `vault`
+  is open (above). RULED 2026-10-16.
+- O47 (:484). The deposit script row of `test/diff.sh`. Done in S5 (diff
+  15 to 16). RULED 2026-10-16, and the USER ruling s7.
+- O48 (:492). The runtime code is 17119 bytes. Done in S5. The EIP-170
+  budget is open (above). RULED 2026-10-16.
+- O49 (:497). `regAuction` writes at most 4 slots. Done in S5. RULED
+  2026-10-16.
+- O50 (:500). The binding of each cm to its proof. Open (above). RULED
+  2026-10-16.
+- O51 (:516). `Bag` is a QIT. Done in S6 (4.1). RULED 2026-10-17.
+- O52 (:519). The axiom declaration form. Done in S6 (4.1). RULED
+  2026-10-17.
+- O53 (:523). The four laws. Done in S6 (4.2, 4.3). RULED 2026-10-17.
+- O54 (:526). The `medianAt` rule. Done in S6 (4.3). RULED 2026-10-17.
+- O55 (:529). `signComWord` is the hash of cm and t. Done in S6 (4.4).
+  RULED 2026-10-17.
+- O56 (:532). The `processBid` codes 1 to 5. Done in S6 (4.5). RULED
+  2026-10-17.
+- O57 (:535). `processBid` is off chain only. Open (above). RULED
+  2026-10-17.
+- O58 (:538). The cm binding stays out of S6. Open (above). RULED
+  2026-10-17.
+- O59 (:540). The table of property checks. Done in S6 (4.6, 4.8). RULED
+  2026-10-17.
+- O60 (:545). The placement of the new rows. Done in S6 (4.2 to 4.6).
+  RULED 2026-10-17.
 
 ## 10. Milestones
 
-> Write here: the content of each milestone, and a dated status line under
-> the current milestone.
+The kit milestones M0 to M3 map onto the slices S0 to S7 of
+`docs/PLAN.md` section 7 (:232-267, R63 (a)).
 
-| Milestone | Content |
-|---|---|
-| M0 | Host probe (`probe/CAPABILITY.md`); the core types construct and check; refusal list; examples and tests |
-| M1 | Core operations |
-| M2 | Queries and reads, or the contract |
-| M3 | Hardening: speed, limits, a checked certificate for the output |
+| Milestone | Slices | Content | Commits (date) | Status |
+|---|---|---|---|---|
+| M0 | S0 to S2 | The kit host and its probe (`probe/CAPABILITY.md`); the base span: the core types, the S2 operations and the EVM precompiles; the refusal list; examples and tests | S0 beae7ec (2026-10-15); S1 survey and rulings, no commit; S2 bc8e168, ff85343 (2026-10-15) | DONE |
+| M1 | S3, S4 | Interval paths and the Kan operations; HITs, truncations and quotients | S3 872b0b4 to 705ab9f (2026-10-16); S4 cdfc751 to b4a5dce (2026-10-16) | DONE |
+| M2 | S5 | The deposit contract: the share rule, the Merkle tree, the Groth16 verifier, 9 entries and 10 views | 43fb213 to 4626ed3 (2026-10-16 to 2026-10-17) | DONE |
+| M3 | S6, S7 | The protocol layer (`Bag`, the four laws, the median, `processBid`, the property checks) and the docs | S6 1bc714b to 17ef85c (2026-10-17 to 2026-10-18); S7 bbe668d, b0b1b37, cf0f324 (2026-10-18) | S6 DONE; S7 open |
+
+Status 2026-10-18 (M3): S6 is done (2c42e04, docs 17ef85c). S7 steps 7.1
+(the M11 row, bbe668d), 7.2 (the source fixes, b0b1b37) and 7.3 (sections
+1 to 8, cf0f324) are done. Step 7.4 fills sections 9 and 10 and
+`probe/CAPABILITY.md`. Step 7.5 (`docs/STATUS.md`, `docs/VALIDATION.md`,
+`README.md` and the final gate) closes S7 and M3.
