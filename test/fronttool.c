@@ -138,6 +138,9 @@ int main(void) {
                       "def alias : Path Nat 0 0 := law\n"
                       "def use : Path (Path Nat 0 0) alias law := refl", NULL,
                       "axiom law\naxiom otherLaw\n");
+  /* A domain axiom must have a law type: a Path or a PathP after its Pi
+     binders (rule R2). A Nat type is not a law. */
+  ok &= domain("axiom notLaw : Nat", "REFUSE_AXIOM_TYPE");
   /* Printing must keep an axiom free when a binder has the same name.
      The generated name x1 is also an axiom, so it must stay free too. */
   ok &= normal_roundtrip("axiom law : Path Nat 0 0\n"
