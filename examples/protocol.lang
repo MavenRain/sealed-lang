@@ -146,3 +146,61 @@ def procLate : Sum Nat (Bag Bid) := processBid zkFix stampFix poolFix depositsFi
   9u 12u 0x00000000000000000000000000000000000000a1 3u 4 stampsFix (cons 30u (cons 31u nil)) 1 20 24
 def procStamp : Sum Nat (Bag Bid) := processBid zkFix stampOther poolFix depositsFix slashedFix
   9u 12u 0x00000000000000000000000000000000000000a1 3u 6 stampsFix (cons 30u (cons 31u nil)) 1 20 24
+-- The property checks (S6 4.6, R59 (a)). Each row is a Flag that gives
+-- flagYes. Simultaneous Release and No Free Bid Withdrawal are partly
+-- terms; t_h-Hiding and Auction Participation Efficiency are not terms.
+-- flagYes when o is some m and lo <= m <= hi. A missing median (none) is
+-- infinite (Lemma 11), thus it is not in the range.
+def inRange : (lo hi : Nat) -> (o : Option Nat) -> Flag :=
+  fun (lo hi : Nat) (o : Option Nat) =>
+    option flagNo (fun (m : Nat) => flagIf (natLe lo m) (natLe m hi) flagNo) o
+-- flagYes when s is inl code (processBid rejects the bid with that code).
+def isCode : (code : Nat) -> (s : Sum Nat (Bag Bid)) -> Flag :=
+  fun (code : Nat) (s : Sum Nat (Bag Bid)) =>
+    either (fun (n : Nat) => natEq n code) (fun (p : Bag Bid) => flagNo) s
+-- flagYes when s is inr (processBid puts the bid in the pool).
+def isAccept : (s : Sum Nat (Bag Bid)) -> Flag :=
+  fun (s : Sum Nat (Bag Bid)) =>
+    either (fun (n : Nat) => flagNo) (fun (p : Bag Bid) => flagYes) s
+-- Simultaneous Release, Lemma 11 at f = 1: 2f + 1 = 3 timestampers, the
+-- honest stamps 10 and 12, and the stamp of the adversary 0 (below), 1000
+-- (above) or missing. In the three cases the median is in [10, 12]. The
+-- median at index f + 1 gives 1000 or none, thus it fails the row.
+def lemma11F1 : Flag :=
+  flagIf (inRange 10 12 (medianAt 1 (bagCons Nat 10 (bagCons Nat 12 (bagCons Nat 0 (bagNil Nat))))))
+    (flagIf (inRange 10 12 (medianAt 1 (bagCons Nat 10 (bagCons Nat 12 (bagCons Nat 1000 (bagNil Nat))))))
+      (inRange 10 12 (medianAt 1 (bagCons Nat 10 (bagCons Nat 12 (bagNil Nat)))))
+      flagNo)
+    flagNo
+-- Lemma 11 at f = 2: 2f + 1 = 5 timestampers, the honest stamps 10, 11
+-- and 13, and the two stamps 0 of the adversary. The median is in [10, 13].
+def lemma11F2 : Flag :=
+  inRange 10 13 (medianAt 2 (bagCons Nat 10 (bagCons Nat 0 (bagCons Nat 11 (bagCons Nat 0 (bagCons Nat 13 (bagNil Nat)))))))
+-- Simultaneous Release, the late cut of processBid: stampsFix gives the
+-- median tau = 5. tEnd 5 (tau = tEnd) accepts the bid, and tEnd 4 (tau =
+-- tEnd + 1) gives code 4. A processBid with no tau <= tEnd test accepts the
+-- second bid, and a test tau < tEnd rejects the first bid.
+def lateCut : Flag :=
+  flagIf (isAccept (processBid zkFix stampFix poolFix depositsFix slashedFix
+      9u 12u 0x00000000000000000000000000000000000000a1 3u 5 stampsFix (cons 30u (cons 31u nil)) 1 20 24))
+    (isCode 4 (processBid zkFix stampFix poolFix depositsFix slashedFix
+      9u 12u 0x00000000000000000000000000000000000000a1 3u 4 stampsFix (cons 30u (cons 31u nil)) 1 20 24))
+    flagNo
+-- No Free Bid Withdrawal, the abort of processBid: a pi with the slashed
+-- handle 41u gives code 2, with the handle first or last in pi. A
+-- processBid that skips the slashed test accepts the bid.
+def slashedAbort : Flag :=
+  flagIf (isCode 2 (processBid zkFix stampFix poolFix depositsFix slashedFix
+      9u 12u 0x00000000000000000000000000000000000000a1 3u 6 stampsFix (cons 41u (cons 30u nil)) 1 20 24))
+    (isCode 2 (processBid zkFix stampFix poolFix depositsFix slashedFix
+      9u 12u 0x00000000000000000000000000000000000000a1 3u 6 stampsFix (cons 30u (cons 41u nil)) 1 20 24))
+    flagNo
+-- n_c = 3 nA - 1: the most unrevealed certificates (Lemma 13). There is
+-- no natMul, thus 3 nA is nA + nA + nA.
+def ncOf : (nA : Nat) -> Nat :=
+  fun (nA : Nat) => natSub (natAdd nA (natAdd nA nA)) 1
+-- No Free Bid Withdrawal at the deposit start state: init of
+-- examples/deposit.lang has nA 2 (makeState 0u 100u 2 ...), thus n_c = 5.
+-- A program cannot import an other program (R40), thus the row gives nA 2
+-- as a literal. The bound minDeposit >= n_c u is not a term.
+def ncCount : Flag := natEq (ncOf 2) 5

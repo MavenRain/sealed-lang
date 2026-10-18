@@ -103,3 +103,20 @@ eligibility or a double commitment. `settle` records any caller and
 supplied price after the end slot; winner selection from sealed bids is
 deferred to S6. Mutants M1 to M9 of S5 are in `docs/STATUS.md`: 9 of
 9 killed, and the extra M9b killed.
+
+The S6 property checks (2026-10-17) add 5 eval rows in
+`examples/protocol.lang`. Each row is a Flag that gives 1 (R59 (a)).
+Simultaneous Release (Definition 3, Theorem 7) is partly a term. `lemma11F1`
+checks Lemma 11 at f = 1: with the honest stamps 10 and 12 and the
+adversary stamp 0, 1000 or missing, `medianAt` is in [10, 12] in the three
+cases. `lemma11F2` checks Lemma 11 at f = 2: with the honest stamps 10, 11
+and 13 and the adversary stamps 0 and 0, `medianAt` is in [10, 13].
+`lateCut` checks the late cut of `processBid`: a median equal to t_end
+accepts the bid, and a median of t_end + 1 gives code 4. The network
+delays of Theorem 7 are not terms. No Free Bid Withdrawal (Definition 4,
+Theorem 9) is partly a term. `slashedAbort` checks that a Pi with a
+slashed handle (first or last in Pi) gives code 2. `ncCount` checks n_c =
+3 n_A - 1 = 5 at n_A 2, the value of `init` in `examples/deposit.lang`. A
+program cannot import an other program (R40), thus the row gives n_A as a
+literal. The cost bound minDeposit >= n_c u is not a term. The rows check
+fixed inputs only: they do not prove Lemma 11 or the theorems.
