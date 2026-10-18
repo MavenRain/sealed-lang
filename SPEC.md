@@ -315,18 +315,18 @@ and 7, `probe/CAPABILITY.md`).
 
 Open at S7 (not built):
 
-- O7, O44: `settle` (`docs/PLAN.md:469-471`, `docs/STATUS.md:346`).
-- O46: `vault` (`docs/STATUS.md:346`,
+- O7, O44: `settle` (`docs/PLAN.md:469-471`, `docs/STATUS.md:396`).
+- O46: `vault` (`docs/STATUS.md:396`,
   `formers/tcc-evm-contract.md:106-108`).
 - O50, O58: the binding of each cm to the public inputs of its proof (R50,
   `docs/PLAN.md:506-508`, :538-539).
 - O57: `processBid` is off chain only. No entry calls it
   (`docs/PLAN.md:535-537`).
-- O35: the R35 refactor of `rule_hcomp` (S4, `docs/STATUS.md:344`).
+- O35: the R35 refactor of `rule_hcomp` (S4, `docs/STATUS.md:394`).
 - O48: the R48 EIP-170 budget. The deposit runtime code is 17119 bytes,
   7457 bytes under 24576 (`docs/PLAN.md:494`).
 - The lang-template `od -v` unit: the same `od` line in 7 lang-template
-  files (`docs/STATUS.md:255-256`). It stays open (R64 (a)). It is not an
+  files (`docs/STATUS.md:305-306`). It stays open (R64 (a)). It is not an
   O row.
 - F15 PARTIAL: only the domain file declares an indexed family, and EVM
   output is planned (`formers/FORMERS.md:300`, R1, O32). No new O row.
@@ -451,10 +451,10 @@ The kit milestones M0 to M3 map onto the slices S0 to S7 of
 | M0 | S0 to S2 | The kit host and its probe (`probe/CAPABILITY.md`); the base span: the core types, the S2 operations and the EVM precompiles; the refusal list; examples and tests | S0 beae7ec (2026-10-15); S1 survey and rulings, no commit; S2 bc8e168, ff85343 (2026-10-15) | DONE |
 | M1 | S3, S4 | Interval paths and the Kan operations; HITs, truncations and quotients | S3 872b0b4 to 705ab9f (2026-10-16); S4 cdfc751 to b4a5dce (2026-10-16) | DONE |
 | M2 | S5 | The deposit contract: the share rule, the Merkle tree, the Groth16 verifier, 9 entries and 10 views | 43fb213 to 4626ed3 (2026-10-16 to 2026-10-17) | DONE |
-| M3 | S6, S7 | The protocol layer (`Bag`, the four laws, the median, `processBid`, the property checks) and the docs | S6 1bc714b to 17ef85c (2026-10-17 to 2026-10-18); S7 bbe668d, b0b1b37, cf0f324 (2026-10-18) | S6 DONE; S7 open |
+| M3 | S6, S7 | The protocol layer (`Bag`, the four laws, the median, `processBid`, the property checks) and the docs | S6 1bc714b to 17ef85c (2026-10-17 to 2026-10-18); S7 bbe668d, b0b1b37, cf0f324, f05d6f4 and step 7.5 (2026-10-18) | DONE |
 
 Status 2026-10-18 (M3): S6 is done (2c42e04, docs 17ef85c). S7 steps 7.1
-(the M11 row, bbe668d), 7.2 (the source fixes, b0b1b37) and 7.3 (sections
-1 to 8, cf0f324) are done. Step 7.4 fills sections 9 and 10 and
-`probe/CAPABILITY.md`. Step 7.5 (`docs/STATUS.md`, `docs/VALIDATION.md`,
-`README.md` and the final gate) closes S7 and M3.
+(the M11 row, bbe668d), 7.2 (the source fixes, b0b1b37), 7.3 (sections
+1 to 8, cf0f324) and 7.4 (sections 9 and 10, `probe/CAPABILITY.md`,
+f05d6f4) are done. Step 7.5 (`docs/STATUS.md`, `docs/VALIDATION.md`,
+`README.md` and the final gate) closes S7 and M3: M0 to M3 are DONE.

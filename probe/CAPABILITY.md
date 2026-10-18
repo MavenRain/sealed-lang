@@ -55,7 +55,7 @@ below. An answer sets the status of a former in `formers/tcc-evm-contract.md`.
   steps, `docs/host/CAPABILITY.md:26`). `test/diff.sh` runs the CALL
   failure table (10 rows) and 6 call scripts on the mock ERC-20: the 5 kit
   scripts and `deposit.script` (S5, O47, `test/diff.sh:192-198`). Thus
-  the diff count is 16 (`docs/STATUS.md:291`), not the kit count 5 of
+  the diff count is 16 (`docs/STATUS.md:341`), not the kit count 5 of
   `docs/host/CAPABILITY.md:26`.
 - Not probed: `evm transition` (t8n), `evm statetest` and anvil 0.3.0
   (`docs/host/CAPABILITY.md:14-15`, :50-52). The gate uses none of them.
@@ -66,7 +66,7 @@ No. A program is one file, with no import form (`src/front/lexer.c:20-30`).
 The driver joins three parts in this order: `domain/domain.lang`, the
 contract prelude `src/front/contract.c`, then the program
 (`src/front/front.c:16-18`). The domain is compiled into `build/langc`
-(`docs/STATUS.md:352`).
+(`docs/STATUS.md:402`).
 
 ## 3. Recursion and totality
 
@@ -113,16 +113,16 @@ a check, a build or a run at N bids.
 The nearest data:
 
 - The deposit runtime code is 17119 bytes, 7457 bytes under the EIP-170
-  limit of 24576 bytes (O48, `docs/PLAN.md:494`, `docs/STATUS.md:200`).
-- The lowertool arena is 32 MiB (`docs/STATUS.md:281`).
+  limit of 24576 bytes (O48, `docs/PLAN.md:494`, `docs/STATUS.md:250`).
+- The lowertool arena is 32 MiB (`docs/STATUS.md:331`).
 - The deposit EVM chain does 41 calls with 0 failures
-  (`docs/STATUS.md:195`). The deposit call script has 23 calls
-  (`docs/STATUS.md:233`).
+  (`docs/STATUS.md:245`). The deposit call script has 23 calls
+  (`docs/STATUS.md:283`).
 - The gas of each kit chain step (`docs/host/CAPABILITY.md:31-48`,
   measured 2026-10-10 at LT 382e224): for example, a deposit with one pull
   CALL on the mock uses 73471 gas (:46). No gas is measured for
   `examples/deposit.lang`.
-- The property rows of S6 check fixed inputs only (`docs/STATUS.md:336`).
+- The property rows of S6 check fixed inputs only (`docs/STATUS.md:386`).
 
 ## 7. Parametric families
 

@@ -1,34 +1,84 @@
 # sealed-lang status
 
-> Write here: one paragraph. Say which milestone the build implements, and
-> which milestone it does not complete yet.
+The build implements the kit milestones M0 to M3 (`SPEC.md` section 10).
+The slices S0 to S6 built the language, the deposit contract and the
+protocol layer. S7 wrote the docs and ran the final gate (`## S7`). The
+sections above `## S2` give the summary of S0 to S6. The slice records
+give the details.
 
 ## Implemented
 
-> Write here: one item for each feature that works. Name the former (F1 to
-> F15), the core type or the core operation.
+- The kit host tcc-evm-contract (S0, beae7ec): `langc check`, `eval`,
+  `build` and `run` (`probe/CAPABILITY.md` section 1).
+- The type formers F1 to F14 are DONE, F7 in `check` and `eval` only. F15
+  is PARTIAL (`SPEC.md:83-97`).
+- The base span (S2): the core types `Nat`, `Flag`, `U256` and `Addr`,
+  and the operations `hash`, `natDiv`, `natMod`, `addrToU256`,
+  `ecrecover`, `ecAdd`, `ecMul` and `ecPairing`. On the EVM, a curve
+  operation is one STATICCALL to a precompile (`## S2`).
+- Paths (S3): the interval, `PathP`, `Path`, `refl`, `sym`, `cong`,
+  `funExt`, `transp` and `hcomp`. `transport`, `subst`, `J` and `trans`
+  are guest definitions (`## S3`).
+- HITs and QITs (S4): path constructors with a boundary system, `S1`,
+  `Trunc1`, `Trunc0`, `Quot`, `isProp` and `isSet` (`## S4`).
+- The deposit contract (S5, Algorithm 1 of the paper):
+  `examples/deposit.lang` with 9 entries and 10 views, the share rule, and
+  the Merkle tree library and the Groth16 verifier as guest definitions.
+  The runtime code is 17119 bytes (`SPEC.md:244-250`).
+- The protocol layer (S6, Algorithms 2 and 3): the QIT `Bag`, `Bid`, the
+  four laws, the median, `processBid` and the property checks. They never
+  reach the EVM. `langc check` prints the axiom report (`SPEC.md:283-300`).
 
-- <feature>.
+## Remaining work
 
-## Remaining M0 work
+`SPEC.md:316-332` gives the open items at S7. No item is built:
 
-> Write here: one numbered item for each missing feature. Say what each item
-> needs first.
-
-1. <work item>.
+1. `settle` (O7, O44): it records any caller and any price.
+2. `vault` (O46): it must be the executing contract.
+3. The binding of each cm to the public inputs of its proof (O50, O58).
+4. An entry that calls `processBid` (O57). It is off chain only.
+5. The R35 refactor of `rule_hcomp` (O35).
+6. The EIP-170 budget (O48): 7457 bytes are free under 24576.
+7. The lang-template `od -v` unit (7 lang-template files, not an O row).
+8. F15: only the domain file declares an indexed family (R1, O32).
 
 ## Known limits
 
-> Write here: one item for each limit of the current build, with its cause
-> (a fuel budget, a host limit, a stack size).
-
-- <limit>.
+- `hcomp` spends the `m->fuel` step budget (R28). `unfold` has a `Nat`
+  step limit (`SPEC.md:93`).
+- `langc eval` takes no env and no state. `ecrecover` and the curve
+  operations stay stuck in it. Only `test/precompile.sh` checks the curve
+  words (`## S2`).
+- `langc run` stops with EVAL_ENTRY at a signed call or a proof call
+  (O47, `## S5`).
+- On the EVM, a `Nat` is a uint64 word and a view returns one word of 32
+  bytes. If a residual fold's seed or step can trap, its step must be
+  strict in its accumulator, else REFUSE_LOWER (`SPEC.md:132`, :239-243).
+- The `build/lowertool` arena is 32 MiB (`## S5`).
+- The property rows check fixed inputs only. They do not prove Lemma 11
+  or Theorems 7 to 10 (`## S6`).
 
 ## Internal boundaries
 
-> Write here: one paragraph for each module group. Say which module holds
-> which job, which tests check which tables, and which types a program
-> cannot use.
+`src/front/` holds the lexer, the parser, the checker with the BUILTINS
+table and the refusal codes (`src/front/check.c`), and the evaluator
+(`src/front/eval.c`). `src/lower.c` lowers a checked program to the IR of
+`src/ir.h`. `src/evm.c` and `src/asm.c` write the EVM bytecode.
+`src/keccak.c` is the keccak256 unit. `src/main.c` is the `langc` command.
+
+`test/gate.sh` checks the examples, the parse and check refusals, the
+evals and the axiom report. The other scripts in `test/` check the runs,
+the build output, the dispatch, the EVM chains, the precompiles, the
+deposit contract, the mock token and the diff of `langc run` with `evm
+run`. The C test tools check the domain rows, the path rows, the run
+budgets, the build output, the lowering, the emitter, the hashing code and
+the assembler. `slottool` is a helper of the chain scripts.
+
+`SPEC.md:62-79` gives the forms that a program cannot use, with their
+codes: for example a family (REFUSE_DATA) and an axiom (REFUSE_AXIOM).
+Only `domain/domain.lang` declares the families, the HITs, the QITs and
+the four laws. A path, a path constructor, a formal `hcomp` and a law have
+no run-time form (`SPEC.md:252-262`).
 
 ## S2
 
@@ -339,9 +389,9 @@ Limits of S6:
   and no `U[u].remove(AucID)`: its output is the new pool or a code.
 - The binding of each cm to its proof inputs stays out (R58 (a), O50).
 
-Open (recorded, not built): no row checks a domain axiom with a type that
-is not a law (the M11 note below; a negative fronttool domain row changes
-the counts, USER to rule). The R35 refactor of `rule_hcomp` (S4). The
+Open (recorded, not built) at S6: a row that checks a domain axiom with a
+type that is not a law (the M11 note below; S7 step 7.1 adds it, bbe668d).
+The R35 refactor of `rule_hcomp` (S4). The
 lang-template `od -v` unit (7 files). The EIP-170 budget (R48, 7457 bytes
 free). `settle` (O7, O44) and `vault` (O46).
 
@@ -392,6 +442,64 @@ Notes on the predictions of the kickoff:
   (the down order also commutes), thus the check row `insSwapAt` does not
   kill it. The even and missing rows kill it.
 - M11: the origin test refuses each program axiom, thus axiom-type.lang
-  is refused with the other code. The kill is the code only. No row checks
-  a domain axiom with a type that is not a law (the domain rows of
-  test/fronttool.c are accepted laws).
+  is refused with the other code. The kill is the code only. At S6 no row
+  checked a domain axiom with a type that is not a law (the domain rows of
+  test/fronttool.c were accepted laws). S7 step 7.1 (bbe668d) adds the row
+  `axiom notLaw : Nat`, and that row kills M11 (`## S7`).
+
+## S7
+
+Slice S7 (the docs and the final gate) is complete. It has five steps.
+The rulings R61 to R71 are RULED 2026-10-18, defaults (a).
+
+- 7.1 (bbe668d): the M11 row (R61 (a)). `test/fronttool.c` gets the row
+  `domain("axiom notLaw : Nat", "REFUSE_AXIOM_TYPE")`. M11 changes
+  `!law_type(c, tv)` to `0` in `check_axiom` (`src/front/check.c:2757`).
+  With M11, the only FAIL line is `FAIL domain: wanted REFUSE_AXIOM_TYPE,
+  got ok: axiom notLaw : Nat`. Thus the row kills M11. After the restore,
+  fronttool prints `domain regressions: passed`.
+- 7.2 (b0b1b37): the source fixes (R66 (a), R67 (a)). `docs/PLAN.md`
+  section 8 gets O51 to O60, and :136 names `bidMax` and `insNat`.
+  `formers/FORMERS.md` (12 matrix cells and the S6 row) and
+  `formers/tcc-evm-contract.md` (:34, :89, :90 and the S6 section) agree
+  with the source.
+- 7.3 (cf0f324): `SPEC.md` sections 1 to 8 (R62 (a), R70 (a)).
+- 7.4 (f05d6f4): `SPEC.md` sections 9 and 10 (R63 (a), R64 (a), R66 (a))
+  and `probe/CAPABILITY.md` (R68 (a)).
+- 7.5: the top sections of this file and this section (R65 (a)), the
+  header of `docs/VALIDATION.md` (R69 (a)), `README.md` (R71 (a)), the M3
+  row and the status line of `SPEC.md` section 10, and the final gate.
+
+The USER commits of 7.3 and 7.4 add rows to the staged trees. cf0f324:
+`SPEC.md` sections 1, 2, 3 and 7 (for example the REFUSE_AXIOM_TYPE row
+and 10 views with `byUserOrProposer`). f05d6f4: `probe/CAPABILITY.md`
+(the `eval` and `run` syntax, `natSub` saturates at zero, and the Sigma eta
+regression `test/fronttool.c:128`).
+
+The S7 final gate `make -B check` is GREEN: examples 28, parse refusals
+15, check refusals 85, evals 84, runs 6, run refusals 10, asmtool 8 of 8,
+builds 3, lower refusals 14, checks 31, dispatch 20, evm steps 43,
+precompile 32 steps and 0 failures, deposit 25 assertions, deposit EVM 41
+calls and 0 failures, runtime 17119 bytes, mock 13 rows, diff 16 rows,
+emit 24, all regressions passed. These are the S6 counts: the 7.1 row
+prints in the line `domain regressions: passed`, and 7.2 to 7.5 change
+docs only.
+
+Stale cites with no S7 owner (recorded, not fixed):
+
+- `docs/host/README.md:189` (more than 16 event fields):
+  `src/front/check.c:2447-2448` uses ENTRY_PARAMS_MAX 32
+  (`src/front/check.h:8`).
+- `docs/host/README.md:245` (`Nat` and `U256` mul and div): S2 removed
+  them.
+- `docs/host/CAPABILITY.md:26` and `test/diff.sh:11` (5 call scripts): the
+  gate runs 6, and diff gives 16 rows (`probe/CAPABILITY.md` section 1).
+- `formers/FORMERS.md:300` and the FORMERS cells that cite the kit paths
+  `hosts/tcc-evm-contract/...`.
+- The `## S5` record counts 9 views (O8). `SPEC.md:244-247` counts 10,
+  with `byUserOrProposer` (the USER row of cf0f324).
+- The S6 trusted base of `docs/VALIDATION.md` gives the M11 hole as open
+  (USER to rule). That is the state at S6. The 7.1 row closes it.
+
+Open at the S7 close: the list of `## Remaining work` above
+(`SPEC.md:316-332`).
