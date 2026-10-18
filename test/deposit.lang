@@ -68,6 +68,9 @@ def testAuthRepeated : State := testResultState
 def testAuthNonce : Flag :=
   flagIf (u256Eq (mapGet (piAcc testAuthPending) testAuthUser) (mapGet (piAcc testAuthRepeated) testAuthUser))
     (natEq (mapGet (piNonce testAuthRepeated) testAuthUser) 1) flagNo
+-- Auction 0 of testFirstAuction ends in slot 3. A caller with no deposit cannot settle it in slot 4.
+def testSettleNoDeposit : Flag := flagIf (testAccepted
+  (settle (makeEnv 40 0x00000000000000000000000000000000000000cc 0x0000000000000000000000007265636569766572) testFirstAuction 0u 50u)) flagNo flagYes
 
 -- These views run on the EVM because ecrecover is opaque to langc eval.
 def testSignature0 : (env : Env) -> (s : State) -> Flag :=

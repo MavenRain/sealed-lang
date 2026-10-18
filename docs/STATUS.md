@@ -549,3 +549,28 @@ Current references reconciled in the staged 8.3 review (line counts kept):
   `docs/host/README.md:240`. O35 and O57 now show their S8 closures above.
 - Kept as records: `docs/PLAN.md:299-305` (O6, S5), `docs/STATUS.md:278`
   (S5) and :396 (S6).
+
+8.4: `settle` refuses a caller with no deposit (R73 (a), O73). The check
+is the first guard (`examples/deposit.lang:261-262`). `slash` and
+`withdraw` call `clearUser`, which sets `amount` to 0u (:226), thus the
+check reads `amount` only. No deployment of `test/deposit.sh` had an
+auction with an end slot that can pass, thus the USER ruled a setup row
+(`regAuction 9u 1 1`) and a reject row (`test/deposit.sh:135-137`). The
+eval row `testSettleNoDeposit` is `test/deposit.lang:71-73`.
+
+The 8.4 gate `make -B check` is GREEN: deposit 25 -> 26 assertions,
+deposit EVM 41 -> 43 calls and 0 failures, runtime 17103 -> 17138 bytes
+(R78 ceiling 18143, 1005 bytes under; EIP-170 24576, 7438 bytes free),
+diff 16 rows and 0 failures (no content change), every other count at
+the 8.3 baseline. The runtime 17103 and the counts 25 and 41 at
+`SPEC.md:247`, :326-327, :420, `docs/host/README.md:316`,
+`probe/CAPABILITY.md:115-116` and `formers/tcc-evm-contract.md:92` are
+stale (the 8.6 close).
+
+M12 changed the repo file, then `make -B build` and `sh test/deposit.sh`.
+After the restore, `make -B` and `sh test/deposit.sh` gave 26 assertions
+and 43 calls, and `git diff` against the index was empty.
+
+| Mutant | Edit | Killer | Verdict |
+|---|---|---|---|
+| M12 no deposit check in `settle` | deposit.lang:261 `settle`: `flagIf flagNo` (no `amount` check) | deposit `testSettleNoDeposit` 0; deposit EVM `chain revert 20 "$other" settle`: want revert, got ok | KILLED |

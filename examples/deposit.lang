@@ -254,23 +254,25 @@ def withdraw : (env : Env) -> (s : State) -> (au : Addr) -> (v : Nat) -> (r w : 
           none))
 
 -- Entry: settle the auction id (R43 (a)). The caller is the winner at the price bid and pays bid of
--- the asset. The auction exists (id < ctr), it has no winner, and its end slot has passed. The
--- choice of the winner from the sealed bids is S6 (processBid).
+-- the asset. The caller has a deposit (R73 (a)), the auction exists (id < ctr), it has no winner,
+-- and its end slot has passed. The choice of the winner from the sealed bids is S6 (processBid).
 def settle : (env : Env) -> (s : State) -> (id bid : U256) -> Option (Prod State (List Out)) :=
   fun (env : Env) (s : State) (id bid : U256) =>
-    flagIf (u256Le (ctr s) id)
+    flagIf (u256Eq (mapGet (amount s) (caller env)) 0u)
       none
-      (flagIf (u256Eq (addrToU256 (mapGet (winner s) id)) 0u)
-        (flagIf (natLe (slotOf s (now env)) (mapGet (aucEnd s) id))
-          none
-          (some (pair
-            (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
-              (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s) (amount s) (leaf s) (nextLeaf s)
-              (rootAt s) (filled s) (inactiveSince s) (slashed s) (proposer s)
-              (piAcc s) (piCount s) (piNonce s) (piHas s)
-              (mapSet (winner s) id (caller env)) (mapSet (price s) id bid))
-            (cons (pull asset (caller env) (self env) bid) nil))))
-        none)
+      (flagIf (u256Le (ctr s) id)
+        none
+        (flagIf (u256Eq (addrToU256 (mapGet (winner s) id)) 0u)
+          (flagIf (natLe (slotOf s (now env)) (mapGet (aucEnd s) id))
+            none
+            (some (pair
+              (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
+                (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s) (amount s) (leaf s) (nextLeaf s)
+                (rootAt s) (filled s) (inactiveSince s) (slashed s) (proposer s)
+                (piAcc s) (piCount s) (piNonce s) (piHas s)
+                (mapSet (winner s) id (caller env)) (mapSet (price s) id bid))
+              (cons (pull asset (caller env) (self env) bid) nil))))
+          none))
 
 -- Views: one view per field of an auction record (O8), the root of a slot, the deposit of a user,
 -- a slashed handle, and the count of the pending tuples of a user.

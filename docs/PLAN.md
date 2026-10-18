@@ -308,7 +308,7 @@ deploys the program on `evm` and replays the same scripts.
   transaction. Alternative: out of scope. Note (S5): `settle` is in, with
   the 8 entries of O7 and `addTuple` (R43). `settle` also requires `id <
   ctr`, and a second `settle` of the same auction reverts. It accepts
-  any caller and supplied price after the auction ends; selecting the
+  a caller with a deposit (R73) and any price after the end; selecting the
   winner from sealed bids is deferred to S6 (`processBid`).
 - O8: a `Map` value is a word, so an auction record is one map per field
   and `getAucRecord` is one view per field. Alternative: extend `Map` to
@@ -469,9 +469,9 @@ existing program:
 - O43 (R43): 9 entries: the 8 of O7 and `addTuple` (the Π path of R45).
 - O44 (R44): `regAuction` and `makeInactive` need a proposer. `slashUsr`
   and `slash` take any caller, with proof and signature checks subject
-  to the fixture limits of O50. `settle` takes any caller as payer and
-  winner at the supplied price, with no proof or signature check and no
-  sealed-bid winner validation (S6). `addTuple` and `updateActivity` need
+  to the fixture limits of O50. `settle` takes a caller with a deposit
+  (R73) as payer and winner at the given price, with no proof, signature or
+  sealed-bid winner check (S6). `addTuple` and `updateActivity` need
   the user or a proposer.
 - O45 (R45): a Π tuple is two words (id : U256, h : U256). `addTuple au
   id h` sets `piAcc[au] := hash piAcc[au] (hash id h)`, `piCount[au] +
@@ -494,9 +494,9 @@ existing program:
   `test/deposit.sh` (41 calls).
 - O48 (R48): the runtime of `examples/deposit.lang` (`langc build
   --runtime`) was measured at each step: 11725 bytes at 4.4, 17020 at
-  4.5, 17119 at the S5 close, 17103 at 8.3 (EIP-170 24576, 7473 free;
-  S8 ceiling 18143, R78). No limit stopped a step. `rootAt` comes before
-  `filled`: in the other order the build is EVM_SIZE (step 4.4).
+  4.5, 17119 at the S5 close, 17103 at 8.3, 17138 at 8.4 (EIP-170 24576,
+  7438 free; S8 ceiling 18143, R78). No limit stopped a step. `rootAt`
+  comes before `filled`: in the other order the build is EVM_SIZE (step 4.4).
 - O49 (R49): `regAuction` covers at most 4 slots (`tend - tstart <= 3`):
   `aucRoom` and `aucCounts` check and increment 4 offsets, counted back
   from tend (`natSub tend k`, a USER row).
@@ -559,9 +559,9 @@ names the S8 step that builds it:
 - O72 (R72): the S8 row of section 7 and the lines O61 to O81 of this
   section. RULED 2026-10-18. Built in step 8.1.
 - O73 (R73): `settle` refuses a caller that holds no deposit (`mapGet
-  (amount s) (caller env)` is 0u). One reject row in `test/deposit.sh`.
-  Mutant M12 drops the check, and the row kills it. Winner selection from
-  the sealed bids stays open. RULED 2026-10-18. Step 8.4 builds it.
+  (amount s) (caller env)` is 0u). `test/deposit.sh` adds a setup row and
+  a reject row (USER). M12 drops the check, and the row kills it. Winner
+  selection stays open. RULED 2026-10-18. Built in step 8.4.
 - O74 (R74): `self : Addr` in Env, lowered to ADDRESS (0x30), replaces
   `def vault` (O46), and `pull` credits `self env`. One new evm row.
   Mutant M14 lowers `self` to CALLER, and the row kills it. RULED

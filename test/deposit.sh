@@ -10,7 +10,7 @@ rows=0
 for name in testLastLeaf testFullTree testBeyondTree testMaxAuction testMaxAuctionSpan testZeroAuction testOutsideAuction \
   testFirstAmount testSecondIndex testFirstRoot testSecondRoot testSmallDeposit testDuplicateDeposit \
   testInactiveSlot testInactiveAgain testInactiveCaller testInactiveMissing testFirstSlotCount testOverlapCount \
-  testLastSlotCount testAuctionLimit testAuctionCaller testAuctionReversed testAuctionLong testAuthNonce; do
+  testLastSlotCount testAuctionLimit testAuctionCaller testAuctionReversed testAuctionLong testAuthNonce testSettleNoDeposit; do
   rows=$((rows + 1))
   result=$(build/langc eval "$tmp/deposit.lang" "$name" 2>&1) || true
   if [ "$result" != 1 ]; then
@@ -132,6 +132,9 @@ else
   # One double-commit slash of the handle 2 with the fixture proof, then the slash of the signer.
   chain ok 10 "$signer" registerDeposit 7u 100u
   chain ok 10 "$proposer" addTuple "$signer" 0u 2u
+  # Auction 0 ends in slot 1. $other has no deposit, thus settle in slot 2 reverts (R73 (a)).
+  chain ok 20 "$proposer" regAuction 9u 1 1
+  chain revert 20 "$other" settle 0u 50u
   chain revert 20 "$other" slash "$signer" 2u 28 "$r0" "$s0"
   chain ok 20 "$other" slashUsr 2u 5u $proof 6u $proof
   chain 'out 1' 20 "$other" isSlashed 2u

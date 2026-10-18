@@ -315,7 +315,7 @@ and 7, `probe/CAPABILITY.md`).
 
 Open at S7, with S8 progress:
 
-- O7, O44: `settle` (`docs/PLAN.md:472-474`, `docs/STATUS.md:396`).
+- O7, O44: `settle` refuses a caller with no deposit (S8 step 8.4, R73); winner selection from the sealed bids stays open (`docs/PLAN.md:472-474`, `docs/STATUS.md:396`).
 - O46: closed in S8 (R74): `pull` credits `self env`, `def vault` is
   gone (`docs/PLAN.md:483-486`, `formers/tcc-evm-contract.md:106-108`).
 - O50, O58: the binding of each cm to the public inputs of its proof (R50,

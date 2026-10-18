@@ -100,8 +100,8 @@ only: runs 5 -> 6, diff 15 -> 16. Mutants M1 to M9 and M9b of S5 are in
 The deposit example uses the synthetic R39 key. `slashUsr` accepts the
 same proof with inputs (2, 3) for unequal cm words 5 and 6: neither cm
 is bound to the proof inputs, and replacing the key alone does not add
-that binding (O50). `settle` accepts any caller and supplied price after
-the auction ends. S6 adds off-chain bid validation and pool insertion
+that binding (O50). `settle` accepts a caller with a deposit (R73, 8.4) and
+a price after the end. S6 adds off-chain bid validation and pool insertion
 (`processBid`) and winner selection (`bagMax`), without connecting them
 to `settle` (O7/O44). S8 closes O46 (R74): `pull` credits `self env`
 (ADDRESS), the executing deposit contract's address, and `pay` spends
