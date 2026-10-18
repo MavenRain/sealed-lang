@@ -7,63 +7,63 @@ def testLeafState : (idx : Nat) -> State :=
   fun (idx : Nat) => makeState 0u 100u 2 0 10 mapEmpty mapEmpty mapEmpty mapEmpty mapEmpty mapEmpty idx
     mapEmpty mapEmpty mapEmpty mapEmpty (proposer init) mapEmpty mapEmpty mapEmpty mapEmpty mapEmpty mapEmpty
 def testDepositAt : (idx : Nat) -> Option (Prod State (List Out)) :=
-  fun (idx : Nat) => registerDeposit (makeEnv 0 0x00000000000000000000000000000000000000bb) (testLeafState idx) 7u 100u
+  fun (idx : Nat) => registerDeposit (makeEnv 0 0x00000000000000000000000000000000000000bb 0x0000000000000000000000007265636569766572) (testLeafState idx) 7u 100u
 def testLastLeaf : Flag := testAccepted (testDepositAt 4294967295)
 def testFullTree : Flag := flagIf (testAccepted (testDepositAt 4294967296)) flagNo flagYes
 def testBeyondTree : Flag := flagIf (testAccepted (testDepositAt 4294967297)) flagNo flagYes
 def testAuctionCount : (start : Nat) -> (end : Nat) -> (slot : Nat) -> Nat :=
   fun (start : Nat) (end : Nat) (slot : Nat) =>
     mapGet (aucsPerSlot (testResultState (regAuction
-      (makeEnv 0 0x00000000000000000000000000000000000000aa) init 9u start end))) slot
+      (makeEnv 0 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572) init 9u start end))) slot
 def testMaxAuction : Flag := natEq (testAuctionCount 18446744073709551615 18446744073709551615 18446744073709551615) 1
 def testMaxAuctionSpan : Flag := natEq (testAuctionCount 18446744073709551612 18446744073709551615 18446744073709551612) 1
 def testZeroAuction : Flag := natEq (testAuctionCount 0 0 0) 1
 def testOutsideAuction : Flag := natEq (testAuctionCount 1 2 0) 0
 def testFirstDeposit : State := testResultState
-  (registerDeposit (makeEnv 10 0x00000000000000000000000000000000000000bb) init 7u 100u)
+  (registerDeposit (makeEnv 10 0x00000000000000000000000000000000000000bb 0x0000000000000000000000007265636569766572) init 7u 100u)
 def testSecondDeposit : State := testResultState
-  (registerDeposit (makeEnv 20 0x00000000000000000000000000000000000000cc) testFirstDeposit 9u 101u)
+  (registerDeposit (makeEnv 20 0x00000000000000000000000000000000000000cc 0x0000000000000000000000007265636569766572) testFirstDeposit 9u 101u)
 def testFirstAmount : Flag := u256Eq (mapGet (amount testFirstDeposit) 0x00000000000000000000000000000000000000bb) 100u
 def testSecondIndex : Flag := natEq (nextLeaf testSecondDeposit) 2
 def testFirstRoot : Flag := u256Eq (mapGet (rootAt testSecondDeposit) 1) (rootOfLeaves (cons 7u nil))
 def testSecondRoot : Flag := u256Eq (mapGet (rootAt testSecondDeposit) 2) (rootOfLeaves (cons 7u (cons 9u nil)))
 def testSmallDeposit : Flag := flagIf (testAccepted
-  (registerDeposit (makeEnv 0 0x00000000000000000000000000000000000000bb) init 7u 99u)) flagNo flagYes
+  (registerDeposit (makeEnv 0 0x00000000000000000000000000000000000000bb 0x0000000000000000000000007265636569766572) init 7u 99u)) flagNo flagYes
 def testDuplicateDeposit : Flag := flagIf (testAccepted
-  (registerDeposit (makeEnv 20 0x00000000000000000000000000000000000000bb) testFirstDeposit 9u 100u)) flagNo flagYes
+  (registerDeposit (makeEnv 20 0x00000000000000000000000000000000000000bb 0x0000000000000000000000007265636569766572) testFirstDeposit 9u 100u)) flagNo flagYes
 def testInactiveState : State := testResultState
-  (makeInactive (makeEnv 20 0x00000000000000000000000000000000000000aa) testFirstDeposit 0x00000000000000000000000000000000000000bb)
+  (makeInactive (makeEnv 20 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572) testFirstDeposit 0x00000000000000000000000000000000000000bb)
 def testInactiveSlot : Flag := natEq (mapGet (inactiveSince testInactiveState) 0x00000000000000000000000000000000000000bb) 3
 def testInactiveAgain : Flag := flagIf (testAccepted
-  (makeInactive (makeEnv 30 0x00000000000000000000000000000000000000aa) testInactiveState 0x00000000000000000000000000000000000000bb)) flagNo flagYes
+  (makeInactive (makeEnv 30 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572) testInactiveState 0x00000000000000000000000000000000000000bb)) flagNo flagYes
 def testInactiveCaller : Flag := flagIf (testAccepted
-  (makeInactive (makeEnv 20 0x00000000000000000000000000000000000000bb) testFirstDeposit 0x00000000000000000000000000000000000000bb)) flagNo flagYes
+  (makeInactive (makeEnv 20 0x00000000000000000000000000000000000000bb 0x0000000000000000000000007265636569766572) testFirstDeposit 0x00000000000000000000000000000000000000bb)) flagNo flagYes
 def testInactiveMissing : Flag := flagIf (testAccepted
-  (makeInactive (makeEnv 20 0x00000000000000000000000000000000000000aa) init 0x00000000000000000000000000000000000000bb)) flagNo flagYes
+  (makeInactive (makeEnv 20 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572) init 0x00000000000000000000000000000000000000bb)) flagNo flagYes
 def testFirstAuction : State := testResultState
-  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa) init 1u 1 3)
+  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572) init 1u 1 3)
 def testSecondAuction : State := testResultState
-  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa) testFirstAuction 2u 2 2)
+  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572) testFirstAuction 2u 2 2)
 def testFirstSlotCount : Flag := natEq (mapGet (aucsPerSlot testSecondAuction) 1) 1
 def testOverlapCount : Flag := natEq (mapGet (aucsPerSlot testSecondAuction) 2) 2
 def testLastSlotCount : Flag := natEq (mapGet (aucsPerSlot testSecondAuction) 3) 1
 def testAuctionLimit : Flag := flagIf (testAccepted
-  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa) testSecondAuction 3u 2 2)) flagNo flagYes
+  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572) testSecondAuction 3u 2 2)) flagNo flagYes
 def testAuctionCaller : Flag := flagIf (testAccepted
-  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000bb) init 1u 1 3)) flagNo flagYes
+  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000bb 0x0000000000000000000000007265636569766572) init 1u 1 3)) flagNo flagYes
 def testAuctionReversed : Flag := flagIf (testAccepted
-  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa) init 1u 3 1)) flagNo flagYes
+  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572) init 1u 3 1)) flagNo flagYes
 def testAuctionLong : Flag := flagIf (testAccepted
-  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa) init 1u 1 5)) flagNo flagYes
+  (regAuction (makeEnv 0 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572) init 1u 1 5)) flagNo flagYes
 
 -- Public test key 1, address 0x7e5f...5bdf. The tuple (0, 2) gives piAcc
 -- 0x6ee3...68ad. Signatures below use cast wallet sign --no-hash with that
 -- test key and hash(piAcc, nonce), with each word encoded as 32 bytes.
 def testAuthUser : Addr := 0x7e5f4552091a69125d5dfcb7b8c2659029395bdf
 def testAuthPending : State := testResultState
-  (addTuple (makeEnv 0 0x00000000000000000000000000000000000000aa) init testAuthUser 0u 2u)
+  (addTuple (makeEnv 0 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572) init testAuthUser 0u 2u)
 def testAuthRepeated : State := testResultState
-  (addTuple (makeEnv 0 0x00000000000000000000000000000000000000aa)
+  (addTuple (makeEnv 0 0x00000000000000000000000000000000000000aa 0x0000000000000000000000007265636569766572)
     (clearUser testAuthPending testAuthUser) testAuthUser 0u 2u)
 def testAuthNonce : Flag :=
   flagIf (u256Eq (mapGet (piAcc testAuthPending) testAuthUser) (mapGet (piAcc testAuthRepeated) testAuthUser))

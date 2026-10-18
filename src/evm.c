@@ -246,7 +246,7 @@ static int emit_expr(Emit *e, const IrExpr *x) {
     emit_ops(e->a, (const Op[]){EVM_OP_ADD, EVM_OP_MLOAD}, 2);
     return 1;
   case IR_EXPR_WORD: asm_push_word(e->a, x->word); return 1;
-  case IR_EXPR_ENV: asm_op(e->a, x->field == IR_ENV_NOW ? EVM_OP_TIMESTAMP : EVM_OP_CALLER); return 1;
+  case IR_EXPR_ENV: asm_op(e->a, x->field == IR_ENV_NOW ? EVM_OP_TIMESTAMP : x->field == IR_ENV_CALLER ? EVM_OP_CALLER : EVM_OP_ADDRESS); return 1;
   case IR_EXPR_SLOAD:
     if (!emit_expr(e, x->left)) return 0;
     asm_op(e->a, EVM_OP_SLOAD);

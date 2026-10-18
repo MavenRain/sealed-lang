@@ -1,0 +1,8 @@
+-- A view that reads self env, the address of the contract (R74 (a), O74). The
+-- chain test of test/evm.sh runs test/self.script on this file. The caller is
+-- not the contract, thus the row tells ADDRESS from CALLER (mutant M14).
+state State := makeState (count : Nat)
+def init : State := makeState 0
+
+-- View: the address of this contract.
+def here : Env -> State -> Addr := fun e s => self e

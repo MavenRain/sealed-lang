@@ -112,8 +112,8 @@ a check, a build or a run at N bids.
 
 The nearest data:
 
-- The deposit runtime code is 17119 bytes, 7457 bytes under the EIP-170
-  limit of 24576 bytes (O48, `docs/PLAN.md:497`, `docs/STATUS.md:250`).
+- The deposit runtime code is 17103 bytes, 7473 bytes under the EIP-170
+  limit of 24576 bytes (O48, `docs/PLAN.md:497`, `docs/STATUS.md:527-529`).
 - The lowertool arena is 32 MiB (`docs/STATUS.md:331`).
 - The deposit EVM chain does 41 calls with 0 failures
   (`docs/STATUS.md:245`). The deposit call script has 23 calls

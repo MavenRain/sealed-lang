@@ -31,15 +31,15 @@ give the details.
 
 ## Remaining work
 
-`SPEC.md:316-332` gives the open items at S7. No item is built:
+`SPEC.md:316-332` gives the items open at S7, with S8 progress:
 
 1. `settle` (O7, O44): it records any caller and any price.
-2. `vault` (O46): it must be the executing contract.
+2. `vault` (O46): closed in S8 step 8.3; `pull` credits `self env` (R74).
 3. The binding of each cm to the public inputs of its proof (O50, O58).
-4. An entry that calls `processBid` (O57). It is off chain only.
-5. The R35 refactor of `rule_hcomp` (O35).
-6. The EIP-170 budget (O48): 7457 bytes are free under 24576.
-7. The lang-template `od -v` unit (7 lang-template files, not an O row).
+4. An entry that calls `processBid` (O57): closed as off chain only (R76).
+5. The R35 refactor of `rule_hcomp` (O35): done in S8 step 8.2 (R77).
+6. The EIP-170 budget (O48): 7473 bytes are free under 24576 at 8.3.
+7. `od -v`: sealed-lang's 4 copies are fixed; 7 lang-template sites remain (R79).
 8. F15: only the domain file declares an indexed family (R1, O32).
 
 ## Known limits
@@ -503,3 +503,49 @@ Stale cites with no S7 owner (recorded, not fixed):
 
 Open at the S7 close: the list of `## Remaining work` above
 (`SPEC.md:316-332`).
+
+## S8
+
+Slice S8 (the review fixes of S7) is open. The rulings R72 to R81 are
+RULED 2026-10-18.
+
+- 8.1 (80d58b1): docs (R72, R76, R79, R80, R81).
+- 8.2 (5328a25): `rule_hcomp` uses the shared system helpers (R77 (a)).
+- 8.3: Env `self` (R74 (a), O46, O74). `self : Addr` is the third field
+  of Env (`src/front/contract.c:7`). The lowering gives ADDRESS (0x30)
+  (`src/lower.c:625`, `src/ir.h:56-58`, `src/evm.c:249`). `def vault` is
+  gone from `examples/deposit.lang`, and `pull` credits `self env`.
+  `langc run` gives `self` = 0x0000000000000000000000007265636569766572
+  in make_env (`src/front/check.c:3052-3066`). That value is the receiver
+  of `test/evmchain.sh:8` and the old `vault` value. The call form stays
+  `NOW CALLER NAME ARGS`. The new evm row (`test/self.lang`,
+  `test/self.script`, `test/evm.sh:131-132`) gives that receiver, not
+  the caller 0x..bb. `src/front/check.c` (make_env) and
+  `src/front/contract.c` (Env) now differ from the tcc kits of
+  lang-template.
+
+The 8.3 gate `make -B check` is GREEN: evm steps 43 -> 44, emit 24, diff
+16 rows and 0 failures (no content change), deposit EVM runtime 17119 ->
+17103 bytes (R78 ceiling 18143, EIP-170 24576), every other count at the
+S7 baseline.
+
+M14 changed the repo file, then `make -B build`. No Makefile target runs
+the evm rows alone, thus the run was `sh test/evm.sh`. After the restore,
+`make -B` and `sh test/evm.sh` gave evm 44, and `git diff` against the
+index was empty.
+
+| Mutant | Edit | Killer | Verdict |
+|---|---|---|---|
+| M14 `self` lowered to CALLER | evm.c:249 `IR_EXPR_ENV`: `EVM_OP_CALLER` in place of `EVM_OP_ADDRESS` for IR_ENV_SELF | evm `test/self.script:1 here`: want out 7265636569766572, got out bb | KILLED |
+
+Current references reconciled in the staged 8.3 review (line counts kept):
+
+- `self env` replaces the open `vault` deployment rule: `docs/STATUS.md:37`,
+  `SPEC.md:234-235`, `SPEC.md:416-417`, `docs/host/README.md:314`,
+  `formers/tcc-evm-contract.md:92`.
+- Current runtime 17103 (7473 bytes free): `SPEC.md:247`, :326-327, :420,
+  `docs/host/README.md:316`, `probe/CAPABILITY.md:115-116` and the formers row.
+- `self` in the operation table and entry body: `SPEC.md:183`, :230 and
+  `docs/host/README.md:240`. O35 and O57 now show their S8 closures above.
+- Kept as records: `docs/PLAN.md:299-305` (O6, S5), `docs/STATUS.md:278`
+  (S5) and :396 (S6).

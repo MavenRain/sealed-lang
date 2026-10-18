@@ -3049,15 +3049,20 @@ static int print_value(Machine *m, const Value *v, char *buf) {
   return value_print(m, NULL, 0, v, buf, PRINT_MAX) ? 1 : diag_fail(m->diag, "EVAL_PRINT", m->def, "the normal form exceeds the printer limits");
 }
 
+/* The Env of a run call. self is the address of the contract: in a run it is
+   the receiver of the test chain (test/evmchain.sh:8), "receiver" in ASCII (R74 (a)). */
 static const Value *make_env(Machine *m, const Run *r, uint64_t now, const U256 *caller) {
-  const Value **args = arena_alloc(m->arena, 2u * sizeof *args);
-  if (args == NULL) {
+  const Value **args = arena_alloc(m->arena, 3u * sizeof *args);
+  U256 *self = arena_alloc(m->arena, sizeof *self);
+  if (args == NULL || self == NULL) {
     diag_fail(m->diag, "OOM", m->def, "out of memory");
     return NULL;
   }
+  u256_from_u64(self, 0x7265636569766572u);
   args[0] = val_nat(m, now);
   args[1] = val_word(m, WORD_ADDR, caller);
-  return args[0] == NULL || args[1] == NULL ? NULL : val_op(m, VAL_OP, OP_CTOR, m->families[r->env].first_ctor, 0, args, 2u);
+  args[2] = val_word(m, WORD_ADDR, self);
+  return args[0] == NULL || args[1] == NULL || args[2] == NULL ? NULL : val_op(m, VAL_OP, OP_CTOR, m->families[r->env].first_ctor, 0, args, 3u);
 }
 
 /* One call `NOW CALLER NAME ARGS...` (D-6 to D-8). A trap is a revert: the

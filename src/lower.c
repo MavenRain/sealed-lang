@@ -608,8 +608,8 @@ static int shareable(const Value *v) {
 
 static int pure_word(Low *l, const Value *v);
 
-/* 1 when the word value V cannot trap: a constant, a local, a load, now or
-   caller, a hash, a comparison or a subtraction of such values, a natDiv or
+/* 1 when the word value V cannot trap: a constant, a local, a load, now,
+   caller or self, a hash, a comparison or a subtraction of such values, a natDiv or
    a natMod of such a value by a nonzero constant, and a word flagIf over such
    values. Each of these lowers with no refusal. */
 static int pure_word_of(Low *l, const Value *v) {
@@ -622,7 +622,7 @@ static int pure_word_of(Low *l, const Value *v) {
   if (field_of(v, 1u, &f)) return form_at(l, f) == FORM_WORD;
   if (field_of(v, 0u, &f))
     return l->env != NULL && f < l->env->field_count &&
-      (strcmp(l->env->fields[f].name, "now") == 0 || strcmp(l->env->fields[f].name, "caller") == 0);
+      (strcmp(l->env->fields[f].name, "now") == 0 || strcmp(l->env->fields[f].name, "caller") == 0 || strcmp(l->env->fields[f].name, "self") == 0);
   if ((is_op(v, OP_TO_U256) || is_op(v, OP_ADDR_TO_U256)) && v->argc == 1) return pure_word(l, v->args[0]);
   if (is_op(v, OP_KMAP_GET) && v->argc == 3 && field_of(v->args[1], 1u, &f) && form_at(l, f) == FORM_MAP)
     return pure_word(l, v->args[2]);
@@ -758,9 +758,9 @@ static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
   if (field_of(v, 1u, &f) && form_at(l, f) == FORM_WORD) return ir_sload(l, ir_const(l, f));
   if (field_of(v, 0u, &f) && l->env != NULL && f < l->env->field_count) {
     const char *name = l->env->fields[f].name;
-    IrExpr *e = strcmp(name, "now") == 0 || strcmp(name, "caller") == 0 ? new_expr(l, IR_EXPR_ENV) : NULL;
-    if (e != NULL) e->field = strcmp(name, "now") == 0 ? IR_ENV_NOW : IR_ENV_CALLER;
-    return e != NULL ? e : (refuse(l, v, "(an Env field that is not now or caller)"), NULL);
+    IrExpr *e = strcmp(name, "now") == 0 || strcmp(name, "caller") == 0 || strcmp(name, "self") == 0 ? new_expr(l, IR_EXPR_ENV) : NULL;
+    if (e != NULL) e->field = strcmp(name, "now") == 0 ? IR_ENV_NOW : strcmp(name, "caller") == 0 ? IR_ENV_CALLER : IR_ENV_SELF;
+    return e != NULL ? e : (refuse(l, v, "(an Env field that is not now, caller or self)"), NULL);
   }
   if (is_op(v, OP_TO_U256) && v->argc == 1) return lower_expr(l, b, v->args[0]);
   if (is_op(v, OP_ADDR_TO_U256) && v->argc == 1) return lower_expr(l, b, v->args[0]);

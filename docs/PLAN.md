@@ -480,10 +480,10 @@ existing program:
   s names the state). The signed message was `piAcc[au]` in step 4.5; the
   USER commit 86eb3d6 added the nonce, so a signature over an empty Π
   does not replay.
-- O46 (R46): `def asset` is the mock token address of `test/diff.sh`,
-  `def vault` is the chain receiver. A deployment sets `asset` to the
-  token and `vault` to the executing deposit contract's address: `pull`
-  credits `vault`, but `pay` spends the executing contract's balance.
+- O46 (R46): `def asset` is the mock token address of `test/diff.sh`.
+  Closed in S8 (R74 (a), step 8.3): `def vault` is gone, and `pull`
+  credits `self env` (ADDRESS), the executing deposit contract's
+  address, whose balance `pay` spends. A deployment sets `asset` only.
 - O47 (R47): one row `script examples/deposit.lang test/run/deposit.script`
   in `test/diff.sh` part 2 (diff 15 -> 16); the mock serves `pull` and
   `pay`. `test/evm.sh` has no row. USER ruling (s7): `langc run` stops
@@ -494,9 +494,9 @@ existing program:
   `test/deposit.sh` (41 calls).
 - O48 (R48): the runtime of `examples/deposit.lang` (`langc build
   --runtime`) was measured at each step: 11725 bytes at 4.4, 17020 at
-  4.5, 17119 at the S5 close (EIP-170 24576, 7457 bytes free). No limit
-  stopped a step. The field `rootAt` comes before `filled`: in the other
-  order the build is EVM_SIZE (step 4.4).
+  4.5, 17119 at the S5 close, 17103 at 8.3 (EIP-170 24576, 7473 free;
+  S8 ceiling 18143, R78). No limit stopped a step. `rootAt` comes before
+  `filled`: in the other order the build is EVM_SIZE (step 4.4).
 - O49 (R49): `regAuction` covers at most 4 slots (`tend - tstart <= 3`):
   `aucRoom` and `aucCounts` check and increment 4 offsets, counted back
   from tend (`natSub tend k`, a USER row).
@@ -565,7 +565,7 @@ names the S8 step that builds it:
 - O74 (R74): `self : Addr` in Env, lowered to ADDRESS (0x30), replaces
   `def vault` (O46), and `pull` credits `self env`. One new evm row.
   Mutant M14 lowers `self` to CALLER, and the row kills it. RULED
-  2026-10-18. Step 8.3 builds it.
+  2026-10-18. Built in step 8.3.
 - O75 (R75): `eligible` takes cm and requires input 1 = cm, and
   `slashUsr` passes cm1 and cm2 (O50, O58). The slash key becomes the
   re-based fixture key (IC0' = IC0 + 3 IC2, IC2' = 0). One reject row;

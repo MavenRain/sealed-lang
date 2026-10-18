@@ -136,7 +136,7 @@ and the key are products of words. The kit types and the domain types are:
 | `Unit`, `Prod`, `Sum`, `Option`, `List` | products, coproducts and the monad carriers (`design/DESIGN.md:14`) | `src/front/check.c:104-108` |
 | `Map K V` | a contract map (PLAN 2, :60-64) | `src/front/check.c:154`. Probe-forced: the value is a word, thus a record is one map for each field (O8, `docs/PLAN.md:313-314`). |
 | `State` | the contract storage (PLAN 2, :33) | the `state` declaration of section 2 (`src/front/lexer.c:28`) |
-| `Env` | the call: `now` and `caller` (PLAN 2, :60-64) | `family Env := makeEnv (now : Nat) (caller : Addr)` (`src/front/contract.c:7`). Probe-forced: `now` is TIMESTAMP (O13, `docs/PLAN.md:348-349`). |
+| `Env` | the call: `now`, `caller` and `self` (PLAN 2, :60-64; O74) | `family Env := makeEnv (now : Nat) (caller : Addr) (self : Addr)` (`src/front/contract.c:7`). Probe-forced: `now` is TIMESTAMP (O13, `docs/PLAN.md:348-349`). `self` is ADDRESS, the executing contract (O74, `docs/PLAN.md:565-568`). |
 | `Out` | the effects of an entry: a token transfer, an event (PLAN 2, :60-64) | `pay`, `pull`, `emit` (`src/front/contract.c:8-10`) |
 | `Bid` | a bid (PLAN 2, :34-35) | `Prod U256 U256` (`domain/domain.lang:67`) |
 | `Bag A` | the bid pool, a multiset (PLAN 2, :66-71) | a QIT (`domain/domain.lang:56-61`) |
@@ -180,7 +180,7 @@ the row above it.
 | `PathP`, `Path`, `refl` (`src/front/check.c:112-113`, :125) | `PathP A x y`, `Path A x y`, `refl` | paths, no UIP. Erased (`formers/tcc-evm-contract.md:58`). |
 | `sym`, `cong`, `funExt` (`src/front/check.c:138-140`) | `sym p`, `cong f p`, `funExt h` | path operations. `sym` and `cong` erase (`formers/tcc-evm-contract.md:59`). `funExt` is check only (:60). |
 | `transp`, `hcomp` (`src/front/check.c:141-142`) | `transp` with 3 arguments, `hcomp` with 4 | the Kan operations. `transp` is the identity on base lines (`formers/tcc-evm-contract.md:61`). `hcomp` spends fuel (:62). |
-| `now`, `caller` (`src/front/contract.c:7`) | `Env -> Nat`, `Env -> Addr` | time and caller (PLAN 2, :60-64). TIMESTAMP and CALLER (`docs/host/README.md:240`). |
+| `now`, `caller`, `self` (`src/front/contract.c:7`) | `Env -> Nat`, `Env -> Addr`, `Env -> Addr` | time, caller and contract (PLAN 2, :60-64; O74). TIMESTAMP, CALLER and ADDRESS (`docs/host/README.md:240`). |
 | `pay` (`src/front/contract.c:8`) | token, to, amount: `Addr`, `Addr`, `U256` | the token transfer (PLAN 2). `transfer`, one CALL (`docs/host/CAPABILITY.md:27`). |
 | `pull` (`src/front/contract.c:9`) | token, from, to, amount: `Addr`, `Addr`, `Addr`, `U256` | the deposit (PLAN 2). `transferFrom`, one CALL (`docs/host/CAPABILITY.md:27`). |
 | `emit` (`src/front/contract.c:10`), `event` | `emitTag : Nat`, `emitFields : List U256`. A named event is an `Out` constructor. | events (PLAN 2). A named event is one LOG1 (`docs/host/README.md:244`). `emit` has no EVM form (:78). |
@@ -227,11 +227,11 @@ The entries and the guards:
   the state. `none` reverts with empty data. A trap reverts with `Trap()`,
   selector `0xae96083a` (`formers/tcc-evm-contract.md:19-21`,
   `docs/host/README.md:240-244`).
-- `now` is TIMESTAMP and `caller` is CALLER (`docs/host/README.md:240`).
+- `now` is TIMESTAMP, `caller` is CALLER and `self` is ADDRESS (`docs/host/README.md:240`).
   A named event is one LOG1, before the stores (:244).
 - `pay` and `pull` CALL the token address supplied to the constructor
   (`src/front/contract.c:8-9`). In the deposit example that token is
-  `asset`, and `vault` must be the address of the deposit contract
+  `asset`; `pull` credits `self env`, the address of the deposit contract
   (`formers/tcc-evm-contract.md:29`, :92, :106-108).
   A CALL forwards all gas and 0 wei. The return must be the
   word 1, or empty with EXTCODESIZE not zero, else the entry reverts
@@ -244,7 +244,7 @@ The entries and the guards:
 - The deposit contract (`examples/deposit.lang`) has 9 entries (O43,
   `docs/PLAN.md:469`) and 10 views: the nine accessors (O8) and
   `byUserOrProposer`, whose type also gives it the view role
-  (`examples/deposit.lang:144`, `src/lower.c:208-223`). Its runtime code is 17119 bytes
+  (`examples/deposit.lang:144`, `src/lower.c:208-223`). Its runtime code is 17103 bytes
   (R48, `formers/tcc-evm-contract.md:92`), under the EIP-170 limit of
   24576 bytes (`docs/host/README.md:255`). The sketch of PLAN section 6 is
   old: O42 removes its `depth` field (`docs/PLAN.md:467-468`).
@@ -313,18 +313,18 @@ proof call (s7, O47) and `od -v` at the 4 kit `od` sites (s8, :448-450).
 "Probe-forced" marks an item that a host probe fact forced (sections 5
 and 7, `probe/CAPABILITY.md`).
 
-Open at S7 (not built):
+Open at S7, with S8 progress:
 
 - O7, O44: `settle` (`docs/PLAN.md:472-474`, `docs/STATUS.md:396`).
-- O46: `vault` (`docs/STATUS.md:396`,
-  `formers/tcc-evm-contract.md:106-108`).
+- O46: closed in S8 (R74): `pull` credits `self env`, `def vault` is
+  gone (`docs/PLAN.md:483-486`, `formers/tcc-evm-contract.md:106-108`).
 - O50, O58: the binding of each cm to the public inputs of its proof (R50,
   `docs/PLAN.md:509-511`, :541-542).
 - O57: closed in S8 (R76): off chain, as in the paper
   (`docs/PLAN.md:575-578`).
-- O35: the R35 refactor of `rule_hcomp` (S4, `docs/STATUS.md:394`).
-- O48: the R48 EIP-170 budget. The deposit runtime code is 17119 bytes,
-  7457 bytes under 24576 (`docs/PLAN.md:497`).
+- O35: closed in S8 (R77): `rule_hcomp` uses the shared helpers (`docs/STATUS.md:513`).
+- O48: the R48 EIP-170 budget. The deposit runtime code is 17103 bytes,
+  7473 bytes under 24576 (`docs/PLAN.md:497`).
 - The lang-template `od -v` unit: closed in sealed-lang (its 4 copies
   have `-v`); the 7 kit sites are in `docs/PLAN.md:587-594` (R79 (a)).
   S8 does not edit the kit.
@@ -413,11 +413,11 @@ The items (PLAN line, status):
   RULED 2026-10-16.
 - O45 (:476). One tuple for each entry, and a signature bound to a nonce.
   Done in S5 (86eb3d6). RULED 2026-10-16.
-- O46 (:483). The `asset` and `vault` definitions. S5 built them; `vault`
-  is open (above). RULED 2026-10-16.
+- O46 (:483). S5 built `asset` and `vault`; S8 replaces `vault` with
+  `self env` (R74). Closed in step 8.3. RULED 2026-10-16.
 - O47 (:487). The deposit script row of `test/diff.sh`. Done in S5 (diff
   15 to 16). RULED 2026-10-16, and the USER ruling s7.
-- O48 (:495). The runtime code is 17119 bytes. Done in S5. The EIP-170
+- O48 (:495). The runtime code is 17103 bytes at 8.3 (17119 in S5). The EIP-170
   budget is open (above). RULED 2026-10-16.
 - O49 (:500). `regAuction` writes at most 4 slots. Done in S5. RULED
   2026-10-16.

@@ -4,7 +4,7 @@
 #include "front/contract.h"
 
 const char contract_source[] =
-  "family Env := makeEnv (now : Nat) (caller : Addr)\n"
+  "family Env := makeEnv (now : Nat) (caller : Addr) (self : Addr)\n"
   "family Out := pay (payToken : Addr) (payTo : Addr) (payAmount : U256)\n"
   "  | pull (pullToken : Addr) (pullFrom : Addr) (pullTo : Addr) (pullAmount : U256)\n"
   "  | emit (emitTag : Nat) (emitFields : List U256)\n";

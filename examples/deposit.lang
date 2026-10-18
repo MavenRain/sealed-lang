@@ -13,9 +13,9 @@ state State := makeState (ctr : U256) (minDeposit : U256) (nA : Nat) (genesis : 
   (piAcc : Map Addr U256) (piCount : Map Addr Nat) (piNonce : Map Addr Nat) (piHas : Map U256 Flag)
   (winner : Map U256 Addr) (price : Map U256 U256)
 
--- The ERC-20 asset and the receiver of a pull (R46 (a)). A deployment sets both defs.
+-- The ERC-20 asset (R46 (a)). A deployment sets it. A pull credits self env, the address
+-- of this contract (R74 (a)), and pay spends the balance of this contract.
 def asset : Addr := 0x00000000000000000000000000000000000000ee
-def vault : Addr := 0x0000000000000000000000007265636569766572
 
 -- The start state: minDeposit 100, nA 2 (the auctions per slot and the inactivity slots), genesis 0,
 -- slots of 10 seconds, and one proposer 0x..aa. The proposers are fixed here (O14).
@@ -92,7 +92,7 @@ def registerDeposit : (env : Env) -> (s : State) -> (cu : U256) -> (d : U256) ->
                 (mapSet (rootAt s) (slotOf s (now env)) (first ins)) (second ins)
                 (inactiveSince s) (slashed s) (proposer s) (piAcc s) (piCount s) (piNonce s) (piHas s)
                 (winner s) (price s))
-              (cons (pull asset (caller env) vault d) nil)))
+              (cons (pull asset (caller env) (self env) d) nil)))
             none)
           none)
         none)
@@ -269,7 +269,7 @@ def settle : (env : Env) -> (s : State) -> (id bid : U256) -> Option (Prod State
               (rootAt s) (filled s) (inactiveSince s) (slashed s) (proposer s)
               (piAcc s) (piCount s) (piNonce s) (piHas s)
               (mapSet (winner s) id (caller env)) (mapSet (price s) id bid))
-            (cons (pull asset (caller env) vault bid) nil))))
+            (cons (pull asset (caller env) (self env) bid) nil))))
         none)
 
 -- Views: one view per field of an auction record (O8), the root of a slot, the deposit of a user,

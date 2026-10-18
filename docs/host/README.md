@@ -66,7 +66,7 @@ Slice K3a adds the contract types to the checker and the evaluator. Slice K3b ad
 The contract prelude is in `src/front/contract.c`. The front end loads it after `domain/domain.lang` and before the program. Its names are core names, thus a program cannot declare them again.
 
 ```
-family Env := makeEnv (now : Nat) (caller : Addr)
+family Env := makeEnv (now : Nat) (caller : Addr) (self : Addr)
 family Out := pay (payToken : Addr) (payTo : Addr) (payAmount : U256)
   | pull (pullToken : Addr) (pullFrom : Addr) (pullTo : Addr) (pullAmount : U256)
   | emit (emitTag : Nat) (emitFields : List U256)
@@ -122,7 +122,7 @@ Why the rule is sound: each state in an entry comes from the input state, or fro
 NOW CALLER NAME ARGS...
 ```
 
-- `NOW` is a `Nat` literal. `CALLER` is an `Addr` literal: `0x` and 40 hex digits. The call gets `makeEnv NOW CALLER` as `env` and the current state as `s`.
+- `NOW` is a `Nat` literal. `CALLER` is an `Addr` literal: `0x` and 40 hex digits. The call gets `makeEnv NOW CALLER SELF` as `env` and the current state as `s`. SELF is `0x0000000000000000000000007265636569766572`, the receiver of the EVM tests (`test/evmchain.sh:8`). The call form has no SELF word.
 - `NAME` is an entry or a view. A helper or an unknown name is not a call.
 - Each argument has the literal form of its parameter type: `Nat` (for example `7`), `Flag` (`0` or `1`), `U256` (decimal digits or `0x` and 1 or more hex digits, then `u`, for example `5u` or `0xffu`) or `Addr`. Upper case and lower case hex digits are both correct.
 - Spaces, tabs and carriage returns separate the words.
@@ -237,7 +237,7 @@ Decode (slice K4b):
 
 Entry body (slice K4b):
 
-- `now` is the TIMESTAMP of the block and `caller` is CALLER, the sender of the call.
+- `now` is the TIMESTAMP of the block, `caller` is CALLER, the sender of the call, and `self` is ADDRESS, the executing contract.
 - `none` reverts with empty data.
 - A trap reverts with the 4 bytes of the `Trap()` selector, `0xae96083a`.
 - `some (pair STATE OUT)` writes each changed word field and each Map write with SSTORE. Then the block stops (STOP).
@@ -311,9 +311,9 @@ Erasure: a point constructor value lowers as a family value lowers. A path const
 
 Slice S5 of sealed-lang adds the deposit contract of the paper (`examples/deposit.lang`) and two guest libraries in `domain/domain.lang`: an incremental Merkle tree of depth 32 over `hash` and a Groth16 verifier over `ecAdd`, `ecMul` and `ecPairing`. BUILTINS stays 66 rows. `formers/tcc-evm-contract.md` section `The deposit contract (slice S5)` gives each form and its tests.
 
-The S5 example uses a synthetic verifier fixture. `slashUsr` does not bind cm to the proof inputs: the same proof with inputs (2, 3) is accepted for cm1 = 5 and cm2 = 6. Replacing the key alone does not add that binding (O50). `settle` accepts any caller and supplied price after the auction ends; winner selection from sealed bids is S6 (`processBid`, O7/O44). Set `asset` to the token and `vault` to the executing deposit contract's address: `pull` credits `vault`, but `pay` spends the executing contract's balance (O46).
+The S5 example uses a synthetic verifier fixture. `slashUsr` does not bind cm to the proof inputs: the same proof with inputs (2, 3) is accepted for cm1 = 5 and cm2 = 6. Replacing the key alone does not add that binding (O50). `settle` accepts any caller and supplied price after the auction ends; winner selection from sealed bids is S6 (`processBid`, O7/O44). Set `asset` to the token. S8 removes `vault`: `pull` credits `self env` (ADDRESS), and `pay` spends the executing contract's balance (R74, O46).
 
-Share rule (R41): `src/lower.c` lowers a residual word value that cannot trap (a `hash`, a word `flagIf` over such values, a load, a local) and that both arms of a word `flagIf` use once into a local before the IF (`share_arms`). Without it an unrolled tree insert doubles its code at each level. With it a depth-32 insert is linear in the depth: the lowertool row `insert-depth-32` checks it under EIP-170. No expected output of an existing program changed. The runtime of `examples/deposit.lang` is 17119 bytes (`langc build --runtime`, EIP-170 24576).
+Share rule (R41): `src/lower.c` lowers a residual word value that cannot trap (a `hash`, a word `flagIf` over such values, a load, a local) and that both arms of a word `flagIf` use once into a local before the IF (`share_arms`). Without it an unrolled tree insert doubles its code at each level. With it a depth-32 insert is linear in the depth: the lowertool row `insert-depth-32` checks it under EIP-170. No expected output of an existing program changed. The runtime of `examples/deposit.lang` is 17103 bytes at S8 step 8.3 (`langc build --runtime`, EIP-170 24576).
 
 Run time: `langc eval` keeps `ecrecover` and the curve operations stuck, so `langc run` stops with EVAL_ENTRY at a successful signed or proof call. `test/run/deposit.script` holds the 23 calls that eval can step, and `test/diff.sh` replays it on `evm` with the mock token (diff 15 -> 16, runs 5 -> 6). The signed and proof calls are chain rows in `test/deposit.sh` (41 calls). `test/evmchain.sh`, `test/dispatch.sh`, `test/mock.sh` and `test/diff.sh` call `od -v`: without `-v`, `od` writes `*` for a repeated 16-byte row, so the hex of a signature with 6 or more uint256 arguments, and thus its selector, is wrong.
 

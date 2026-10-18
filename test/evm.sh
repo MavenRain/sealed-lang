@@ -128,6 +128,8 @@ chain examples/events.lang test/run/events.script
 chain examples/lists.lang test/run/lists.script
 # test/same-state.lang: the entry ping keeps the state and emits one LOG1 (O-d7-1).
 chain test/same-state.lang test/same-state.script
+# test/self.lang: the view here gives self env, the contract (R74 (a), M14).
+chain test/self.lang test/self.script
 
 rm -rf "$tmp"
 echo "evm steps: $steps checked"
