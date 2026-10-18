@@ -283,6 +283,68 @@ fails with OOM.
 
 ## S6
 
+Slice S6 (the protocol layer) is complete at commit 2c42e04 and the docs
+of this section. The gate `make -B check` is GREEN: examples 28, parse
+refusals 15, check refusals 85, evals 84, runs 6, run refusals 10,
+asmtool 8 of 8, builds 3, lower refusals 14, checks 31, dispatch 20, evm
+steps 43, precompile 32 steps and 0 failures, deposit 25 assertions,
+deposit EVM 41 calls and 0 failures, mock 13 rows, diff 16 rows, emit 24,
+all regressions passed. Against S5: examples 27 -> 28, check refusals 83
+-> 85, evals 64 -> 84, and 1 domain regression row (a domain axiom
+checks). The runtime of `examples/deposit.lang` is 17119 bytes, as at S5
+(no change to deposit.lang, R57 (a)).
+
+S6 adds the law form and the protocol layer of the paper (Algorithms 2
+and 3, Lemma 11) as helpers that never reach the EVM. `domain/domain.lang`
+has the QIT `Bag A` (`bagNil`, `bagCons`, `bagSwap`, `bagTrunc`; R51),
+`Bid` (value, cm), the order `bidLe` (value first; on a tie the larger cm
+wins, R55), `bidMax`, the insert `insNat` with its seed `insNatSeed`, and
+the four laws `bidMaxSwap`, `bidSet`, `insSwap` and `listNatSet` (R52,
+R53). `check_axiom` in `src/front/check.c` does the law type test first
+(after the Pi binders, a Path or a PathP, else REFUSE_AXIOM_TYPE), then
+the origin test (an axiom in a program is REFUSE_AXIOM). A law is a
+neutral in `langc eval` and REFUSE_LOWER on the EVM. `langc check` prints
+the axiom report (SPEC section 8, the USER function `report_axioms`), and
+test/gate.sh compares it for each example. `examples/protocol.lang` has
+`bagMax` (the winner), `bidMaxSwapAt`, `sortBag`, `medianAt` (R54),
+`insSwapAt`, `signComWord` (`hash cm (toU256 t)`, R55), `stampBy`,
+`addrIn`, `piSlashed`, `tooLate`, `stampsOk`, `processBid` (codes 1 to 5
+in the order of Algorithm 3, R56), the property helpers `inRange`,
+`isCode`, `isAccept` and `ncOf`, and 20 eval rows. The check refusals
+`axiom-type.lang` (REFUSE_AXIOM_TYPE) and `bag-swap-boundary.lang`
+(PATH_END) are new. `axiom.lang` now has a law type (`Path Nat 0 1`),
+thus only the origin test refuses it (it kills M10).
+
+Deviations from the kickoff: `stampBy` keeps the zero address guard of
+`signedBy` (an invalid signature recovers 0, R18). In `processBid`, the
+auction proof check gets cm, the stamp test folds the sorted list
+`sortBag stamps` (laws 3 and 4 cover it, no fifth law), and no test reads
+`aucId`.
+
+Limits of S6:
+
+- The protocol layer is off chain only (R57 (a)). `bagMax` and
+  `processBid` never reach the EVM. `settle` did not change: it records
+  any caller and supplied price (O7, O44).
+- `ecrecover` and the Groth16 verify are stuck in `langc eval` (O5). Thus
+  `processBid` takes the proof check `zkOk` and the stamp check `stampOk`
+  as parameters (R56 (a)), the eval rows give fixtures, and `stampBy` has
+  no eval row.
+- The four laws are trusted, not proved. `docs/VALIDATION.md` gives the
+  reason for each. The rows `bidMaxSwapAt` and `insSwapAt` check one
+  closed instance each; they do not prove a law.
+- The property rows check fixed inputs only. They do not prove Lemma 11
+  or Theorems 7 to 10.
+- `processBid` has no gossip of Pi with the 4Δ_g wait (`updateHistory`)
+  and no `U[u].remove(AucID)`: its output is the new pool or a code.
+- The binding of each cm to its proof inputs stays out (R58 (a), O50).
+
+Open (recorded, not built): no row checks a domain axiom with a type that
+is not a law (the M11 note below; a negative fronttool domain row changes
+the counts, USER to rule). The R35 refactor of `rule_hcomp` (S4). The
+lang-template `od -v` unit (7 files). The EIP-170 budget (R48, 7457 bytes
+free). `settle` (O7, O44) and `vault` (O46).
+
 Mutants M1 to M11 (kickoff section 6, step 4.7) and the extra M4strict,
 one at a time on the tree edffdf5b (commit 3578e5d). A mutant of
 examples/protocol.lang ran on a scratch copy of the file. A mutant of

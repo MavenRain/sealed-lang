@@ -12,3 +12,9 @@ the tcc-evm-contract host.
 - `docs/STATUS.md` and `docs/VALIDATION.md`: the status and the gate results.
 - `docs/host/README.md`: how to build and test the host kit, and how to
   write the domain in `domain/`.
+- `examples/`: the example programs. `examples/deposit.lang` is the
+  deposit contract (S5). `examples/protocol.lang` is the protocol layer
+  that never reaches the EVM (S6): the bid pool, the winner, the median of
+  the timestamps and the bid check `processBid`. `langc check` prints the
+  four laws of `domain/domain.lang` (the axiom report, `SPEC.md` section
+  8).

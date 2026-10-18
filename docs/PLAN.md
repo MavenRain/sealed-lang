@@ -89,7 +89,7 @@ quotients and the paths do work.
 | Loops | "loops" | a path constructor from a point to itself in a HIT declaration; the kernel test is the circle (O11) | S4 |
 | HITs | "HITs" | `family` in `domain/domain.lang` with path constructors; `fold` takes one case per point constructor and one path case per path constructor, with the boundary checked | S4 |
 | Quotients, QITs | "quotients, QITs" | set quotients `A / R` and set-truncated families with path constructors; `fold` into a set needs the respect proofs and the `isSet` proof | S4 |
-| Bid pool | `ℬ`, `max(ℬ)`, median | `Bag A`: the QIT of finite multisets (`bagNil`, `bagCons`, `swap`, `trunc`); `max` and `median` as folds with the commutation paths | S6 |
+| Bid pool | `ℬ`, `max(ℬ)`, median | `Bag A`: the QIT of finite multisets in `domain/domain.lang` (`bagNil`, `bagCons`, `bagSwap`, `bagTrunc`; R51); `bagMax` (the winner) and `sortBag` with `medianAt` (the median) as folds, with the four domain laws as the path cases (R52, R53) | S6 |
 | Erasure | the EVM | a path, an interval term, a HIT path constructor and a QIT path case have no run-time form; the lowering keeps the point constructors and refuses a path at run time (`REFUSE_LOWER`) | S4 |
 
 ## 4. The base span
@@ -255,8 +255,9 @@ deploys the program on `evm` and replays the same scripts.
   does not expire.
 - S6: the protocol layer. `Bag`, `max`, `median`, the core laws they need,
   `signCom`, `processBid`, the four properties of the paper as guest
-  checks where a check is a term (the paper's Theorems 8 to 10 are
-  not terms of this language; `docs/VALIDATION.md` says so).
+  checks where a check is a term (the paper's Theorems 7 to 10 are
+  not terms of this language; `docs/VALIDATION.md` says so). Note (S6):
+  eval rows check parts of Theorems 7 and 9 at fixed inputs.
 - S7: `SPEC.md`, `probe/CAPABILITY.md`, `docs/STATUS.md`,
   `docs/VALIDATION.md` and `README.md`. Final gate.
 - Gate: `make check` in this directory. Mutants one at a time, `make -B`
@@ -317,7 +318,14 @@ deploys the program on `evm` and replays the same scripts.
 - O10: no Glue and no univalence (not in the request). The core laws for
   the QIT folds are path constants of the span, listed one by one in the
   S6 kickoff. Alternative: port coin-lang S3 and prove the laws on a
-  finite model.
+  finite model. Note (S6): the four laws are `axiom` declarations in
+  `domain/domain.lang` (R52 (a), R53 (a)): `bidMaxSwap` and `bidSet` for
+  `bagMax`, `insSwap` and `listNatSet` for `sortBag`. An axiom in a
+  program is REFUSE_AXIOM. A law is a neutral in `langc eval` and
+  REFUSE_LOWER on the EVM. `langc check` prints the axiom report (SPEC
+  section 8). `docs/VALIDATION.md` gives the reason that each law is
+  true. The coin-lang S3a port was not taken: `finAll` does not cover
+  U256 or a variable list.
 - O11: loops come from the HIT declaration form; the kernel test is the
   circle. No domain family has a loop constructor by default. Alternative:
   the slot clock as a cyclic quotient. Note (S4): the HIT declaration form

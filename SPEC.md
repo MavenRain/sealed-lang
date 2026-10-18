@@ -95,6 +95,25 @@ An instance is a top-level definition whose type is a data type (F14).
 > `probe/CAPABILITY.md` that set the design, and the check that the compiler
 > runs on its output (for example the axiom report).
 
+The axiom report (S6, R52 (a)). `langc check FILE` prints one line
+`axiom NAME` for each law of `domain/domain.lang`, in the order of the
+domain file, then `ok`. At S6 the report is:
+
+```
+axiom bidMaxSwap
+axiom bidSet
+axiom insSwap
+axiom listNatSet
+ok
+```
+
+`test/gate.sh` compares this report for each example. A law is an
+`axiom` in `domain/domain.lang` only. Its type after the Pi binders must
+be a Path or a PathP (`isSet A` counts), else REFUSE_AXIOM_TYPE. An axiom
+in a program is REFUSE_AXIOM. A law is a neutral in `langc eval`, and the
+lowering refuses it (REFUSE_LOWER). `docs/VALIDATION.md` gives the reason
+that each of the four laws is true.
+
 ## 9. Open items
 
 > Write here: one item for each open question. Number the items O1, O2 and

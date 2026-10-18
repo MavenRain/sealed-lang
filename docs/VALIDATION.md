@@ -120,3 +120,47 @@ slashed handle (first or last in Pi) gives code 2. `ncCount` checks n_c =
 program cannot import an other program (R40), thus the row gives n_A as a
 literal. The cost bound minDeposit >= n_c u is not a term. The rows check
 fixed inputs only: they do not prove Lemma 11 or the theorems.
+
+The S6 review (2026-10-17) adds 1 example (`protocol.lang`), 2 check
+refusals (`axiom-type`, REFUSE_AXIOM_TYPE; `bag-swap-boundary`,
+PATH_END), 20 eval rows (with the 5 property rows above) and 1 domain
+regression row. The four properties of the paper (section 3) and the
+guest check of each (R59 (a)):
+
+| Property | Def | Theorem | Guest check |
+|---|---|---|---|
+| t_h-Hiding | 1 | 8 | Not a term: it is indistinguishability against an adversary. |
+| Simultaneous Release | 3 | 7 | Partly: Lemma 11 at f = 1 and f = 2 (`lemma11F1`, `lemma11F2`), and the late cut of `processBid` (`lateCut`). The network delays are not terms. |
+| No Free Bid Withdrawal | 4 | 9 | Partly: `processBid` aborts on a slashed handle in Pi (`slashedAbort`), and n_c = 3 n_A - 1 at n_A 2 (`ncCount`). The cost bound is not a term. |
+| Auction Participation Efficiency | 5 | 10 | Not a term: it is an amortized cost that goes to 0. |
+
+The four core laws (R53 (a)) are `axiom` declarations in
+`domain/domain.lang`. Each law is true in the intended model:
+
+1. `bidMaxSwap x y r : Path Bid (bidMax x (bidMax y r)) (bidMax y (bidMax
+   x r))`. `bidLe` is a total order on the (value, cm) pairs: value
+   first, then cm. Thus each side is the greatest of x, y and r.
+2. `bidSet : isSet Bid`. A pair of U256 words has a decidable equality,
+   thus `Bid` is a set (Hedberg's theorem).
+3. `insSwap x y l : Path (List Nat) (insNat x (insNat y l)) (insNat y
+   (insNat x l))`. The law is true for each list l, not only for a sorted
+   list. The proof is by induction on l, as for Isabelle
+   `List.insort_left_comm`. For x = y the two sides are the same list,
+   because equal Nat values are the same.
+4. `listNatSet : isSet (List Nat)`. `List Nat` has a decidable equality,
+   thus it is a set (Hedberg's theorem).
+
+The trusted base of S6 is the checker, the four laws and the reasons
+above, which are outside the language. `check_axiom` admits a law only in
+`domain/domain.lang` and only with a Path or a PathP type after the Pi
+binders (`isSet A` counts). A law is never run: it is a neutral in
+`langc eval`, and REFUSE_LOWER keeps it off the EVM. The rows
+`bidMaxSwapAt` and `insSwapAt` check one closed instance of laws 1 and 3
+by `refl`. They kill a def mutant that makes a law false (M1), but they
+do not prove the law, and they do not see a mutant that keeps the law
+true (M9). The eval rows of `processBid` also trust the fixtures for
+`zkOk` and `stampOk`, because `ecrecover` and the curve operations are
+stuck in `langc eval` (O5). Mutants M1 to M11 of S6 are in
+`docs/STATUS.md`: 11 of 11 killed, and the extra M4strict killed. The
+hole that M11 showed: no row checks a domain axiom with a type that is
+not a law (Open, USER to rule).
