@@ -280,3 +280,56 @@ changes both runs in the same way. The run script (`deposit.out`, the
 expected output) and the eval rows kill them. For M9 the kickoff expected
 EVM_SIZE: the 32 MiB arena of `build/lowertool` fills first, and the row
 fails with OOM.
+
+## S6
+
+Mutants M1 to M11 (kickoff section 6, step 4.7) and the extra M4strict,
+one at a time on the tree edffdf5b (commit 3578e5d). A mutant of
+examples/protocol.lang ran on a scratch copy of the file. A mutant of
+domain/domain.lang or src/front/check.c changed the repo file, then
+`make -B build/langc` (the domain is compiled into langc). Each file was
+restored and confirmed by its blob hash, then rebuilt with `make -B`. Each
+run used the 28 examples checks, the 85 check refusals and the 84 eval
+rows with the rules of test/gate.sh. Each kill is a test failure, not a
+compile error. In the table, `accept` is the output of `procAccept`:
+`inr (bagCons (Prod U256 U256) (pair 9u 12u) (bagCons (Prod U256 U256)
+(pair 5u 1u) (bagNil (Prod U256 U256))))`.
+
+| Mutant | Edit | Killer | Verdict |
+|---|---|---|---|
+| M1 `bidMax` keeps the first bid | domain.lang:71 `bidMax`: `flagIf (bidLe a b) a a` | examples protocol.lang: PATH_END `bidMaxSwapAt`, the path at i1 is pair 5u 1u, but the type needs pair 7u 2u; thus each of the 20 protocol eval rows exits 1. On a copy with no `bidMaxSwapAt`: eval `winnerOf3` want pair 7u 2u, got pair 5u 1u; `tieBid` want pair 7u 4u, got pair 7u 2u | KILLED |
+| M2 the median at index f + 1 | protocol.lang:36 `medianAt`: `(natAdd f 1)` folds of `listTail` | eval `medianOdd` got some 9, `medianEven` got some 6, `medianMissing` got none, `procAccept` got inl 4, `procStamp` got inl 4, `lemma11F1` got 0, `lateCut` got 0 | KILLED |
+| M3 the `bagMax` swap case with the wrong ends | protocol.lang:10 `bagMax`: `bidMaxSwap y x r` | examples protocol.lang: TYPE_MISMATCH `bagMax`, expected a term of type PathP from `bidMax x (bidMax y r)` to `bidMax y (bidMax x r)`; thus each of the 20 protocol eval rows exits 1 | KILLED |
+| M4 `processBid` accepts a late bid | protocol.lang:83 `tooLate`: `flagIf flagYes flagNo flagYes` (no tau <= t_end test) | eval `procLate` want inl 4, got `accept`; `lateCut` got 0 | KILLED |
+| M4strict a strict late test (extra) | protocol.lang:83 `tooLate`: `natLe (natAdd m 1) tEnd` (tau < t_end) | eval `lateCut` got 0 (the median 5 at t_end 5 becomes late) | KILLED |
+| M5 `signComWord` over the wrong word | protocol.lang:54 `signComWord`: `hash (toU256 t) cm` | eval `signComA` and `signComB` exchange their outputs (each row got the want of the other row); `procAccept` got inl 5; `lateCut` got 0 | KILLED |
+| M6 `processBid` skips the slashed test | protocol.lang:109 `processBid`: `flagIf flagNo (inl 2)` | eval `procSlashed` want inl 2, got `accept`; `slashedAbort` got 0 | KILLED |
+| M7 `processBid` skips the depositor test | protocol.lang:110 `processBid`: `flagIf flagYes` | eval `procDepositor` want inl 3, got `accept` | KILLED |
+| M8 the tie rule flipped | domain.lang:69 `bidLe`: `u256Le (second b) (second a)` | eval `tieBid` want pair 7u 4u, got pair 7u 2u | KILLED |
+| M9 `insNat` sorts down | domain.lang:91 `insNat`: `natLe x y` | eval `medianEven` want some 4, got some 6; `medianMissing` want some 7, got some 4 | KILLED |
+| M10 the axiom origin test dropped | check.c:2759 `check_axiom`: `if (0)` for `d->origin == ORIGIN_PROGRAM` | check axiom.lang: want exit 1 and REFUSE_AXIOM, got exit 0 | KILLED |
+| M11 the law type test dropped | check.c:2757 `check_axiom`: `if (0)` for `!law_type(c, tv)` | check axiom-type.lang: want REFUSE_AXIOM_TYPE, got REFUSE_AXIOM | KILLED |
+
+Score: 11 of 11 killed, and M4strict killed. No mutant is equivalent.
+Notes on the predictions of the kickoff:
+
+- M1 and M3: a check failure of protocol.lang stops `langc eval` for each
+  row of the file. The examples gate is the first killer.
+- M3: the kickoff expected PATH_END. The swap case is the application
+  `bidMaxSwap y x r`, and the type of that application is a Path with the
+  two ends exchanged. Thus the type test of the fold fails with
+  TYPE_MISMATCH before a boundary test. PATH_END is the code for a path
+  abstraction with a wrong end (test/check/bag-swap-boundary.lang).
+- M2: `lemma11F2` survives. Index 3 of the sorted stamps 0, 0, 10, 11, 13
+  is 11, and 11 is in [10, 13].
+- M5: the kickoff expected the code 5 row. `procStamp` survives: its stamp
+  words fail the stamp test in the two forms. `procAccept` and `lateCut`
+  fail because their stamp words are `hash cm (toU256 t)`.
+- M9: the odd row, `lemma11F1` and `lemma11F2` survive. The middle of an
+  odd count of stamps is the same in the two orders. M9 keeps law 3 true
+  (the down order also commutes), thus the check row `insSwapAt` does not
+  kill it. The even and missing rows kill it.
+- M11: the origin test refuses each program axiom, thus axiom-type.lang
+  is refused with the other code. The kill is the code only. No row checks
+  a domain axiom with a type that is not a law (the domain rows of
+  test/fronttool.c are accepted laws).
