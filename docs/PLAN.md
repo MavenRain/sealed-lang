@@ -263,6 +263,9 @@ deploys the program on `evm` and replays the same scripts.
   eval rows check parts of Theorems 7 and 9 at fixed inputs.
 - S7: `SPEC.md`, `probe/CAPABILITY.md`, `docs/STATUS.md`,
   `docs/VALIDATION.md` and `README.md`. Final gate.
+- S8: the open list after S7. `settle` takes a depositor only, `self` for
+  the vault, the binding of each cm to its proof with a re-based fixture
+  key, the `rule_hcomp` refactor, the stale cites. Mutants M12 to M14.
 - Gate: `make check` in this directory. Mutants one at a time, `make -B`
   for each build.
 
@@ -532,9 +535,9 @@ names the S6 step that built it:
 - O56 (R56): `processBid` takes the verifiers as parameters (the eval rows
   pass fixtures) and gives `Sum Nat (Bag Bid)`, with the codes 1 to 5 in
   the paper order. Built in step 4.5.
-- O57 (R57): open. `processBid` is off chain only: no entry calls it, and
-  `settle` did not change (O44). `examples/deposit.lang` did not change in
-  S6 (runtime 17119, O48).
+- O57 CLOSED (S8, R76): off chain, as in the paper (O76). `processBid`
+  is off chain only (R57): no entry calls it, and `settle` did not change
+  (O44). `examples/deposit.lang` did not change in S6 (17119 bytes, O48).
 - O58 (R58): open. The binding of each cm to its proof's public inputs
   (O50) stays out of S6. `eligible` and `slashUsr` did not change.
 - O59 (R59): the property checks of the S6 kickoff table (section 2):
@@ -546,3 +549,51 @@ names the S6 step that built it:
   28), `test/eval/expect.txt` (evals 64 -> 84), `test/check/expect.txt`
   (check refusals 83 -> 85) and the domain regressions of
   `test/fronttool.c`. No new harness. Built in steps 4.2 to 4.6.
+
+For the S8 kickoff rulings R72 to R81 (2026-10-18), the USER said "I rule
+all defaults for R72 to R81". The defaults (a) apply in S8. Each row
+names the S8 step that builds it:
+
+- O61 to O71: the S7 docs rulings, RULED 2026-10-18, defaults (a), built
+  in 7.1 to 7.5.
+- O72 (R72): the S8 row of section 7 and the lines O61 to O81 of this
+  section. RULED 2026-10-18. Built in step 8.1.
+- O73 (R73): `settle` refuses a caller that holds no deposit (`mapGet
+  (amount s) (caller env)` is 0u). One reject row in `test/deposit.sh`.
+  Mutant M12 drops the check, and the row kills it. Winner selection from
+  the sealed bids stays open. RULED 2026-10-18. Step 8.4 builds it.
+- O74 (R74): `self : Addr` in Env, lowered to ADDRESS (0x30), replaces
+  `def vault` (O46), and `pull` credits `self env`. One new evm row.
+  Mutant M14 lowers `self` to CALLER, and the row kills it. RULED
+  2026-10-18. Step 8.3 builds it.
+- O75 (R75): `eligible` takes cm and requires input 1 = cm, and
+  `slashUsr` passes cm1 and cm2 (O50, O58). The slash key becomes the
+  re-based fixture key (IC0' = IC0 + 3 IC2, IC2' = 0). One reject row;
+  mutant M13 drops the input 1 compare. O50 stays PARTIAL: the circuit of
+  the paper binds input 1, the key does not. If `verify` refuses the key,
+  the step goes to (b). RULED 2026-10-18. Step 8.5 builds it.
+- O76 (R76): O57 is CLOSED (S8, R76). The paper keeps Algorithms 2 and 3
+  off chain (`docs/PLAN.md:66-69`), and an entry needs a run-time Bag
+  (O37), concrete verifiers, a real zk key and the registry. Docs only.
+  RULED 2026-10-18. Built in step 8.1.
+- O77 (R77): `rule_hcomp` calls `system_branches`, `system_overlaps` and
+  `system_core` in place of its inline code (O35). Every gate count stays
+  at the baseline. If a count moves, check.c is restored and O35 closes
+  without the refactor. RULED 2026-10-18. Step 8.2 builds it.
+- O78 (R78): S8 adds at most 1024 bytes to the runtime of 17119 bytes
+  (ceiling 18143, O48). Each step that changes the runtime records the
+  size in O48 and in `docs/STATUS.md` `## S8`. A step over the ceiling
+  stops. No size pin. RULED 2026-10-18. Steps 8.3 to 8.5 build it.
+- O79 (R79): the `od -v` unit is closed in sealed-lang: its 4 copies
+  (`test/evmchain.sh`, `test/dispatch.sh`, `test/mock.sh` and
+  `test/diff.sh`) have `-v`. The 7 kit sites with `od -An -tx1` and no
+  `-v` stay a lang-template item: `hosts/tcc-evm-contract/test/`
+  `evmchain.sh:14`, `dispatch.sh:17`, `mock.sh:22` and `diff.sh:29`;
+  `hosts/tcc-evm-anchor/test/evmchain.sh:49`;
+  `hosts/tcc-js/test/gate.sh:162`; `hosts/tcc-webgpu/test/gate.sh:201`.
+  S8 does not edit the kit. RULED 2026-10-18. Built in step 8.1.
+- O80 (R80): F15 stays PARTIAL (`formers/FORMERS.md:300`): no family in
+  `domain/domain.lang` takes a Nat index. Docs only. RULED 2026-10-18.
+  Built in step 8.1.
+- O81 (R81): the 6 stale cites of `docs/STATUS.md` `## S7` are fixed.
+  Docs only. RULED 2026-10-18. Built in step 8.1.

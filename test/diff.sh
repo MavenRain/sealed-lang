@@ -8,8 +8,8 @@
 # 1 (false), 2 (empty return data), 3 (the mock reverts) or with no code at
 # the token. The row checks the result, the storage of the contract (the
 # state of `langc run` on ok, the old storage on revert), the storage of the
-# mock and the logs. Part 2 runs the 5 call scripts of test/evm.sh with mode
-# 0 (C-K4d-8), test/run/basic.script on examples/contract.lang. Each step
+# mock and the logs. Part 2 runs 6 call scripts: the 5 of test/evm.sh with
+# mode 0 (C-K4d-8), then test/run/deposit.script (R47). Each step
 # must give the result of `langc run`. At the end, the contract storage must
 # equal the state of `langc run` and the mock balances must equal the sums of
 # the pay and pull rows of `langc run`, mod 2^256 (bc, C-K4d-9). It needs evm

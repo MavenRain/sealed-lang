@@ -186,7 +186,7 @@ event Paid (to : Addr) (amount : U256)
 
 - Syntax: `event Name (f1 : T1) ... (fn : Tn)`. An event can have no fields. `event` is a reserved word.
 - An event is a constructor of `Out`. `Paid a w` is a value of type `Out`, thus an entry can put it in its `List Out` result. An incorrect number of arguments gives TYPE_ARITY. An argument of an incorrect type gives TYPE_MISMATCH.
-- Field types: Nat, Flag, U256 and Addr (the ABI word types). Another field type gives REFUSE_EVENT. More than 16 fields give REFUSE_EVENT. Two fields of one event with the same name give REFUSE_EVENT.
+- Field types: Nat, Flag, U256 and Addr (the ABI word types). Another field type gives REFUSE_EVENT. More than 32 fields (`ENTRY_PARAMS_MAX`, `src/front/check.h:8`) give REFUSE_EVENT. Two fields of one event with the same name give REFUSE_EVENT.
 - Names: an event name is a core name. A second event with the same name, or a definition with the name of an event, gives REFUSE_NAME (rule R4, `X is an event`). A field name is local to its event. It is not a projection and not a core name, thus two events and a definition can use the same field name.
 - Signature: `Name(t1,...,tn)`, with the ABI type name of each field, as for an entry (C-K4c-4): Nat is `uint64`, Flag is `bool`, U256 is `uint256` and Addr is `address`. Slice K4c computes it (C-K4-13): topic 0 of the LOG is the keccak256 of the signature. All fields go in the log data, one 32-byte word each, and no field is indexed (LOG1).
 - Scope: the checker adds the events to `Out` when it checks the `Out` family of the prelude, before all program definitions. Thus a definition can use an event that the program declares after it. A field type cannot use an alias definition of the program, because that definition is not in scope yet. An `event` in `domain/domain.lang` also adds a constructor to `Out`.
@@ -242,7 +242,7 @@ Entry body (slice K4b):
 - A trap reverts with the 4 bytes of the `Trap()` selector, `0xae96083a`.
 - `some (pair STATE OUT)` writes each changed word field and each Map write with SSTORE. Then the block stops (STOP).
 - Before the stores, the block writes one LOG1 for each event of the OUT part, in the order of the list (C-K4-13). Topic 0 is the keccak256 of the event signature (see `## Events`). The data is the field words, 32 bytes each, in the order of the fields. An event with no fields has empty data. An event in a `flagIf` branch is logged only when the branch runs. A revert or a trap removes the logs.
-- `src/lower.c` lowers the first-order word part of the body: Nat, Flag, U256 and Addr values, Option, Prod and `if`. Each op gives the result of the evaluator: Nat add and mul use the K2 u64 rules; U256 add and mul trap on overflow, sub stops at 0, and div rounds down and traps on 0.
+- `src/lower.c` lowers the first-order word part of the body: Nat, Flag, U256 and Addr values, Option, Prod and `if`. Each op gives the result of the evaluator: Nat add uses the K2 u64 rules; U256 add traps on overflow and sub stops at 0. O19 removed Nat mul and U256 mul, div and min (`docs/PLAN.md:365-366`).
 
 View body (slice K4c):
 

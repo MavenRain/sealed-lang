@@ -253,7 +253,7 @@ all regressions passed (the lower regressions with the row
 (Algorithm 1) on the kit contract form, with the fixture limits below.
 It has 9 entries (`regAuction`,
 `registerDeposit`, `makeInactive`, `addTuple`, `updateActivity`,
-`slashUsr`, `slash`, `withdraw`, `settle`; R43) and 9 views (O8). The
+`slashUsr`, `slash`, `withdraw`, `settle`; R43) and 10 views (O8). The
 tree library (`treeDepth` 32, `zeroHash`, `insertLeaf`, `rootOfLeaves`)
 and the Groth16 verifier library (`verify`: a fold of `ecMul` and `ecAdd`
 over the public inputs, then one `ecPairing` on four pairs) are guest

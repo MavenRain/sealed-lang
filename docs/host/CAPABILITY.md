@@ -23,7 +23,7 @@ Date: 2026-10-07. Machine: macOS, AArch64.
 
 ## K4 result (slice K4d)
 
-- K4 uses the escrowc path. `test/evm.sh` runs 6 chains of `evm run --prestate ... --dump` (43 steps). `test/diff.sh` runs the CALL failure table (10 rows) and 5 call scripts on the mock ERC-20 at the token address. The gate uses no t8n, no statetest and no anvil.
+- K4 uses the escrowc path. `test/evm.sh` runs 6 chains of `evm run --prestate ... --dump` (43 steps). `test/diff.sh` runs the CALL failure table (10 rows) and 6 call scripts on the mock ERC-20 at the token address. The gate uses no t8n, no statetest and no anvil.
 - Each pay and each pull is one CALL to the token (C-K4d-6). Pay is `transfer(payTo, payAmount)`. Pull is `transferFrom(pullFrom, pullTo, pullAmount)`. The contract is the sender.
 - Each CALL forwards all gas (`GAS`) and 0 wei (C-K4d-7). There is no gas cap.
 - The CALL must succeed. Its return data must either be 32 bytes equal to the word 1, or be empty with code at the token (`EXTCODESIZE`). If either check fails, the step does a REVERT with empty data (C-K4-14).

@@ -44,7 +44,7 @@ below. An answer sets the status of a former in `formers/tcc-evm-contract.md`.
 | --- | --- | --- |
 | Check | `build/langc check FILE` | The axiom report, then `ok` (section 10), or one refusal code (sections 3 and 10) |
 | Print normal form | `build/langc eval FILE NAME [ARGS...]` | The result of the named definition. Exit 0, 1 after a diagnostic, or 2 after an EVAL_ARGS diagnostic (`src/front/check.h:25-27`) |
-| Build | `build/langc build FILE`; `--runtime` writes the runtime code only (`docs/PLAN.md:492-493`) | One hex line. Exit 0, 1 after REFUSE_LOWER, EVM_SIZE or OOM, or 2 after IO_WRITE (`src/lower.h:11-13`) |
+| Build | `build/langc build FILE`; `--runtime` writes the runtime code only (`docs/PLAN.md:495-496`) | One hex line. Exit 0, 1 after REFUSE_LOWER, EVM_SIZE or OOM, or 2 after IO_WRITE (`src/lower.h:11-13`) |
 | Run | `evm run --code HEX` (`docs/host/CAPABILITY.md:13`); chains of `evm --verbosity 0 run --prestate FILE --gas GAS --input DATA --value VALUE --json --dump` (:16, :20) | `0x<output>`. Each call reads the state that the previous call wrote |
 
 - `build/langc run FILE SCRIPT` runs a call script on the state from
@@ -113,7 +113,7 @@ a check, a build or a run at N bids.
 The nearest data:
 
 - The deposit runtime code is 17119 bytes, 7457 bytes under the EIP-170
-  limit of 24576 bytes (O48, `docs/PLAN.md:494`, `docs/STATUS.md:250`).
+  limit of 24576 bytes (O48, `docs/PLAN.md:497`, `docs/STATUS.md:250`).
 - The lowertool arena is 32 MiB (`docs/STATUS.md:331`).
 - The deposit EVM chain does 41 calls with 0 failures
   (`docs/STATUS.md:245`). The deposit call script has 23 calls
@@ -129,7 +129,7 @@ The nearest data:
 Only `domain/domain.lang` declares a family. A family in a program gives
 REFUSE_DATA (`src/front/check.c:2780`, rule R1). The domain families
 `Trunc1`, `Trunc0` and `Quot` take a type parameter (O32,
-`docs/PLAN.md:411-413`), and so does `Bag A` (`domain/domain.lang:51-61`,
+`docs/PLAN.md:414-416`), and so does `Bag A` (`domain/domain.lang:51-61`,
 O51). Their constructors appear in terms in `check` and `eval`. F15 is
 PARTIAL (`formers/FORMERS.md:300`): EVM output of an indexed family is
 planned. Probe file: `domain/domain.lang`.
@@ -152,7 +152,7 @@ A program writes `Path`, `PathP`, `refl`, `sym`, `cong`, `funExt`,
 `transp` and `hcomp` (the 11 path rows of `SPEC.md` section 6, S3).
 `transport`, `J` and `trans` are guest definitions in
 `domain/domain.lang:8-21` (O25). The kit `Eq` is out since S3 (O3,
-`docs/PLAN.md:275`). The families with path constructors are `S1`,
+`docs/PLAN.md:278`). The families with path constructors are `S1`,
 `Trunc1`, `Trunc0` and `Quot` (S4, O31, O32) and `Bag` (S6, O51), all in
 `domain/domain.lang`. A Path on a word type is never an equality test
 (O24). `Trunc1`, `Trunc0` and `Quot` take their type as a parameter (O32),

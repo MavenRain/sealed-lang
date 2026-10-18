@@ -162,5 +162,5 @@ true (M9). The eval rows of `processBid` also trust the fixtures for
 `zkOk` and `stampOk`, because `ecrecover` and the curve operations are
 stuck in `langc eval` (O5). Mutants M1 to M11 of S6 are in
 `docs/STATUS.md`: 11 of 11 killed, and the extra M4strict killed. The
-hole that M11 showed: no row checks a domain axiom with a type that is
-not a law (Open, USER to rule).
+hole that M11 showed (no row checked a domain axiom with a type that is
+not a law) is closed: the `test/fronttool.c:143` row kills M11 (7.1).
