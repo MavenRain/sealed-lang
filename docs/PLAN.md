@@ -133,9 +133,12 @@ operations (14 kept from the kit, 8 new in S2):
 - New, the address word (S2, R20): `addrToU256 : Addr -> U256`, the one
   conversion from `Addr`. A leaf is `hash (addrToU256 a) c`.
 - New, core laws: `fold` on a QIT into `U256` needs a path for each path
-  constructor. The commutation laws of `u256Max` (for `max`) and the laws
-  the median fold needs are core path constants, trusted by the kernel and
-  never run (O10). The S6 kickoff lists each law.
+  constructor. The S6 laws are `axiom` declarations in the domain (R52):
+  the commutation laws `bidMaxSwap` over `bidMax` (for `bagMax`) and
+  `insSwap` over `insNat` (for the median fold `sortBag`), and the isSet
+  laws `bidSet` and `listNatSet` (`domain/domain.lang:79-80,100-101`).
+  The kernel trusts them and does not run them (O10). The S6 kickoff lists
+  each law.
 
 Removed from the kit span in S2: the sample domain (`Color`, `Item`,
 `Stack`, `Lot`; R21) and the four pruned operations (R19). `Eq` with
@@ -505,3 +508,41 @@ existing program:
   alone does not add that binding. `slashUsr` takes 23 words: hu, then
   for each of the two commits a cm word, a proof (8 words) and its 2
   inputs.
+
+For the S6 kickoff rulings R51 to R60 (2026-10-17), the USER said "Take
+defaults for R51 to R60". The defaults (a) were applied in S6. Each row
+names the S6 step that built it:
+
+- O51 (R51): `Bag` is a QIT in `domain/domain.lang:51-61`: `bagNil`,
+  `bagCons`, the path constructor `bagSwap` and the truncation `bagTrunc`
+  (family-prefixed names, R4). Built in step 4.1.
+- O52 (R52): a law is an `axiom` declaration, admitted in
+  `domain/domain.lang` only (the origin test, as R1). After the Pi binders
+  its type is a `Path` or a `PathP`, else REFUSE_AXIOM_TYPE. An axiom in a
+  program is REFUSE_AXIOM. Built in step 4.1.
+- O53 (R53): the four laws: `bidMaxSwap` and `bidSet`
+  (`domain/domain.lang:79-80`, step 4.2), `insSwap` and `listNatSet`
+  (`domain/domain.lang:100-101`, step 4.3). The kernel trusts them (O10).
+- O54 (R54): `medianAt f b` is the stamp at index f of the sorted stamps
+  (`sortBag`), or `none` (infinity) when the bag has at most f stamps. An
+  even count uses the same rule. Built in step 4.3.
+- O55 (R55): `signComWord cm t` is `hash cm (toU256 t)`, as in the paper
+  pseudocode (step 4.4). On equal value the larger cm wins (`bidLe`, step
+  4.2).
+- O56 (R56): `processBid` takes the verifiers as parameters (the eval rows
+  pass fixtures) and gives `Sum Nat (Bag Bid)`, with the codes 1 to 5 in
+  the paper order. Built in step 4.5.
+- O57 (R57): open. `processBid` is off chain only: no entry calls it, and
+  `settle` did not change (O44). `examples/deposit.lang` did not change in
+  S6 (runtime 17119, O48).
+- O58 (R58): open. The binding of each cm to its proof's public inputs
+  (O50) stays out of S6. `eligible` and `slashUsr` did not change.
+- O59 (R59): the property checks of the S6 kickoff table (section 2):
+  Simultaneous Release and No Free Bid Withdrawal are checked in part;
+  Hiding and APE are not terms. The checks `lemma11F1`, `lemma11F2`,
+  `lateCut`, `slashedAbort` and `ncCount` are in `examples/protocol.lang`
+  (step 4.6). The table is in `docs/VALIDATION.md` (step 4.8).
+- O60 (R60): the new rows go in `examples/protocol.lang` (examples 27 ->
+  28), `test/eval/expect.txt` (evals 64 -> 84), `test/check/expect.txt`
+  (check refusals 83 -> 85) and the domain regressions of
+  `test/fronttool.c`. No new harness. Built in steps 4.2 to 4.6.

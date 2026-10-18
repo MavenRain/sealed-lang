@@ -31,7 +31,7 @@ section `EVM output`). The facts a program author needs:
 - The formers F1 to F15 are checked and evaluated (F12 and F13 as `Path`
   since S3). On the EVM only the first-order word residual of a body
   lowers. A residual of another form gives REFUSE_LOWER
-  (`test/lower/expect.txt`, 13 rows).
+  (`test/lower/expect.txt`, 14 rows).
 
 ## The S2 operations (slice S2)
 
@@ -86,8 +86,8 @@ parse roundtrips. The EVM regressions did not change at any S4 step (evm
 
 | Form | `check` and `eval` | EVM | Test |
 |---|---|---|---|
-| Tree library | DONE: guest defs in `domain/domain.lang:51-97` (R40). `treeDepth` is 32 (R42); `zeroHash l` is the root of an empty subtree; `insertLeaf idx cur filled` gives the new root and the new filled subtrees; `rootOfLeaves` gives the root of a closed list of leaves. | An unrolled depth-32 insert, linear in the depth by the share rule. | The eval rows `merkle sameOne`, `sameTwo`, `sameThree`; lowertool row `insert-depth-32`; `test/run/deposit.out` `rootOf`. |
-| Groth16 verifier | DONE: `verify vk inputs proof` in `domain/domain.lang:99-163` (R40). It gives flagNo unless the key has one IC point per input plus IC0 and each input is below the scalar order r; then one `ecPairing` on (-A, B), (alpha, beta), (vk_x, gamma), (C, delta). Stuck in `langc eval` (O5). | Exact on the precompiles 6, 7 and 8. A point that is not on the curve reverts (R18). | `test/precompile.sh` steps `verifyOk` (1), `verifyBadOrder` (0) and the 12 `test/groth16-invalid.lang` steps (precompile 32). |
+| Tree library | DONE: guest defs in `domain/domain.lang:103-149` (R40). `treeDepth` is 32 (R42); `zeroHash l` is the root of an empty subtree; `insertLeaf idx cur filled` gives the new root and the new filled subtrees; `rootOfLeaves` gives the root of a closed list of leaves. | An unrolled depth-32 insert, linear in the depth by the share rule. | The eval rows `merkle sameOne`, `sameTwo`, `sameThree`; lowertool row `insert-depth-32`; `test/run/deposit.out` `rootOf`. |
+| Groth16 verifier | DONE: `verify vk inputs proof` in `domain/domain.lang:151-215` (R40). It gives flagNo unless the key has one IC point per input plus IC0 and each input is below the scalar order r; then one `ecPairing` on (-A, B), (alpha, beta), (vk_x, gamma), (C, delta). Stuck in `langc eval` (O5). | Exact on the precompiles 6, 7 and 8. A point that is not on the curve reverts (R18). | `test/precompile.sh` steps `verifyOk` (1), `verifyBadOrder` (0) and the 12 `test/groth16-invalid.lang` steps (precompile 32). |
 | Share rule | n/a (lowering only). | `share_arms` in `src/lower.c` (R41): a pure word value that both arms of a word `flagIf` use is lowered once into a local before the IF. No expected output of an existing program changed. | lowertool row `insert-depth-32`; the build, emit and evm regressions. |
 | Deposit entries | DONE: `examples/deposit.lang`, 9 entries (R43) and 9 views (O8). The Π path is `addTuple` and a signature over `hash piAcc[au] piNonce[au]` (R45). | 17119 runtime bytes (R48). `pull` and `pay` move the deposit through `asset` and `vault` (R46). | `test/deposit.lang` (25 assertions); `test/run/deposit.script` (23 calls, R47); `test/diff.sh` row 16; `test/deposit.sh` (41 chain calls: the signed and proof calls). |
 
@@ -101,7 +101,31 @@ The deposit example uses the synthetic R39 key. `slashUsr` accepts the
 same proof with inputs (2, 3) for unequal cm words 5 and 6: neither cm
 is bound to the proof inputs, and replacing the key alone does not add
 that binding (O50). `settle` accepts any caller and supplied price after
-the auction ends; selecting the winner from sealed bids is S6
-(`processBid`, O7/O44). `vault` must equal the executing deposit
-contract's address, since `pull` credits `vault` and `pay` spends the
-executing contract's balance (O46).
+the auction ends. S6 adds off-chain bid validation and pool insertion
+(`processBid`) and winner selection (`bagMax`), without connecting them
+to `settle` (O7/O44). `vault` must equal the executing deposit contract's
+address, since `pull` credits `vault` and `pay` spends the executing
+contract's balance (O46).
+
+## The protocol layer (slice S6)
+
+| Form | `check` and `eval` | EVM | Test |
+|---|---|---|---|
+| `Bag` QIT | DONE: `family Bag (A : Type 0)` in `domain/domain.lang:51-61` (R51): `bagNil`, `bagCons`, the path constructor `bagSwap` and the truncation `bagTrunc`. A fold of `Bag` has a case for `bagSwap` and an isSet case for `bagTrunc`. | Not lowered: `examples/protocol.lang` has no entry (R57). | PATH_END row `bag-swap-boundary.lang`; the protocol eval rows. |
+| Laws | DONE: four `axiom` declarations, in the domain only (R52, R53): `bidMaxSwap` and `bidSet` (`domain/domain.lang:79-80`), `insSwap` and `listNatSet` (`domain/domain.lang:100-101`). After the Pi binders the type must be a `Path` or a `PathP`. An axiom is a neutral in `langc eval`; `langc check` prints the axiom report. The kernel trusts the laws (O10). | A law has no run-time value: REFUSE_LOWER (`src/lower.c:391`). No lower row. | REFUSE_AXIOM row `axiom.lang`; REFUSE_AXIOM_TYPE row `axiom-type.lang`; fronttool `domain` rows; the axiom report in `test/gate.sh:6-17`. |
+| Bid pool and median | DONE: `bagMax` folds a Bag with `bidMaxSwap` and `bidSet`; on equal value the larger cm wins (R55). `sortBag` folds a Bag with `insSwap` and `listNatSet`. `medianAt f b` is the stamp at index f of the sorted stamps, or `none` when the bag has at most f stamps (R54). `examples/protocol.lang:4-49`. | Off chain only (R57). | The eval rows `protocol winnerOf3`, `tieBid`, `emptyPool`, `medianOdd`, `medianEven`, `medianMissing`, `medianTooFew`. |
+| `signComWord` and `processBid` | DONE: `signComWord cm t` is `hash cm (toU256 t)` (R55). `processBid` takes the verifiers as parameters and gives `Sum Nat (Bag Bid)`, with the codes 1 to 5 in the paper order (R56). `stampBy` uses `ecrecover`: stuck in `langc eval` (O5). `examples/protocol.lang:50-147`. | Off chain only (R57): no entry calls `processBid`. | The eval rows `protocol signComA`, `signComB`, `procAccept`, `procProof`, `procSlashed`, `procDepositor`, `procLate`, `procStamp`. |
+| Property checks | DONE: `lemma11F1`, `lemma11F2`, `lateCut`, `slashedAbort` and `ncCount` give 1 (`examples/protocol.lang:149-206`, R59). Simultaneous Release and No Free Bid Withdrawal are checked in part; Hiding and APE are not terms. | n/a (off chain). | The eval rows `test/eval/expect.txt:80-84`; the property table in `docs/VALIDATION.md`. |
+
+S6 adds `examples/protocol.lang` (examples 27 -> 28), 20 eval rows (evals
+64 -> 84) and 2 check rows (check refusals 83 -> 85). The EVM counts at
+the S6 close are the S5 counts (evm 43, diff 16, emit 24, runs 6, run
+refusals 10, runtime 17119): `examples/deposit.lang` did not change.
+Mutants M1 to M11 of S6 are in `docs/STATUS.md`: 11 of 11 killed, and
+M4strict killed. The S7 row `test/fronttool.c:141-143` (REFUSE_AXIOM_TYPE)
+also kills M11.
+
+`processBid` validates a bid and adds it to the pool off chain;
+`bagMax` selects the winner from that pool. `settle` did not change:
+it accepts any caller and supplied price (O44, R57). The binding of each
+cm to its proof's public inputs (O50) is not in S6 (R58).
