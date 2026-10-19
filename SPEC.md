@@ -244,7 +244,7 @@ The entries and the guards:
 - The deposit contract (`examples/deposit.lang`) has 9 entries (O43,
   `docs/PLAN.md:469`) and 10 views: the nine accessors (O8) and
   `byUserOrProposer`, whose type also gives it the view role
-  (`examples/deposit.lang:144`, `src/lower.c:208-223`). Its runtime code is 17103 bytes
+  (`examples/deposit.lang:144`, `src/lower.c:208-223`). Its runtime code is 17069 bytes
   (R48, `formers/tcc-evm-contract.md:92`), under the EIP-170 limit of
   24576 bytes (`docs/host/README.md:255`). The sketch of PLAN section 6 is
   old: O42 removes its `depth` field (`docs/PLAN.md:467-468`).
@@ -302,7 +302,7 @@ that each of the four laws is true.
 ## 9. Open items
 
 Each item is one row of `docs/PLAN.md` section 8 (:272-599), with its
-status at S7: done in the slice that built it, closed (not taken), or
+status at S8: done in the slice that built it, closed (not taken), or
 open. O1 to O15 are the builder's calls, and the USER did not rule them
 (`docs/PLAN.md:18-19`). PLAN gives "RULED 2026-10-15" for O16 to O30
 (:355, :375) and "RULED 2026-10-16" for O31 to O50 (:403, :447). For O51
@@ -313,23 +313,23 @@ proof call (s7, O47) and `od -v` at the 4 kit `od` sites (s8, :448-450).
 "Probe-forced" marks an item that a host probe fact forced (sections 5
 and 7, `probe/CAPABILITY.md`).
 
-Open at S7, with S8 progress:
+Open at S7, with the state of each at the S8 close:
 
-- O7, O44: `settle` refuses a caller with no deposit (S8 step 8.4, R73); winner selection from the sealed bids stays open (`docs/PLAN.md:472-474`, `docs/STATUS.md:396`).
-- O46: closed in S8 (R74): `pull` credits `self env`, `def vault` is
-  gone (`docs/PLAN.md:483-486`, `formers/tcc-evm-contract.md:106-108`).
-- O50, O58: `eligible` requires input 1 = cm (S8 step 8.5, R75); the circuit
-  binding stays open (PARTIAL; R50, `docs/PLAN.md:509-511`, :541-542).
-- O57: closed in S8 (R76): off chain, as in the paper
+- O7, O44: PARTIAL. `settle` refuses a caller with no deposit (S8 step 8.4, R73); winner selection from the sealed bids stays open (`docs/PLAN.md:472-474`, `docs/STATUS.md:396`).
+- O46: closed in S8 step 8.3 (R74): `pull` credits `self env`, `def vault`
+  is gone (`docs/PLAN.md:483-486`, `formers/tcc-evm-contract.md:106-108`).
+- O50, O58: PARTIAL. `eligible` requires input 1 = cm (S8 step 8.5, R75);
+  the circuit binding stays open (R50, `docs/PLAN.md:509-511`, :541-542).
+- O57: closed in S8 step 8.1 (R76): off chain, as in the paper
   (`docs/PLAN.md:575-578`).
-- O35: closed in S8 (R77): `rule_hcomp` uses the shared helpers (`docs/STATUS.md:513`).
-- O48: the R48 EIP-170 budget. The deposit runtime code is 17103 bytes,
-  7473 bytes under 24576 (`docs/PLAN.md:497`).
+- O35: closed in S8 step 8.2 (R77): `rule_hcomp` uses the shared helpers (`docs/STATUS.md:513`).
+- O48: the R48 EIP-170 budget stays open. The deposit runtime code is 17069
+  bytes at the S8 close, 7507 bytes under 24576 (`docs/PLAN.md:497`).
 - The lang-template `od -v` unit: closed in sealed-lang (its 4 copies
   have `-v`); the 7 kit sites are in `docs/PLAN.md:587-594` (R79 (a)).
-  S8 does not edit the kit.
+  S8 does not edit the kit: the 7 kit lines stay open.
 - F15 PARTIAL: only the domain file declares an indexed family, and EVM
-  output is planned (`formers/FORMERS.md:300`, R1, O32). No new O row.
+  output is planned (`formers/FORMERS.md:300`, R1, O32, R80). No new O row.
 
 M11 is not open: the 7.1 row of `test/fronttool.c` kills it (R61 (a),
 bbe668d).
@@ -346,7 +346,7 @@ The items (PLAN line, status):
   the fixture in S5 (R39).
 - O6 (:297). The asset is an ERC-20 token through `pull` and `pay`. Done
   in S5. No native value (:298).
-- O7 (:306). The `settle` entry. S5 built the entry. Open (above).
+- O7 (:306). The `settle` entry. S5 built the entry. PARTIAL (above).
 - O8 (:313). A Map value is a word, with one view for each field. Done in
   S5. Probe-forced (section 5).
 - O9 (:318). An incremental Merkle tree of depth 32. Done in S5 (R40 to
@@ -395,7 +395,7 @@ The items (PLAN line, status):
 - O34 (:420). pathtool goes from 19 to 26 rows. Done in S4. RULED
   2026-10-16.
 - O35 (:426). The system helpers are ported. Done in S4. The R35 refactor
-  is open (above). RULED 2026-10-16.
+  is done in S8 step 8.2 (above). RULED 2026-10-16.
 - O36 (:430). The Glue hunks are dropped. Done in S4. RULED 2026-10-16.
 - O37 (:438). A path at run time gives REFUSE_LOWER. Done in S4. RULED
   2026-10-16.
@@ -409,7 +409,7 @@ The items (PLAN line, status):
   2026-10-16.
 - O43 (:469). The deposit contract has 9 entries. Done in S5. RULED
   2026-10-16.
-- O44 (:470). The caller rules. Done in S5; `settle` is open (above).
+- O44 (:470). The caller rules. Done in S5; `settle` is PARTIAL (above).
   RULED 2026-10-16.
 - O45 (:476). One tuple for each entry, and a signature bound to a nonce.
   Done in S5 (86eb3d6). RULED 2026-10-16.
@@ -417,11 +417,11 @@ The items (PLAN line, status):
   `self env` (R74). Closed in step 8.3. RULED 2026-10-16.
 - O47 (:487). The deposit script row of `test/diff.sh`. Done in S5 (diff
   15 to 16). RULED 2026-10-16, and the USER ruling s7.
-- O48 (:495). The runtime code is 17103 bytes at 8.3 (17119 in S5). The EIP-170
+- O48 (:495). The runtime code is 17069 bytes at the S8 close (17119 in S5). The EIP-170
   budget is open (above). RULED 2026-10-16.
 - O49 (:500). `regAuction` writes at most 4 slots. Done in S5. RULED
   2026-10-16.
-- O50 (:503). The binding of each cm to its proof. Open (above). RULED
+- O50 (:503). The binding of each cm to its proof. PARTIAL (above). RULED
   2026-10-16.
 - O51 (:519). `Bag` is a QIT. Done in S6 (4.1). RULED 2026-10-17.
 - O52 (:522). The axiom declaration form. Done in S6 (4.1). RULED
@@ -432,9 +432,9 @@ The items (PLAN line, status):
   RULED 2026-10-17.
 - O56 (:535). The `processBid` codes 1 to 5. Done in S6 (4.5). RULED
   2026-10-17.
-- O57 (:538). `processBid` is off chain only. Open (above). RULED
+- O57 (:538). `processBid` is off chain only. Closed in S8 (R76). RULED
   2026-10-17.
-- O58 (:541). The cm binding stays out of S6. Open (above). RULED
+- O58 (:541). The cm binding stays out of S6. PARTIAL (above). RULED
   2026-10-17.
 - O59 (:543). The table of property checks. Done in S6 (4.6, 4.8). RULED
   2026-10-17.
@@ -451,10 +451,16 @@ The kit milestones M0 to M3 map onto the slices S0 to S7 of
 | M0 | S0 to S2 | The kit host and its probe (`probe/CAPABILITY.md`); the base span: the core types, the S2 operations and the EVM precompiles; the refusal list; examples and tests | S0 beae7ec (2026-10-15); S1 survey and rulings, no commit; S2 bc8e168, ff85343 (2026-10-15) | DONE |
 | M1 | S3, S4 | Interval paths and the Kan operations; HITs, truncations and quotients | S3 872b0b4 to 705ab9f (2026-10-16); S4 cdfc751 to b4a5dce (2026-10-16) | DONE |
 | M2 | S5 | The deposit contract: the share rule, the Merkle tree, the Groth16 verifier, 9 entries and 10 views | 43fb213 to 4626ed3 (2026-10-16 to 2026-10-17) | DONE |
-| M3 | S6, S7 | The protocol layer (`Bag`, the four laws, the median, `processBid`, the property checks) and the docs | S6 1bc714b to 17ef85c (2026-10-17 to 2026-10-18); S7 bbe668d, b0b1b37, cf0f324, f05d6f4 and step 7.5 (2026-10-18) | DONE |
+| M3 | S6, S7 | The protocol layer (`Bag`, the four laws, the median, `processBid`, the property checks) and the docs | S6 1bc714b to 17ef85c (2026-10-17 to 2026-10-18); S7 bbe668d, b0b1b37, cf0f324, f05d6f4 and 85b76dd (2026-10-18) | DONE |
 
-Status 2026-10-18 (M3): S6 is done (2c42e04, docs 17ef85c). S7 steps 7.1
-(the M11 row, bbe668d), 7.2 (the source fixes, b0b1b37), 7.3 (sections
-1 to 8, cf0f324) and 7.4 (sections 9 and 10, `probe/CAPABILITY.md`,
-f05d6f4) are done. Step 7.5 (`docs/STATUS.md`, `docs/VALIDATION.md`,
-`README.md` and the final gate) closes S7 and M3: M0 to M3 are DONE.
+Status 2026-10-18 (S8 closed): M0 to M3 are DONE. S7 step 7.5 (85b76dd)
+closed S7 and M3. S8 fixed the S7 review items in 6 steps: 8.1 the docs
+(80d58b1), 8.2 `rule_hcomp` (5328a25), 8.3 Env `self` (e08a5ef), 8.4
+`settle` (2d00376), 8.5 the cm binding (b68af34) and 8.6 the close (docs
+only, the S8 final gate). Open after S8 (recorded, not built): the
+eligibility circuit of the paper and a prover (O50 and O58 stay
+PARTIAL); winner selection from the sealed bids on chain (the rest of O7
+and O44; `processBid` stays off chain under R76); a run-time Bag
+lowering (a kit item, O37); the 7 kit `od -v` lines (R79 (a)); a
+Nat-indexed family (R80 (a)); the EIP-170 budget (O48: 17069 bytes, 7507
+free). The paper text is not local. The USER makes the repo public.

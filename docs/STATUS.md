@@ -2,9 +2,9 @@
 
 The build implements the kit milestones M0 to M3 (`SPEC.md` section 10).
 The slices S0 to S6 built the language, the deposit contract and the
-protocol layer. S7 wrote the docs and ran the final gate (`## S7`). The
-sections above `## S2` give the summary of S0 to S6. The slice records
-give the details.
+protocol layer. S7 wrote the docs and ran the final gate (`## S7`). S8
+fixed the S7 review items and closed (`## S8`). The sections above `## S2`
+give the summary of S0 to S6. The slice records give the details.
 
 ## Implemented
 
@@ -24,21 +24,21 @@ give the details.
 - The deposit contract (S5, Algorithm 1 of the paper):
   `examples/deposit.lang` with 9 entries and 10 views, the share rule, and
   the Merkle tree library and the Groth16 verifier as guest definitions.
-  The runtime code is 17119 bytes (`SPEC.md:244-250`).
+  The runtime code is 17069 bytes at the S8 close (`SPEC.md:244-250`).
 - The protocol layer (S6, Algorithms 2 and 3): the QIT `Bag`, `Bid`, the
   four laws, the median, `processBid` and the property checks. They never
   reach the EVM. `langc check` prints the axiom report (`SPEC.md:283-300`).
 
 ## Remaining work
 
-`SPEC.md:316-332` gives the items open at S7, with S8 progress:
+`SPEC.md:316-332` gives the items open at S7 and their state at the S8 close:
 
-1. `settle` (O7, O44): it records any caller and any price.
+1. `settle` (O7, O44): PARTIAL; it refuses a caller with no deposit (8.4).
 2. `vault` (O46): closed in S8 step 8.3; `pull` credits `self env` (R74).
-3. The binding of each cm to the public inputs of its proof (O50, O58).
+3. The binding of each cm to its proof (O50, O58): PARTIAL; input 1 = cm (8.5).
 4. An entry that calls `processBid` (O57): closed as off chain only (R76).
 5. The R35 refactor of `rule_hcomp` (O35): done in S8 step 8.2 (R77).
-6. The EIP-170 budget (O48): 7473 bytes are free under 24576 at 8.3.
+6. The EIP-170 budget (O48): 7507 bytes are free under 24576 at the S8 close.
 7. `od -v`: sealed-lang's 4 copies are fixed; 7 lang-template sites remain (R79).
 8. F15: only the domain file declares an indexed family (R1, O32).
 
@@ -506,8 +506,8 @@ Open at the S7 close: the list of `## Remaining work` above
 
 ## S8
 
-Slice S8 (the review fixes of S7) is open. The rulings R72 to R81 are
-RULED 2026-10-18.
+Slice S8 (the review fixes of S7) is closed (8.6). The rulings R72 to R81
+are RULED 2026-10-18.
 
 - 8.1 (80d58b1): docs (R72, R76, R79, R80, R81).
 - 8.2 (5328a25): `rule_hcomp` uses the shared system helpers (R77 (a)).
@@ -562,10 +562,10 @@ The 8.4 gate `make -B check` is GREEN: deposit 25 -> 26 assertions,
 deposit EVM 41 -> 43 calls and 0 failures, runtime 17103 -> 17138 bytes
 (R78 ceiling 18143, 1005 bytes under; EIP-170 24576, 7438 bytes free),
 diff 16 rows and 0 failures (no content change), every other count at
-the 8.3 baseline. The runtime 17103 and the counts 25 and 41 at
+the 8.3 baseline. At the 8.4 close, runtime 17103 and counts 25 and 41 at
 `SPEC.md:247`, :326-327, :420, `docs/host/README.md:316`,
-`probe/CAPABILITY.md:115-116` and `formers/tcc-evm-contract.md:92` are
-stale (the 8.6 close).
+`probe/CAPABILITY.md:115-116` and `formers/tcc-evm-contract.md:92`
+were stale; 8.6 reconciles them to the final 8.5 totals.
 
 M12 changed the repo file, then `make -B build` and `sh test/deposit.sh`.
 After the restore, `make -B` and `sh test/deposit.sh` gave 26 assertions
@@ -588,8 +588,8 @@ run script row (`test/run/deposit.script:29`, cm1 = cm2) and
 The 8.5 gate `make -B check` is GREEN: deposit EVM 43 -> 44 calls and 0
 failures, runtime 17138 -> 17069 bytes (R78 ceiling 18143, 1074 bytes
 under; EIP-170 24576, 7507 bytes free), diff 16 rows and 0 failures (no
-content change), every other count at the 8.4 baseline. The stale lines
-of 8.4 above stay stale for the 8.6 close, which writes 17069, 26 and 44.
+content change), every other count at the 8.4 baseline. The lines listed
+in the 8.4 record above are reconciled in 8.6 to 17069, 26 and 44.
 
 M13 changed the repo file, then `make -B build` and `sh test/deposit.sh`.
 The mutant runtime was 17004. After the restore, `make -B` and `sh
@@ -599,3 +599,25 @@ the index was empty.
 | Mutant | Edit | Killer | Verdict |
 |---|---|---|---|
 | M13 no cm binding in `eligible` | deposit.lang:141 `eligible`: no `u256Eq i1 cm` compare | deposit EVM `chain revert 20 "$other" slashUsr` (input 1 = 3, cm1 = 5): want revert, got ok, and storage changed | KILLED |
+
+8.6 (the S8 close, docs only): each item of `SPEC.md:316-332` at its S8
+state, the item rows O7, O35, O44, O50, O57 and O58 of `SPEC.md` section
+9, the `SPEC.md` section 10 status line, the current runtime and count
+lines listed in 8.4 and 8.5, and the `docs/VALIDATION.md` header for the S8
+final gate. The commits of 8.3 to 8.5 are e08a5ef, 2d00376 and b68af34.
+These lines now give 17069 bytes, 26 assertions or 44 calls:
+`SPEC.md:247`, :326-327, :420, `docs/host/README.md:316`, :318,
+`probe/CAPABILITY.md:115-119`, `formers/tcc-evm-contract.md:92`, and
+`docs/STATUS.md:27` and :41. Line counts stay, except at the end of
+`SPEC.md` (section 10, +6 lines) and here: no cite moved. Kept as records: `docs/PLAN.md:494` (O47), :497 (the O48
+history), :540 (S6), :583 (O78) and the gate lines of `## S5` to `## S7`.
+The open list after S8 is the `SPEC.md` section 10 status line.
+
+The S8 final gate `make -B check` is GREEN, every count at the 8.5
+baseline: examples 28, parse refusals 15, check refusals 85, evals 84,
+runs 6, run refusals 10, asmtool 8, builds 3, lower refusals 14, checks
+31, dispatch 20, evm steps 44, precompile 32 steps and 0 failures,
+deposit 26 assertions, deposit EVM 44 calls and 0 failures, runtime 17069
+bytes (R78 ceiling 18143, 1074 bytes under; EIP-170 24576, 7507 bytes
+free), mock 13 rows, diff 16 rows and 0 failures, emit 24, and every
+regressions line passed. The S8 mutants M12 to M14 are KILLED (above).

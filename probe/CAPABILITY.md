@@ -112,11 +112,11 @@ a check, a build or a run at N bids.
 
 The nearest data:
 
-- The deposit runtime code is 17103 bytes, 7473 bytes under the EIP-170
-  limit of 24576 bytes (O48, `docs/PLAN.md:497`, `docs/STATUS.md:527-529`).
+- The deposit runtime code is 17069 bytes, 7507 bytes under the EIP-170
+  limit of 24576 bytes (O48, `docs/PLAN.md:497`, `docs/STATUS.md:588-590`).
 - The lowertool arena is 32 MiB (`docs/STATUS.md:331`).
-- The deposit EVM chain does 41 calls with 0 failures
-  (`docs/STATUS.md:245`). The deposit call script has 23 calls
+- The deposit EVM chain does 44 calls with 0 failures
+  (`docs/STATUS.md:588`). The deposit call script has 23 calls
   (`docs/STATUS.md:283`).
 - The gas of each kit chain step (`docs/host/CAPABILITY.md:31-48`,
   measured 2026-10-10 at LT 382e224): for example, a deposit with one pull
