@@ -652,3 +652,37 @@ refusals 10, asmtool 8, builds 3, lower refusals 14, checks 31, dispatch
 assertions, deposit EVM 44 calls and 0 failures, runtime 17069 bytes
 (R89, 7507 bytes free), mock 13 rows, diff 16 rows and 0 failures, emit
 24, and every regressions line passed. No mutant (docs only).
+
+9.3 (R86 (a), a Nat-indexed family):
+
+- `domain/domain.lang:217-220`: the kit family `family Lot (size : Nat)
+  := makeLot (lotPrice : Nat)` and its comment, at the end of the file,
+  thus no cite of the file moves.
+- Probe 1: the checker compares the index. `langc check` of `def bad :
+  Lot 3 := makeLot 4 250` gives `TYPE_MISMATCH` ("expected a term of type
+  Lot 3, found a term of type Lot 4"). The compare site is the argument
+  loop of `conv_loop` (`src/front/eval.c:2470-2481`).
+- Probe 2: no. `check` refuses a state field of the type `Lot 3`
+  (`REFUSE_STATE`), and `src/lower.c:195-196` takes only the env, state
+  and out families of an entry. F15 stays PARTIAL for EVM output. Builds
+  stay 3.
+- `examples/lot.lang` (from the kit `examples/inventory.lang:9-10`), the
+  eval row `lot lotCost => 250` and the check refusal row `lot-index.lang
+  TYPE_MISMATCH`. The kit fronttool row (kit `test/fronttool.c:36-39`) is
+  at `test/fronttool.c:100-103` since beae7ec: no edit.
+- Docs: `formers/FORMERS.md:300` (F15 at its 9.3 state), `docs/PLAN.md`
+  O80 and O86 (line counts kept). `SPEC.md` and `docs/VALIDATION.md` do
+  not change.
+- Mutant M15 at `src/front/eval.c:2474`: `if (a->argc == 0 || val_is(a,
+  OP_FAMILY)) return 1;` (two family types with the same head are equal,
+  thus the checker ignores the index). The check refusal row
+  `lot-index.lang` kills it: "want exit 1 and TYPE_MISMATCH, got exit 0".
+  Restored: `git diff --stat src/` is empty, as before the mutant.
+
+The 9.3 gate `make -B check` is GREEN: examples 29, check refusals 86,
+evals 85, and each other count at the 9.1 baseline: parse refusals 15,
+runs 6, run refusals 10, asmtool 8, builds 3, lower refusals 14, checks
+31, dispatch 20, evm steps 44, precompile 32 steps and 0 failures,
+deposit 26 assertions, deposit EVM 44 calls and 0 failures, runtime 17069
+bytes (R89, no change), mock 13 rows, diff 16 rows and 0 failures, emit
+24, and every regressions line passed.

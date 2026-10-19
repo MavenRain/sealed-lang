@@ -1,0 +1,5 @@
+-- A Nat-indexed family (former F15, S9 R86 (a)), from the kit
+-- examples/inventory.lang: Lot 3 is a lot of size 3. The constructor takes
+-- the index first.
+def lot : Lot 3 := makeLot 3 250
+def lotCost : Nat := lotPrice lot

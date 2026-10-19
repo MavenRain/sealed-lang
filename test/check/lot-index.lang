@@ -1,0 +1,2 @@
+-- An index mismatch (S9 R86 (a)): makeLot 4 250 has the type Lot 4, not Lot 3.
+def bad : Lot 3 := makeLot 4 250

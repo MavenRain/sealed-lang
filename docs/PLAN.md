@@ -595,9 +595,9 @@ names the S8 step that builds it:
   `hosts/tcc-evm-anchor/test/evmchain.sh:49`;
   `hosts/tcc-js/test/gate.sh:162`; `hosts/tcc-webgpu/test/gate.sh:201`.
   S8 does not edit the kit. RULED 2026-10-18. Built in step 8.1.
-- O80 (R80): F15 stays PARTIAL (`formers/FORMERS.md:300`): no family in
-  `domain/domain.lang` takes a Nat index. Docs only. RULED 2026-10-18.
-  Built in step 8.1.
+- O80 (R80): F15 stays PARTIAL (`formers/FORMERS.md:300`), docs only.
+  RULED 2026-10-18. Built in step 8.1. Step 9.3 (O86) adds a Nat-indexed
+  family; F15 stays PARTIAL for EVM output.
 - O81 (R81): the 6 stale cites of `docs/STATUS.md` `## S7` are fixed.
   Docs only. RULED 2026-10-18. Built in step 8.1.
 - O82 (R82): the S9 scope. S9 takes a Nat-indexed family (O86), the
@@ -615,10 +615,10 @@ names the S8 step that builds it:
 - O85 (R85): the 7 kit `od -v` lines of O79, as one lang-template step and
   one kit commit. sealed-lang does not change. No mutant. RULED
   2026-10-18, defaults (a). To build in step 9.2k.
-- O86 (R86): a Nat-indexed family (F15, O80): the kit shape `family Lot
-  (size : Nat)` in `domain/domain.lang`, one example, one eval row, one
-  check refusal row (an index mismatch) and one `test/fronttool.c` row.
-  Mutant M15. RULED 2026-10-18, defaults (a). To build in step 9.3.
+- O86 (R86): a Nat-indexed family (F15, O80): `family Lot (size : Nat)`
+  at the end of `domain/domain.lang`, `examples/lot.lang`, one eval row
+  and the check refusal row `lot-index.lang`. The fronttool row was there.
+  Mutant M15 KILLED. RULED 2026-10-18, defaults (a). Built in step 9.3.
 - O87 (R87): the eligibility circuit of the paper and a prover stay open.
   O50 and O58 stay PARTIAL. The circuit statement needs the paper text.
   The tools on this machine are circom and snarkjs (no gnark). A prover

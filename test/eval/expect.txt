@@ -82,3 +82,4 @@ protocol lemma11F2 => 1
 protocol lateCut => 1
 protocol slashedAbort => 1
 protocol ncCount => 1
+lot lotCost => 250

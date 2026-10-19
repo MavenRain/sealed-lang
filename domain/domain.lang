@@ -213,3 +213,8 @@ def verify : (vk : VerifyKey) -> (inputs : List U256) -> (proof : VerifyProof) -
             (cons (pair (second (second proof)) (second (first (second vk)))) nil)))))
         flagNo)
       flagNo
+
+-- A Nat-indexed family (former F15, S9 R86 (a)), the kit shape: Lot 3 is
+-- a lot of size 3. The constructor takes the index first: makeLot 3 250.
+-- It is at the end of the file, thus no cite of this file moves.
+family Lot (size : Nat) := makeLot (lotPrice : Nat)
