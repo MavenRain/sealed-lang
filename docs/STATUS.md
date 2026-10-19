@@ -574,3 +574,28 @@ and 43 calls, and `git diff` against the index was empty.
 | Mutant | Edit | Killer | Verdict |
 |---|---|---|---|
 | M12 no deposit check in `settle` | deposit.lang:261 `settle`: `flagIf flagNo` (no `amount` check) | deposit `testSettleNoDeposit` 0; deposit EVM `chain revert 20 "$other" settle`: want revert, got ok | KILLED |
+
+8.5: `eligible` takes cm and requires input 1 = cm, and `slashUsr` passes
+cm1 and cm2 (R75 (a), O75; `examples/deposit.lang:138-141`, :209-210).
+The slash key is re-based (:118-120, :131): IC0' = IC0 + 3 IC2 = 46 G1
+and IC2' = (0, 0), the point at infinity. `verify` accepts that key, thus
+R75 stays (a). The fixture proof is valid for the inputs (2, x) for each
+x. In `test/deposit.sh` the slashUsr ok row gives (2, 5) and (2, 6)
+(:141), and a reject row gives input 1 = 3 for cm1 = 5 (:139-140). The
+run script row (`test/run/deposit.script:29`, cm1 = cm2) and
+`test/run/deposit.out` did not change.
+
+The 8.5 gate `make -B check` is GREEN: deposit EVM 43 -> 44 calls and 0
+failures, runtime 17138 -> 17069 bytes (R78 ceiling 18143, 1074 bytes
+under; EIP-170 24576, 7507 bytes free), diff 16 rows and 0 failures (no
+content change), every other count at the 8.4 baseline. The stale lines
+of 8.4 above stay stale for the 8.6 close, which writes 17069, 26 and 44.
+
+M13 changed the repo file, then `make -B build` and `sh test/deposit.sh`.
+The mutant runtime was 17004. After the restore, `make -B` and `sh
+test/deposit.sh` gave 26 assertions and 44 calls, and `git diff` against
+the index was empty.
+
+| Mutant | Edit | Killer | Verdict |
+|---|---|---|---|
+| M13 no cm binding in `eligible` | deposit.lang:141 `eligible`: no `u256Eq i1 cm` compare | deposit EVM `chain revert 20 "$other" slashUsr` (input 1 = 3, cm1 = 5): want revert, got ok, and storage changed | KILLED |

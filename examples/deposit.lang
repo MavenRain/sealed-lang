@@ -115,9 +115,9 @@ def makeInactive : (env : Env) -> (s : State) -> (au : Addr) -> Option (Prod Sta
           none))
       none
 
--- The Groth16 key of the slash proofs: the synthetic R39 (a) fixture of examples/groth16.lang, with
--- 2 public inputs (a copy: a program cannot import another program, R40). Each G1 point is a
--- multiple of G1 = (1, 2), and each G2 point is G2. A deployment sets the key of the real circuit.
+-- The slash key: the synthetic R39 (a) key of examples/groth16.lang (2 inputs; a copy, R40), with
+-- IC0' = IC0 + 3 IC2 = 46 G1 and IC2' = (0, 0), the point at infinity (R75 (a)). Thus vk_x does not
+-- change with input 1. G1 = (1, 2) and each G2 point is G2. A deployment sets the real circuit key.
 def slashG1 : G1Point := pair 1u 2u
 def slashG2 : G2Point :=
   pair
@@ -128,17 +128,17 @@ def slashG2 : G2Point :=
 def slashKey : VerifyKey :=
   pair (pair (ecMul slashG1 5u) slashG2)
     (pair (pair slashG2 slashG2)
-      (cons (ecMul slashG1 7u) (cons (ecMul slashG1 11u) (cons (ecMul slashG1 13u) nil))))
+      (cons (ecMul slashG1 46u) (cons (ecMul slashG1 11u) (cons (pair 0u 0u) nil))))
 
 -- The proof (A, (B, C)) of 8 call words. A and C are G1 points. B is a G2 point in the EIP-197 order.
 def proofOf : (ax ay bxi bxr byi byr cx cy : U256) -> VerifyProof :=
   fun (ax ay bxi bxr byi byr cx cy : U256) =>
     pair (pair ax ay) (pair (pair (pair bxi bxr) (pair byi byr)) (pair cx cy))
 
--- flagYes when input 0 is the handle hu (R50 (a)) and the proof is valid for the 2 inputs.
-def eligible : (hu : U256) -> (p : VerifyProof) -> (i0 i1 : U256) -> Flag :=
-  fun (hu : U256) (p : VerifyProof) (i0 i1 : U256) =>
-    flagIf (u256Eq i0 hu) (verify slashKey (cons i0 (cons i1 nil)) p) flagNo
+-- flagYes when input 0 is the handle hu (R50 (a)), input 1 is cm (R75 (a)) and the proof is valid.
+def eligible : (hu cm : U256) -> (p : VerifyProof) -> (i0 i1 : U256) -> Flag :=
+  fun (hu cm : U256) (p : VerifyProof) (i0 i1 : U256) =>
+    flagIf (u256Eq i0 hu) (flagIf (u256Eq i1 cm) (verify slashKey (cons i0 (cons i1 nil)) p) flagNo) flagNo
 
 -- flagYes when the caller is the user au or a proposer.
 def byUserOrProposer : (env : Env) -> (s : State) -> (au : Addr) -> Flag :=
@@ -196,9 +196,9 @@ def updateActivity : (env : Env) -> (s : State) -> (au : Addr) -> (v : Nat) -> (
       none
 
 -- Entry: mark the handle hu as slashed. Two valid proofs with input 0 = hu (R50 (a)) and two
--- different commitments cm1 and cm2 show a double commit. Each proof is 8 words, then its 2 inputs:
--- 1 + 2 (1 + 8 + 2) = 23 words. Any caller (R44 (a)). The binding of cm to the proof is the circuit
--- of the paper, out of S5.
+-- different commitments cm1 and cm2, each input 1 of its proof (R75 (a)), show a double commit.
+-- Each proof is 8 words, then its 2 inputs: 1 + 2 (1 + 8 + 2) = 23 words. Any caller (R44 (a)). The
+-- circuit of the paper binds cm to the proof; the fixture key does not (O50).
 def slashUsr : (env : Env) -> (s : State) ->
   (hu cm1 a1x a1y b1xi b1xr b1yi b1yr c1x c1y i1a i1b cm2 a2x a2y b2xi b2xr b2yi b2yr c2x c2y i2a i2b : U256) ->
   Option (Prod State (List Out)) :=
@@ -206,8 +206,8 @@ def slashUsr : (env : Env) -> (s : State) ->
     (hu cm1 a1x a1y b1xi b1xr b1yi b1yr c1x c1y i1a i1b cm2 a2x a2y b2xi b2xr b2yi b2yr c2x c2y i2a i2b : U256) =>
     flagIf (u256Eq cm1 cm2)
       none
-      (flagIf (eligible hu (proofOf a1x a1y b1xi b1xr b1yi b1yr c1x c1y) i1a i1b)
-        (flagIf (eligible hu (proofOf a2x a2y b2xi b2xr b2yi b2yr c2x c2y) i2a i2b)
+      (flagIf (eligible hu cm1 (proofOf a1x a1y b1xi b1xr b1yi b1yr c1x c1y) i1a i1b)
+        (flagIf (eligible hu cm2 (proofOf a2x a2y b2xi b2xr b2yi b2yr c2x c2y) i2a i2b)
           (some (pair
             (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
               (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s) (amount s) (leaf s) (nextLeaf s)

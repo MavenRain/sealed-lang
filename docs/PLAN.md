@@ -453,7 +453,7 @@ existing program:
 - O39 (R39): the synthetic fixture is candidate 1 of the kickoff (section 3), with
   n = 2 distinct public inputs, so the input order is observable. The key,
   the inputs and the proof are constants in `examples/groth16.lang`;
-  `slashKey` in `examples/deposit.lang` is a copy of the key.
+  `slashKey` in `examples/deposit.lang` is a copy, re-based in S8 (O75).
 - O40 (R40): the tree library and the verifier library are guest defs in
   `domain/domain.lang` below Quot. `examples/merkle.lang`,
   `examples/groth16.lang` and `examples/deposit.lang` use them.
@@ -494,21 +494,21 @@ existing program:
   `test/deposit.sh` (41 calls).
 - O48 (R48): the runtime of `examples/deposit.lang` (`langc build
   --runtime`) was measured at each step: 11725 bytes at 4.4, 17020 at
-  4.5, 17119 at the S5 close, 17103 at 8.3, 17138 at 8.4 (EIP-170 24576,
-  7438 free; S8 ceiling 18143, R78). No limit stopped a step. `rootAt`
-  comes before `filled`: in the other order the build is EVM_SIZE (step 4.4).
+  4.5, 17119 at the S5 close, 17103 at 8.3, 17138 at 8.4, 17069 at 8.5
+  (EIP-170 24576, 7507 free; S8 ceiling 18143, R78). No limit stopped a
+  step. `rootAt` comes before `filled`: the other order is EVM_SIZE (4.4).
 - O49 (R49): `regAuction` covers at most 4 slots (`tend - tstart <= 3`):
   `aucRoom` and `aucCounts` check and increment 4 offsets, counted back
   from tend (`natSub tend k`, a USER row).
 - O50 (R50): the n public inputs of a proof are n words of the call after
-  the proof. `eligible` checks that input 0 equals hu. Neither cm is
-  passed to `eligible` or compared with its public inputs. In
-  `test/deposit.sh`, the same fixture proof with inputs (2, 3) is accepted
-  for cm1 = 5 and cm2 = 6. This exercises the verifier and slash path;
-  it does not establish two distinct proven commitments or real
-  eligibility. A real eligibility circuit and an entry check binding each
-  cm to its proof's public inputs are outside S5; replacing `slashKey`
-  alone does not add that binding. `slashUsr` takes 23 words: hu, then
+  the proof. `eligible` checks that input 0 equals hu and, since S8 step
+  8.5 (O75), that input 1 equals its cm. The slash key is re-based
+  (IC0' = IC0 + 3 IC2, IC2' = 0), thus in `test/deposit.sh` the fixture
+  proof is accepted with inputs (2, 5) for cm1 = 5 and (2, 6) for cm2 = 6,
+  and input 1 = 3 for cm1 = 5 reverts. The key does not bind input 1, thus
+  this does not establish two distinct proven commitments or real
+  eligibility. The eligibility circuit of the paper is open (PARTIAL); a
+  new `slashKey` alone does not add it. `slashUsr` takes 23 words: hu, then
   for each of the two commits a cm word, a proof (8 words) and its 2
   inputs.
 
@@ -571,7 +571,7 @@ names the S8 step that builds it:
   re-based fixture key (IC0' = IC0 + 3 IC2, IC2' = 0). One reject row;
   mutant M13 drops the input 1 compare. O50 stays PARTIAL: the circuit of
   the paper binds input 1, the key does not. If `verify` refuses the key,
-  the step goes to (b). RULED 2026-10-18. Step 8.5 builds it.
+  the step goes to (b). RULED 2026-10-18. Built in step 8.5.
 - O76 (R76): O57 is CLOSED (S8, R76). The paper keeps Algorithms 2 and 3
   off chain (`docs/PLAN.md:66-69`), and an entry needs a run-time Bag
   (O37), concrete verifiers, a real zk key and the registry. Docs only.

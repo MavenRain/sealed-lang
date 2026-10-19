@@ -105,8 +105,8 @@ r0=0x394512031ecf8c355f8ebf02dbfcf4881348761e76ebd7ef8b7bfb370eec1c8eu
 s0=0x544f61e1bc9827bdfb3430f2c8c7e3d58945c9cb7ef032b37748e9e8dc5420cfu
 r1=0x96e840dd75825d0ab1d6b53a507de4aa1e1768ff3babca6cae6e63ec654652edu
 s1=0x0a8e747b34fddf6101867498e56acce617fba425356b102330aecae58fdde119u
-# The fixture proof (A = 90 G1, B = G2, C = 17 G1) with the inputs (2, 3), after cm.
-proof='0x057a7f67bed912cdb1c7f282ada6406e09017f13b7a37385580e7bc079d63978u 0x0ea55197090bd4ed6176a05d1be5a6a1c21aacb5e2ea40a0573d1696221bd87eu 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2u 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6edu 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975bu 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daau 0x1c6a451060210f3baad93fe1631753751da9857edae0468e8e4bee7dd33cfb2cu 0x2331a64aa86c50d2d1e0237893ef7744a77228881ce73fcc2ad555a37d4ab405u 2u 3u'
+# The fixture proof (A = 90 G1, B = G2, C = 17 G1), after cm. Its 2 inputs (hu, cm) come after it.
+proof='0x057a7f67bed912cdb1c7f282ada6406e09017f13b7a37385580e7bc079d63978u 0x0ea55197090bd4ed6176a05d1be5a6a1c21aacb5e2ea40a0573d1696221bd87eu 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2u 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6edu 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975bu 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daau 0x1c6a451060210f3baad93fe1631753751da9857edae0468e8e4bee7dd33cfb2cu 0x2331a64aa86c50d2d1e0237893ef7744a77228881ce73fcc2ad555a37d4ab405u'
 prog=examples/deposit.lang
 if ! deploy "$prog"; then
   echo 'FAIL deposit EVM lifecycle deployment'
@@ -136,7 +136,9 @@ else
   chain ok 20 "$proposer" regAuction 9u 1 1
   chain revert 20 "$other" settle 0u 50u
   chain revert 20 "$other" slash "$signer" 2u 28 "$r0" "$s0"
-  chain ok 20 "$other" slashUsr 2u 5u $proof 6u $proof
+  # The key accepts the proof for (2, x) for each x. Input 1 = 3, not cm1 = 5: revert (R75 (a)).
+  chain revert 20 "$other" slashUsr 2u 5u $proof 2u 3u 6u $proof 2u 6u
+  chain ok 20 "$other" slashUsr 2u 5u $proof 2u 5u 6u $proof 2u 6u
   chain 'out 1' 20 "$other" isSlashed 2u
   chain ok 20 "$other" slash "$signer" 2u 28 "$r0" "$s0"
   chain 'out 0' 20 "$other" depositOf "$signer"

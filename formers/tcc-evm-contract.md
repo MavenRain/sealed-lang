@@ -97,10 +97,10 @@ successful signed or proof call (USER ruling, O47): the chain rows of
 only: runs 5 -> 6, diff 15 -> 16. Mutants M1 to M9 and M9b of S5 are in
 `docs/STATUS.md`: 9 of 9 killed, and M9b killed.
 
-The deposit example uses the synthetic R39 key. `slashUsr` accepts the
-same proof with inputs (2, 3) for unequal cm words 5 and 6: neither cm
-is bound to the proof inputs, and replacing the key alone does not add
-that binding (O50). `settle` accepts a caller with a deposit (R73, 8.4) and
+The deposit example uses the synthetic R39 key with IC2 = 0 (8.5).
+`slashUsr` requires input 1 of each proof = its cm (R75): the proof is
+valid with inputs (2, 5) and (2, 6) for cm 5 and 6. The key does not
+bind cm, the circuit does (O50). `settle` accepts a caller with a deposit (R73, 8.4) and
 a price after the end. S6 adds off-chain bid validation and pool insertion
 (`processBid`) and winner selection (`bagMax`), without connecting them
 to `settle` (O7/O44). S8 closes O46 (R74): `pull` credits `self env`
