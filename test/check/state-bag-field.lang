@@ -1,0 +1,2 @@
+-- REFUSE_STATE: a Bag Nat state field (O84, R95): a recursive family with three constructors.
+state State := makeState (held : Bag Nat)

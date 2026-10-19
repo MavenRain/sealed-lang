@@ -2654,8 +2654,60 @@ static int first_order(const Value *t) {
   return 1;
 }
 
+/* A closed index of a family state field (S10 R95 (a)): a literal, or a
+   canonical value with closed arguments. A neutral value is not closed. */
+static int closed_index(const Value *v) {
+  uint32_t i;
+  if (v == NULL)
+    return 0;
+  if (v->kind == VAL_NAT || v->kind == VAL_WORD)
+    return 1;
+  if (v->kind != VAL_OP)
+    return 0;
+  for (i = 0; i < v->argc; i++) {
+    if (!closed_index(v->args[i]))
+      return 0;
+  }
+  return 1;
+}
+
+/* A family state field (S10 R95 (a)): a family with one constructor, closed
+   indices and word fields (Nat, Flag, U256, Addr). A recursive, dependent or
+   path field, or an interval variable, refuses the family. The lowering
+   stores the k fields at k consecutive slots and drops the indices. */
+static int state_family(Machine *m, const Value *t) {
+  const FamilyInfo *f;
+  const CtorInfo *ci;
+  const Env *env = NULL;
+  uint32_t j;
+  if (!val_is(t, OP_FAMILY) || t->inst >= m->family_count)
+    return 0;
+  f = &m->families[t->inst];
+  ci = &m->ctors[f->first_ctor];
+  if (f->ctor_count != 1u || ci->interval_count != 0u || t->argc != f->param_count)
+    return 0;
+  for (j = 0; j < t->argc; j++) {
+    env = closed_index(t->args[j]) ? env_push(m, env, t->args[j]) : NULL;
+    if (env == NULL)
+      return 0;
+  }
+  for (j = 0; j < ci->field_count; j++) {
+    const FieldInfo *field = &ci->fields[j];
+    int plain = !field->recursive && !field->over_recursive && !field->dependent && !field->path;
+    const Value *ft = plain ? eval_core(m, env, field->type) : NULL;
+    if (ft == NULL || ft->kind != VAL_OP || (ft->op != OP_NAT && ft->op != OP_FLAG && ft->op != OP_U256 && ft->op != OP_ADDR))
+      return 0;
+    /* The binder of the field: never read, the dependent fields are refused. */
+    env = env_push(m, env, val_var(m, 0));
+    if (env == NULL)
+      return 0;
+  }
+  return 1;
+}
+
 /* The state form (slice K3a): one `state State` with no parameters, one
-   constructor and first-order fields. A history field is a Nat or a U256. */
+   constructor and first-order, Map or family (R95) fields. A history field is
+   a Nat or a U256. */
 static int check_state(Checker *c, const Decl *d) {
   Machine *m = c->m;
   CtorInfo *ci;
@@ -2678,8 +2730,8 @@ static int check_state(Checker *c, const Decl *d) {
     const Value *t = eval_core(m, env, ci->fields[j].type);
     if (t == NULL)
       return 0;
-    if (!first_order(t) && !val_is(t, OP_KMAP))
-      return FAIL(c, "REFUSE_STATE", "the state field %s must have a first-order type: Nat, Flag, U256, Addr, Option, Prod or List of them, or a Map K V", ci->fields[j].name);
+    if (!first_order(t) && !val_is(t, OP_KMAP) && !state_family(m, t))
+      return FAIL(c, "REFUSE_STATE", "the state field %s must have a first-order type: Nat, Flag, U256, Addr, Option, Prod or List of them, a Map K V, or a family with one constructor, closed indices and word fields (R95)", ci->fields[j].name);
     if (ci->fields[j].history && t->op != OP_NAT && t->op != OP_U256)
       return FAIL(c, "REFUSE_STATE", "the history field %s must have the type Nat or U256", ci->fields[j].name);
     /* First-order state types are closed after normalization. Keep that

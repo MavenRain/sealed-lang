@@ -84,3 +84,4 @@ loop-not-refl.lang PATH_UIP
 trunc0-no-set.lang TYPE_MISMATCH
 squash0-not-rebuild.lang PATH_UIP
 lot-index.lang TYPE_MISMATCH
+state-bag-field.lang REFUSE_STATE

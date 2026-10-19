@@ -309,8 +309,120 @@ static int insert_regression(void) {
   return ok;
 }
 
+/* Check the storage addresses of entries against the deployed state layout. */
+static unsigned layout_address(const IrExpr *e, uint64_t counter) {
+  if (e == NULL) return 0;
+  if (e->kind == IR_EXPR_CONST)
+    return e->value == counter ? 1u : e->value == counter + 1u ? 2u : 0u;
+  if (e->kind == IR_EXPR_BINARY && e->op == IR_OP_KECCAK && e->right != NULL
+      && e->right->kind == IR_EXPR_CONST && e->right->value == counter + 2u) return 8u;
+  if (e->kind == IR_EXPR_BINARY && e->op == IR_OP_WORD_ADD && e->left != NULL
+      && e->left->kind == IR_EXPR_WORD) {
+    Word slot, want;
+    word_u64(slot, counter + 1u);
+    word_hash(want, slot, NULL);
+    return memcmp(e->left->word, want, 32) == 0 ? 4u : 0u;
+  }
+  return 0;
+}
+
+static int layout_expr(const IrExpr *e, uint64_t counter, unsigned *loads) {
+  if (e == NULL) return 1;
+  if (e->kind == IR_EXPR_SLOAD) {
+    unsigned address = layout_address(e->left, counter);
+    *loads |= address;
+    if (address == 0) return 0;
+  }
+  return layout_expr(e->left, counter, loads) && layout_expr(e->right, counter, loads);
+}
+
+static int layout_block(IrBlock b, uint64_t counter, unsigned *loads, unsigned *stores) {
+  for (size_t i = 0; i < b.count; i++) {
+    const IrStmt *s = b.items[i];
+    if (s->kind == IR_STMT_SSTORE) {
+      unsigned address = layout_address(s->expr, counter);
+      *stores |= address;
+      if (address == 0) return 0;
+    }
+    if (!layout_expr(s->expr, counter, loads) || !layout_expr(s->value, counter, loads)
+        || !layout_block(s->body, counter, loads, stores)
+        || !layout_block(s->otherwise, counter, loads, stores)) return 0;
+  }
+  return 1;
+}
+
+static int layout_pair(const Pairs *p, const Word key, uint64_t value) {
+  Word want;
+  word_u64(want, value);
+  for (size_t i = 0; i < p->count; i++)
+    if (memcmp(p->at[i], key, 32) == 0)
+      return memcmp(p->at[i] + 32u, want, 32) == 0;
+  return 0;
+}
+
+static int layout_regression(const char *name, const char *domain, const char *type,
+                             const char *value, uint64_t fields) {
+  char source[4096];
+  snprintf(source, sizeof source,
+    "state State := makeState (guard : Nat) (held : %s) (counter : Nat) (items : List Nat) (books : Map Nat Nat)\n"
+    "def init : State := makeState 99 (%s) 7 (cons 5 nil) (mapSet mapEmpty 9 6)\n"
+    "def peek : Env -> State -> Nat := fun env s => counter s\n"
+    "def bump : Env -> State -> Option (Prod State (List Out)) := fun env s => "
+      "some (pair (makeState (guard s) (held s) (natAdd (counter s) 1) (items s) (books s)) nil)\n"
+    "def total : Env -> State -> Nat := fun env s => fold (fun x acc => natAdd x acc) 0 (items s)\n"
+    "def append : Env -> State -> Option (Prod State (List Out)) := fun env s => "
+      "some (pair (makeState (guard s) (held s) (counter s) (cons 8 (items s)) (books s)) nil)\n"
+    "def clear : Env -> State -> Option (Prod State (List Out)) := fun env s => "
+      "some (pair (makeState (guard s) (held s) (counter s) nil (books s)) nil)\n"
+    "def lookup : Env -> State -> Nat := fun env s => mapGet (books s) 9\n"
+    "def update : Env -> State -> Option (Prod State (List Out)) := fun env s => "
+      "some (pair (makeState (guard s) (held s) (counter s) (items s) (mapSet (books s) 9 10)) nil)\n",
+    type, value);
+  Arena arena;
+  Diag diag;
+  DeclList decls;
+  Machine machine;
+  IrProgram program = {NULL, 0};
+  Pairs pairs = {NULL, 0};
+  static const unsigned loads[] = {1, 1, 6, 2, 0, 8, 0};
+  static const unsigned stores[] = {0, 1, 0, 6, 2, 0, 8};
+  arena_init(&arena, (size_t)1 << 25);
+  diag_init(&diag);
+  int ok = front_load_domain(&arena, name, domain, source, strlen(source), &decls, &diag)
+    && check_program(&arena, &decls, &machine, &diag)
+    && lower_contract(&machine, &program, NULL, &pairs) == 0
+    && !diag.set && program.func_count == 7 && pairs.count == fields + 5u;
+  uint64_t counter = fields + 1u;
+  Word key, slot, at;
+  word_u64(key, counter);
+  ok = ok && layout_pair(&pairs, key, 7);
+  word_u64(slot, counter + 1u);
+  word_hash(at, slot, NULL);
+  ok = ok && layout_pair(&pairs, slot, 1) && layout_pair(&pairs, at, 5);
+  word_u64(key, 9);
+  word_u64(slot, counter + 2u);
+  word_hash(at, key, slot);
+  ok = ok && layout_pair(&pairs, at, 6);
+  for (size_t i = 0; ok && i < program.func_count; i++) {
+    unsigned read = 0, written = 0;
+    ok = layout_block(program.funcs[i].body, counter, &read, &written)
+      && read == loads[i] && written == stores[i];
+  }
+  if (!ok) {
+    fprintf(stderr, "FAIL state layout %s (functions %zu, pairs %zu)\n", name, program.func_count, pairs.count);
+    if (diag.set) diag_print(&diag, stderr);
+  }
+  arena_release(&arena);
+  return ok;
+}
+
 int main(void) {
   int ok = 1;
+  ok &= layout_regression("env-before-fields", "", "Env",
+    "makeEnv 11 0x00000000000000000000000000000000000000aa 0x00000000000000000000000000000000000000bb", 3);
+  ok &= layout_regression("empty-before-fields", "family Empty := empty\n", "Empty", "empty", 0);
+  ok &= layout_regression("indexed-before-fields", "family Wide (n : Nat) := wide (lo : Nat) (hi : U256)\n",
+    "Wide 3", "wide 3 11 22u", 2);
   const char *head = "fun (x : U256) (acc : U256) => x";
   const char *sum = "fun (x : U256) (acc : U256) => u256Add x acc";
   ok &= fold_regression("discard-precompile-seed-failure", head,

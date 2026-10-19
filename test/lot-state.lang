@@ -1,0 +1,8 @@
+-- A Lot n state field (S10 step 10.2, R95 (a), F15 EVM output): the state
+-- holds a Lot 3, the Nat-indexed family of domain/domain.lang. The build
+-- stores the init value at slots 0 to 2: owner, then lotPrice (one slot for
+-- each field of makeLot; the index 3 is in the type and is not stored), then
+-- count. Step 10.3 adds the entries that read lotPrice and store a new makeLot.
+state State := makeState (owner : Addr) (lots : Lot 3) (count : Nat)
+
+def init : State := makeState 0x00000000000000000000000000000000000000aa (makeLot 3 250) 7

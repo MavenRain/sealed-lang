@@ -104,6 +104,27 @@ status=0
 build/langc build test/bag.lang >/dev/null 2>"$tmp/err" || status=$?
 expect 'bag exit' 0 "$status"
 
+# test/lot-state.lang (S10 step 10.2, R95 (a)): a Lot 3 state field builds.
+# The init value makeLot 3 250 stores lotPrice at slot 1, one slot for each
+# constructor field; the index 3 is in the type and is not stored. One check:
+# the exit status, then the storage rows when they differ from the want rows.
+status=0
+: >"$tmp/want.rows"
+put "$(pad 0)" "$(word 0x00000000000000000000000000000000000000aa)"
+put "$(pad 1)" "$(word 250)"
+put "$(pad 2)" "$(word 7)"
+hex=$(build/langc build test/lot-state.lang 2>"$tmp/err") || status=$?
+evm run --create --dump --code "$hex" 2>/dev/null >"$tmp/dump" || status=$?
+awk -F'"' 'NF >= 5 && length($2) == 66 && substr($2, 1, 2) == "0x" { print substr($2, 3), $4 }' "$tmp/dump" >"$tmp/rows"
+: >"$tmp/got"
+while read -r key value; do
+  echo "$key $(hexnorm "$value")" >>"$tmp/got"
+done <"$tmp/rows"
+sort "$tmp/want.rows" >"$tmp/want.sorted"
+sort "$tmp/got" >"$tmp/got.sorted"
+cmp -s "$tmp/want.sorted" "$tmp/got.sorted" || status="$status, storage $(tr '\n' ';' <"$tmp/got.sorted")"
+expect 'lot-state build' 0 "$status"
+
 # `-o OUT` writes the bytes of stdout. A refused build keeps an existing OUT
 # and makes no new OUT.
 build/langc build examples/storage.lang >"$tmp/ref.hex"

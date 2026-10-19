@@ -797,3 +797,83 @@ diff 16 rows and 0 failures, emit 24, and every regressions line passed.
 
 The staged review adds `probe/*.md` to O98's audit scope after finding
 four PLAN citations there that also need the 3-line move.
+
+10.2 (R95 (a) part 1: the checker case and the lowering form of the
+`Lot n` state field; 2026-10-19, sessions s3 and s3b):
+
+- `git diff --stat` against 58c13ca: 6 files, 125 insertions, 10
+  deletions: `src/front/check.c` 58, `src/lower.c` 45, `test/build.sh`
+  21, `test/check/expect.txt` 1, `test/check/state-bag-field.lang` 2
+  (new), `test/lot-state.lang` 8 (new).
+- The checker case, `src/front/check.c` (3202 to 3254 lines): the new
+  helpers `closed_index` (:2657-2671) and `state_family` (:2673-2707)
+  before `check_state`. A state field may have the type of a family with
+  one constructor, no interval variable, closed indices (a literal or a
+  canonical value with closed arguments) and word fields (Nat, Flag,
+  U256, Addr). A recursive, dependent or path field refuses the family.
+  The REFUSE_STATE site moves from :2681 to :2733 and its text ends "a
+  Map K V, or a family with one constructor, closed indices and word
+  fields (R95)".
+- The lowering form, `src/lower.c` (1228 to 1259 lines): `Form` gains
+  FORM_FAMILY (:29) and `form_of` (:35) returns it for a family type;
+  the new `field_width` (:153-157) gives k slots to a family field with
+  k constructor fields; the new `lower_family_field` (:159-172) stores
+  the k constructor fields of the `init` value at k consecutive slots
+  and drops the index arguments; `lower_state` (:175-188) walks a
+  running slot. The K4a refusal (:1168-1171, old :1137-1140) admits
+  families through `form_of`; its text adds "and families of words
+  (R95)". The projection load and the constructor store are step 10.3.
+- Rows: `test/check/state-bag-field.lang` (`held : Bag Nat`, a recursive
+  family with three constructors) with the row `state-bag-field.lang
+  REFUSE_STATE` in `test/check/expect.txt` (86 to 87 rows);
+  `test/lot-state.lang` (`lots : Lot 3` between `owner` and `count`,
+  `init := makeState 0x..aa (makeLot 3 250) 7`); one `expect` in
+  `test/build.sh` ("lot-state build": exit 0 and the storage rows slot 0
+  = 0x..aa, slot 1 = 250, slot 2 = 7, no slot holds the index 3). Counts:
+  checks 32 to 33, builds stay 3.
+- Deviation from the O95 text: `test/lot-state.lang` has no entry yet.
+  `langc build` lowers every entry, and the load and the store of a
+  family field are step 10.3, so an entry that touches `lots` would turn
+  the build row into a refusal. Step 10.3 adds the two entries.
+- The O95 cites in `docs/PLAN.md` :686-688 move in place (`check.c:2681`
+  to :2733; `lower.c:27` to :29, :33 to :35, :151-157 to :175-188,
+  :1137-1140 to :1168-1171). The other cites of `check.c` and `lower.c`
+  lines (`SPEC.md`, `formers/`, this file, `docs/host/README.md`,
+  `probe/CAPABILITY.md`) wait for the 10.4 audit (R98); the shift is +52
+  for a `check.c` line at or above the old 2657, and for `lower.c` +31
+  at or above the old 1120, +24 at or above the old 150, +2 at or above
+  the old 27.
+- Mutant M17 (the checker accepts any family: `state_family` returns
+  `val_is(t, OP_FAMILY)` first): `langc check
+  test/check/state-bag-field.lang` exits 0, so the row
+  `state-bag-field.lang REFUSE_STATE` FAILS. KILLED by
+  `state-bag-field.lang`. The line is restored; the restored row exits 1
+  with REFUSE_STATE. The deposit runtime is 17069 bytes (R96). `SPEC.md`
+  and `docs/VALIDATION.md` do not change.
+
+The 10.2 gate `make -B check` is GREEN: examples 29, parse refusals 15,
+check refusals 87, evals 85, runs 6, run refusals 10, asmtool 8, builds
+3, lower refusals 14, checks 33, dispatch 20, evm steps 45, precompile
+32 steps and 0 failures, deposit 26 assertions, deposit EVM 44 calls and
+0 failures, runtime 17069 bytes (R96), mock 13 rows, diff 16 rows and 0
+failures, emit 24, and every regressions line passed.
+
+10.2 staged review (2026-10-19):
+
+- HIGH: the initializer advanced by each family field's width, while entry
+  reads and writes still used field numbers as storage slots. For the
+  regression with `guard`, `held : Env` and `counter`, the counter is at
+  slot 4. The old `bump` read and overwrote slot 2 (the stored caller)
+  instead, leaving the counter at 7. Lists and Maps after a family also
+  used the wrong length slot and hash seed.
+- `src/lower.c:453` adds `slot_of`, used by word reads and writes, List
+  folds, List writes and Map reads and writes. Family projections and
+  constructor writes remain the work of step 10.3.
+- Three C regressions in `test/lowertool.c` cover a stored Env, an empty
+  family and an indexed two-field family. They check deployed storage and
+  runtime addresses for views, word updates, List folds, List appends,
+  List clears and Map access. All three fail against the original staged
+  lowering and pass with the fix. No CI checks were weakened.
+- The reviewed `make -B check` passes in an isolated copy of the complete
+  worktree, including the new C regressions. Deposit runtime remains
+  17069 bytes (R96). The O95 lowering refusal citation moves by 8 lines.

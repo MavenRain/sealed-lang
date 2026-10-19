@@ -5,8 +5,10 @@
    is the reference: `init` is a closed term, so the build stores its normal
    form.
 
-   The storage layout: field i of the state is at slot i. A word field (Nat,
-   Flag, U256, Addr) is one word in its slot. A List of words has its length
+   The storage layout: field i of the state is at slot i, or after the slots of
+   the earlier fields when a family field (R95) takes one slot for each of its
+   constructor fields. A word field (Nat, Flag, U256, Addr) is one word in its
+   slot. A List of words has its length
    n at slot s and element j at keccak256(s) + (n-1-j), thus the head is the
    last word and a cons writes one new word (C-c9-1). A Map of words has the
    value at key k at keccak256(k . s), with k and s each as a 32-byte word.
@@ -23,8 +25,8 @@
 
 typedef unsigned char Word[32];
 
-/* The storage form of a state field. */
-typedef enum { FORM_WORD, FORM_LIST, FORM_MAP, FORM_NONE } Form;
+/* The storage form of a state field. FORM_FAMILY (S10 R95 (a)): a family with one constructor and word fields. */
+typedef enum { FORM_WORD, FORM_LIST, FORM_MAP, FORM_FAMILY, FORM_NONE } Form;
 
 static int is_word_type(const Value *t) {
   return val_is(t, OP_NAT) || val_is(t, OP_FLAG) || val_is(t, OP_U256) || val_is(t, OP_ADDR);
@@ -34,6 +36,7 @@ static Form form_of(const Value *t) {
   if (is_word_type(t)) return FORM_WORD;
   if (val_is(t, OP_LIST) && t->argc == 1 && is_word_type(t->args[0])) return FORM_LIST;
   if (val_is(t, OP_KMAP) && t->argc == 2 && is_word_type(t->args[0]) && is_word_type(t->args[1])) return FORM_MAP;
+  if (val_is(t, OP_FAMILY)) return FORM_FAMILY; /* admitted by check_state (R95) */
   return FORM_NONE;
 }
 
@@ -147,12 +150,40 @@ static const Value *field_type(Machine *m, const CtorInfo *ci, uint32_t i) {
   return eval_core(m, NULL, ci->fields[i].type);
 }
 
+/* The slots of a field of the type T (S10 R95 (a)): a family field takes one
+   slot for each constructor field; each other form takes one slot. */
+static uint64_t field_width(const Machine *m, const Value *t) {
+  return form_of(t) == FORM_FAMILY ? m->ctors[m->families[t->inst].first_ctor].field_count : 1u;
+}
+
+/* Adds the pairs of a family field of the type T at SLOT with the value V: the
+   k constructor fields at k consecutive slots; the index arguments are
+   dropped. Returns 1, or 0 when V is not a closed constructor value of T. */
+static int lower_family_field(const Machine *m, Pairs *p, uint64_t slot, const Value *t, const Value *v) {
+  const FamilyInfo *f = &m->families[t->inst];
+  const CtorInfo *ci = &m->ctors[f->first_ctor];
+  Word at, value;
+  if (!val_is(v, OP_CTOR) || v->inst != f->first_ctor || v->argc != f->param_count + ci->field_count) return 0;
+  for (uint32_t j = 0; j < ci->field_count; j++) {
+    if (!word_of(v->args[f->param_count + j], value)) return 0;
+    word_u64(at, slot + j);
+    pair_add(p, at, value);
+  }
+  return 1;
+}
+
 /* Walks the fields of STATE into P. Returns 1, or 0 after a diagnostic. */
 static int lower_state(Machine *m, const CtorInfo *ci, const Value *state, Pairs *p) {
-  for (uint32_t i = 0; i < ci->field_count; i++)
-    if (!lower_field(p, i, form_of(field_type(m, ci, i)), state->args[i]))
+  uint64_t slot = 0;
+  for (uint32_t i = 0; i < ci->field_count; i++) {
+    const Value *t = field_type(m, ci, i);
+    int ok = form_of(t) == FORM_FAMILY ? lower_family_field(m, p, slot, t, state->args[i])
+                                       : lower_field(p, slot, form_of(t), state->args[i]);
+    if (!ok)
       return diag_fail(m->diag, "REFUSE_LOWER", ci->fields[i].name,
                        "the init value of the field is not a closed value (a trap)");
+    slot += field_width(m, t);
+  }
   return 1;
 }
 
@@ -418,6 +449,14 @@ static int form_at(Low *l, uint32_t field) {
   return field < l->state->field_count ? (int)form_of(field_type(l->m, l->state, field)) : (int)FORM_NONE;
 }
 
+/* A state projection names a field; storage uses the widths of prior fields. */
+static uint64_t slot_of(Low *l, uint32_t field) {
+  uint64_t slot = 0;
+  for (uint32_t i = 0; i < field; i++)
+    slot += field_width(l->m, field_type(l->m, l->state, i));
+  return slot;
+}
+
 static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v);
 
 /* B gets LOCAL := E. */
@@ -435,7 +474,7 @@ static const IrExpr *list_base(Low *l, uint32_t field) {
   IrExpr *base = new_expr(l, IR_EXPR_WORD);
   unsigned char *w = base != NULL ? low_alloc(l, sizeof(Word)) : NULL;
   if (w == NULL) return NULL;
-  word_u64(slot, field);
+  word_u64(slot, slot_of(l, field));
   word_hash(w, slot, NULL);
   base->word = w;
   return base;
@@ -525,7 +564,7 @@ static const IrExpr *lower_fold(Low *l, Stmts *b, const Value *v, uint32_t field
   IrStmt *s = new_stmt(l, IR_STMT_REPEAT);
   if (s == NULL) return NULL;
   s->counter = l->locals++;
-  s->expr = ir_sload(l, ir_const(l, field));
+  s->expr = ir_sload(l, ir_const(l, slot_of(l, field)));
   s->body = block_of(&body);
   return push(l, b, s) ? ir_local(l, acc) : NULL;
 }
@@ -815,7 +854,7 @@ static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
     return e;
   }
   if (v != NULL && v->kind == VAL_VAR && v->nat >= 2u) return ir_local(l, (uint32_t)v->nat - 2u);
-  if (field_of(v, 1u, &f) && form_at(l, f) == FORM_WORD) return ir_sload(l, ir_const(l, f));
+  if (field_of(v, 1u, &f) && form_at(l, f) == FORM_WORD) return ir_sload(l, ir_const(l, slot_of(l, f)));
   if (field_of(v, 0u, &f) && l->env != NULL && f < l->env->field_count) {
     const char *name = l->env->fields[f].name;
     IrExpr *e = strcmp(name, "now") == 0 || strcmp(name, "caller") == 0 || strcmp(name, "self") == 0 ? new_expr(l, IR_EXPR_ENV) : NULL;
@@ -829,7 +868,7 @@ static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
     return ir_load(l, lower_curve(l, b, v->args[0]), (uint32_t)is_op(v, OP_SECOND));
   if (is_op(v, OP_KMAP_GET) && v->argc == 3 && field_of(v->args[1], 1u, &f) && form_at(l, f) == FORM_MAP) {
     const IrExpr *key = lower_expr(l, b, v->args[2]);
-    return ir_sload(l, ir_binary(l, IR_OP_KECCAK, key, key != NULL ? ir_const(l, f) : NULL));
+    return ir_sload(l, ir_binary(l, IR_OP_KECCAK, key, key != NULL ? ir_const(l, slot_of(l, f)) : NULL));
   }
   if (is_op(v, OP_FLAG_IF) && v->argc == 3) return lower_if_value(l, b, v);
   if (is_op(v, OP_FOLD_LIST) && v->argc == 3 && field_of(v->args[2], 1u, &f) && form_at(l, f) == FORM_LIST)
@@ -860,7 +899,7 @@ static int lower_map_writes(Low *l, Stmts *b, Stmts *stores, const Value *v, uin
   if (!lower_map_writes(l, b, stores, v->args[1], field)) return 0;
   const IrExpr *key = ir_set(l, b, lower_expr(l, b, v->args[2]));
   const IrExpr *value = key != NULL ? ir_set(l, b, lower_expr(l, b, v->args[3])) : NULL;
-  return value != NULL && push_store(l, stores, ir_binary(l, IR_OP_KECCAK, key, ir_const(l, field)), value);
+  return value != NULL && push_store(l, stores, ir_binary(l, IR_OP_KECCAK, key, ir_const(l, slot_of(l, field))), value);
 }
 
 /* 1 when V is a chain of cons that ends at the old List FIELD. */
@@ -890,13 +929,13 @@ static int lower_list_writes(Low *l, Stmts *b, Stmts *stores, const Value *v, ui
    value, not the tail of the chain (O-c11-1). */
 static int lower_list_write(Low *l, Stmts *b, Stmts *stores, const Value *v, uint32_t field) {
   uint64_t count = 0;
-  if (val_is(v, OP_NIL)) return push_store(l, stores, ir_const(l, field), ir_const(l, 0));
+  if (val_is(v, OP_NIL)) return push_store(l, stores, ir_const(l, slot_of(l, field)), ir_const(l, 0));
   if (!is_list_chain(v, field))
     return refuse(l, v, "as a List field value (want cons over the old field, or nil)");
   const IrExpr *base = list_base(l, field);
-  const IrExpr *n = base != NULL ? ir_set(l, b, ir_sload(l, ir_const(l, field))) : NULL;
+  const IrExpr *n = base != NULL ? ir_set(l, b, ir_sload(l, ir_const(l, slot_of(l, field)))) : NULL;
   if (n == NULL || !lower_list_writes(l, b, stores, v, field, base, n, &count)) return 0;
-  return push_store(l, stores, ir_const(l, field), ir_binary(l, IR_OP_ADD64, n, ir_const(l, count)));
+  return push_store(l, stores, ir_const(l, slot_of(l, field)), ir_binary(l, IR_OP_ADD64, n, ir_const(l, count)));
 }
 
 static int push_all(Low *l, Stmts *b, const Stmts *from) {
@@ -919,7 +958,7 @@ static int lower_state_write(Low *l, Stmts *b, const Stmts *fx, const Value *st)
     if (field_of(v, 1u, &f) && f == i) continue;
     if (form == FORM_WORD) {
       const IrExpr *value = ir_set(l, b, lower_expr(l, b, v));
-      if (value == NULL || !push_store(l, &stores, ir_const(l, i), value)) return 0;
+      if (value == NULL || !push_store(l, &stores, ir_const(l, slot_of(l, i)), value)) return 0;
     } else if (form == FORM_MAP) {
       if (!lower_map_writes(l, b, &stores, v, i)) return 0;
     } else if (form == FORM_LIST) {
@@ -1136,7 +1175,7 @@ static int lower_state_ctor(Machine *m, const CtorInfo **ci_out, uint32_t *init_
     if (t == NULL) return 1;
     if (form_of(t) == FORM_NONE)
       return diag_fail(m->diag, "REFUSE_LOWER", ci->fields[i].name,
-                       "K4a stores only words (Nat, Flag, U256, Addr), Lists of words and Maps of words; the field is %s",
+                       "K4a stores only words (Nat, Flag, U256, Addr), Lists of words, Maps of words and families of words (R95); the field is %s",
                        form_name(t)) + 1;
   }
   *ci_out = ci;
