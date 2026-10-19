@@ -590,11 +590,11 @@ names the S8 step that builds it:
 - O79 (R79): the `od -v` unit is closed in sealed-lang: its 4 copies
   (`test/evmchain.sh`, `test/dispatch.sh`, `test/mock.sh` and
   `test/diff.sh`) have `-v`. The 7 kit sites with `od -An -tx1` and no
-  `-v` stay a lang-template item: `hosts/tcc-evm-contract/test/`
+  `-v` were a lang-template item: `hosts/tcc-evm-contract/test/`
   `evmchain.sh:14`, `dispatch.sh:17`, `mock.sh:22` and `diff.sh:29`;
   `hosts/tcc-evm-anchor/test/evmchain.sh:49`;
   `hosts/tcc-js/test/gate.sh:162`; `hosts/tcc-webgpu/test/gate.sh:201`.
-  S8 does not edit the kit. RULED 2026-10-18. Built in step 8.1.
+  The kit commit 0ead0b7 (R85, step 9.2k) closes them. RULED 2026-10-18. Built in step 8.1.
 - O80 (R80): F15 stays PARTIAL (`formers/FORMERS.md:300`), docs only.
   RULED 2026-10-18. Built in step 8.1. Step 9.3 (O86) adds a Nat-indexed
   family; F15 stays PARTIAL for EVM output.
@@ -619,7 +619,7 @@ names the S8 step that builds it:
   evm row (`test/evm.sh`, `test/bag.script`). Mutant M16 KILLED.
 - O85 (R85): the 7 kit `od -v` lines of O79, as one lang-template step and
   one kit commit. sealed-lang does not change. No mutant. RULED
-  2026-10-18, defaults (a). To build in step 9.2k.
+  2026-10-18, defaults (a). DONE in step 9.2k: the kit commit 0ead0b7 ("Preserve repeated bytes in test hex encoding").
 - O86 (R86): a Nat-indexed family (F15, O80): `family Lot (size : Nat)`
   at the end of `domain/domain.lang`, `examples/lot.lang`, one eval row
   and the check refusal row `lot-index.lang`. The fronttool row was there.

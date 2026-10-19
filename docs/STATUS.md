@@ -3,15 +3,15 @@
 The build implements the kit milestones M0 to M3 (`SPEC.md` section 10).
 The slices S0 to S6 built the language, the deposit contract and the
 protocol layer. S7 wrote the docs and ran the final gate (`## S7`). S8
-fixed the S7 review items and closed (`## S8`). The sections above `## S2`
-give the summary of S0 to S6. The slice records give the details.
+fixed the S7 review items (`## S8`). S9 built the open list after S8 (`## S9`).
+The sections above `## S2` give the summary of S0 to S6; the slice records give the details.
 
 ## Implemented
 
 - The kit host tcc-evm-contract (S0, beae7ec): `langc check`, `eval`,
   `build` and `run` (`probe/CAPABILITY.md` section 1).
 - The type formers F1 to F14 are DONE, F7 in `check` and `eval` only. F15
-  is PARTIAL (`SPEC.md:83-97`).
+  is DONE in `check` and `eval` (S9 step 9.3), PARTIAL for EVM output (`SPEC.md:83-97`).
 - The base span (S2): the core types `Nat`, `Flag`, `U256` and `Addr`,
   and the operations `hash`, `natDiv`, `natMod`, `addrToU256`,
   `ecrecover`, `ecAdd`, `ecMul` and `ecPairing`. On the EVM, a curve
@@ -24,23 +24,23 @@ give the summary of S0 to S6. The slice records give the details.
 - The deposit contract (S5, Algorithm 1 of the paper):
   `examples/deposit.lang` with 9 entries and 10 views, the share rule, and
   the Merkle tree library and the Groth16 verifier as guest definitions.
-  The runtime code is 17069 bytes at the S8 close (`SPEC.md:244-250`).
-- The protocol layer (S6, Algorithms 2 and 3): the QIT `Bag`, `Bid`, the
-  four laws, the median, `processBid` and the property checks. They never
-  reach the EVM. `langc check` prints the axiom report (`SPEC.md:283-300`).
+  The runtime code is 17069 bytes at the S9 close (`SPEC.md:244-250`).
+- The protocol layer (S6, Algorithms 2 and 3): `Bag`, `Bid`, the four laws, the median, `processBid` and the property checks.
+  Since S9 step 9.4, local `Bag` folds that reduce to word code can reach the EVM (`test/bag.lang`); `processBid` stays off chain (R76).
+  Laws have no run-time value. `langc check` prints the axiom report (`SPEC.md:283-300`).
 
 ## Remaining work
 
-`SPEC.md:316-332` gives the items open at S7 and their state at the S8 close:
+`SPEC.md:316-332` gives the items open at S7 and their state at the S9 close:
 
-1. `settle` (O7, O44): PARTIAL; it refuses a caller with no deposit (8.4).
+1. `settle` (O7, O44): closed, not taken (9.1, R88); it refuses a caller with no deposit (8.4).
 2. `vault` (O46): closed in S8 step 8.3; `pull` credits `self env` (R74).
-3. The binding of each cm to its proof (O50, O58): PARTIAL; input 1 = cm (8.5).
+3. The binding of each cm to its proof (O50, O58): PARTIAL; input 1 = cm (8.5); the circuit stays open (R87).
 4. An entry that calls `processBid` (O57): closed as off chain only (R76).
 5. The R35 refactor of `rule_hcomp` (O35): done in S8 step 8.2 (R77).
-6. The EIP-170 budget (O48): 7507 bytes are free under 24576 at the S8 close.
-7. `od -v`: sealed-lang's 4 copies are fixed; 7 lang-template sites remain (R79).
-8. F15: only the domain file declares an indexed family (R1, O32).
+6. The EIP-170 budget (O48): 7507 bytes are free under 24576 at the S9 close (R89).
+7. `od -v`: sealed-lang's 4 copies are fixed (R79); the 7 kit sites too, kit commit 0ead0b7 (R85).
+8. F15: DONE in `check` and `eval` (`family Lot`, 9.3, R86); PARTIAL for EVM output (R80).
 
 ## Known limits
 
@@ -729,3 +729,34 @@ lower refusals 14, dispatch 20, precompile 32 steps and 0 failures,
 deposit 26 assertions, deposit EVM 44 calls and 0 failures, runtime 17069
 bytes (R89, no change), mock 13 rows, diff 16 rows and 0 failures, emit
 24, and every regressions line passed.
+
+9.5 (the S9 close, docs only; the USER committed 9.4 as 24c8090):
+
+- `SPEC.md`: section 9 at the S9 state (:97 the F15 row; :305 the status
+  line; :316 the list header; :321-322 O50 and O58, the circuit stays
+  open, R87 (a); :326-327 and :420 O48 at 17069 bytes, R89; :328-330 the
+  `od -v` unit, closed by the kit commit 0ead0b7, R85; :331-332 F15 DONE
+  in `check` and `eval`, PARTIAL for EVM output) and section 10 (:456-466
+  the status line: S9 closed, the open list after S9). 466 lines kept.
+- `docs/VALIDATION.md` :3-4 and :8-13: the S9 final gate header,
+  `build/langc` at 24c8090 (the 9.4 commit; 9.5 is docs only), the 9.4
+  counts, M15 and M16. 166 lines kept.
+- `docs/PLAN.md` O79 (:593, :597) and O85 (:622): the kit commit 0ead0b7
+  ("Preserve repeated bytes in test hex encoding", R85, step 9.2k). Line
+  counts kept.
+- This file: :5-7, :13-14, :27-30, :34-43 (the summary at the S9 state);
+  `docs/host/README.md:316` and `formers/tcc-evm-contract.md:92` (17069 bytes at the S9 close);
+  `formers/tcc-evm-contract.md:114,116` (the local Bag folds of step 9.4).
+  No cite moved. No code change. The kit does not change.
+- Open after S9 (recorded, not built): the eligibility circuit of the
+  paper and a prover (O50, O58 PARTIAL, R87 (a)); the EIP-170 budget
+  (O48: 17069 bytes, 7507 free, R89); F15 EVM output (no Bag or family
+  state field, R80). The paper text is not local.
+
+The S9 final gate `make -B check` is GREEN at the 9.4 baseline: examples
+29, parse refusals 15, check refusals 86, evals 85, runs 6, run refusals
+10, asmtool 8, builds 3, lower refusals 14, checks 32, dispatch 20, evm
+steps 45, precompile 32 steps and 0 failures, deposit 26 assertions,
+deposit EVM 44 calls and 0 failures, runtime 17069 bytes (R89), mock 13
+rows, diff 16 rows and 0 failures, emit 24, and every regressions line
+passed. S9 is closed.

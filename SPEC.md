@@ -94,7 +94,7 @@ table gives each former that has a deviation.
 | F12 | DONE as `Path` since S3 (:297) | Equality is the cubical `Path`: `refl`, `sym`, `trans`. There is no UIP. The EVM output erases a path. | O3 |
 | F13 | DONE as `Path` (:298) | Transport is `transp`. `cong` is a BUILTINS row. Both erase. | O3 |
 | F14 | DONE for `Type 0` and `Type 1` (:299) | There is no cumulativity. | none |
-| F15 | PARTIAL (:300) | Only `domain/domain.lang` declares an indexed family. A program `family` gives REFUSE_DATA. The matrix cell gives the EVM output as PLANNED. | R1, O32 |
+| F15 | PARTIAL (:300) | Only `domain/domain.lang` declares an indexed family (`family Lot (size : Nat)`, S9 step 9.3): DONE in `check` and `eval`. A program `family` gives REFUSE_DATA. EVM output: no family state field. | R1, O32, R86 |
 
 ## 4. Structures
 
@@ -302,7 +302,7 @@ that each of the four laws is true.
 ## 9. Open items
 
 Each item is one row of `docs/PLAN.md` section 8 (:275-643), with its
-status at S8: done in the slice that built it, closed (not taken), or
+status at S9: done in the slice that built it, closed (not taken), or
 open. O1 to O15 are the builder's calls, and the USER did not rule them
 (`docs/PLAN.md:18-19`). PLAN gives "RULED 2026-10-15" for O16 to O30
 (:358, :378) and "RULED 2026-10-16" for O31 to O50 (:406, :450). For O51
@@ -313,23 +313,23 @@ proof call (s7, O47) and `od -v` at the 4 kit `od` sites (s8, :451-453).
 "Probe-forced" marks an item that a host probe fact forced (sections 5
 and 7, `probe/CAPABILITY.md`).
 
-Open at S7, with the state of each at the S8 close (O7 and O44: S9 step 9.1):
+Open at S7, with the state of each at the S9 close (S8 closed O46, O57 and O35):
 
 - O7, O44: closed, not taken (S9 step 9.1, R88). `settle` refuses a caller with no deposit (S8 step 8.4, R73) and keeps its S8 form. The paper paraphrase keeps the bids and the winner selection off chain (`docs/PLAN.md:33-35`, :66-68, :310-311), thus winner selection from the sealed bids on chain is not taken (`docs/PLAN.md:475-477`, `docs/STATUS.md:396`).
 - O46: closed in S8 step 8.3 (R74): `pull` credits `self env`, `def vault`
   is gone (`docs/PLAN.md:486-489`, `formers/tcc-evm-contract.md:106-108`).
 - O50, O58: PARTIAL. `eligible` requires input 1 = cm (S8 step 8.5, R75);
-  the circuit binding stays open (R50, `docs/PLAN.md:512-514`, :544-545).
+  the circuit binding stays open at the S9 close (R50, R87 (a), `docs/PLAN.md:512-514`, :544-545).
 - O57: closed in S8 step 8.1 (R76): off chain, as in the paper
   (`docs/PLAN.md:578-581`).
 - O35: closed in S8 step 8.2 (R77): `rule_hcomp` uses the shared helpers (`docs/STATUS.md:513`).
 - O48: the R48 EIP-170 budget stays open. The deposit runtime code is 17069
-  bytes at the S8 close, 7507 bytes under 24576 (`docs/PLAN.md:500`).
+  bytes at the S9 close (R89, no change in S9), 7507 bytes under 24576 (`docs/PLAN.md:500`).
 - The lang-template `od -v` unit: closed in sealed-lang (its 4 copies
-  have `-v`); the 7 kit sites are in `docs/PLAN.md:590-597` (R79 (a)).
-  S8 does not edit the kit: the 7 kit lines stay open.
-- F15 PARTIAL: only the domain file declares an indexed family, and EVM
-  output is planned (`formers/FORMERS.md:300`, R1, O32, R80). No new O row.
+  have `-v`) and in the kit: the 7 kit sites of `docs/PLAN.md:590-597` (R79 (a))
+  have `-v` since the kit commit 0ead0b7 (R85, S9 step 9.2k).
+- F15: DONE in `check` and `eval` (`family Lot (size : Nat)`, S9 step 9.3, R86);
+  PARTIAL for EVM output, no Bag or family state field (`formers/FORMERS.md:300`, R80). No new O row.
 
 M11 is not open: the 7.1 row of `test/fronttool.c` kills it (R61 (a),
 bbe668d).
@@ -417,7 +417,7 @@ The items (PLAN line, status):
   `self env` (R74). Closed in step 8.3. RULED 2026-10-16.
 - O47 (:490). The deposit script row of `test/diff.sh`. Done in S5 (diff
   15 to 16). RULED 2026-10-16, and the USER ruling s7.
-- O48 (:498). The runtime code is 17069 bytes at the S8 close (17119 in S5). The EIP-170
+- O48 (:498). The runtime code is 17069 bytes at the S9 close (17119 in S5; R89). The EIP-170
   budget is open (above). RULED 2026-10-16.
 - O49 (:503). `regAuction` writes at most 4 slots. Done in S5. RULED
   2026-10-16.
@@ -453,14 +453,14 @@ The kit milestones M0 to M3 map onto the slices S0 to S7 of
 | M2 | S5 | The deposit contract: the share rule, the Merkle tree, the Groth16 verifier, 9 entries and 10 views | 43fb213 to 4626ed3 (2026-10-16 to 2026-10-17) | DONE |
 | M3 | S6, S7 | The protocol layer (`Bag`, the four laws, the median, `processBid`, the property checks) and the docs | S6 1bc714b to 17ef85c (2026-10-17 to 2026-10-18); S7 bbe668d, b0b1b37, cf0f324, f05d6f4 and 85b76dd (2026-10-18) | DONE |
 
-Status 2026-10-18 (S8 closed): M0 to M3 are DONE. S7 step 7.5 (85b76dd)
-closed S7 and M3. S8 fixed the S7 review items in 6 steps: 8.1 the docs
-(80d58b1), 8.2 `rule_hcomp` (5328a25), 8.3 Env `self` (e08a5ef), 8.4
-`settle` (2d00376), 8.5 the cm binding (b68af34) and 8.6 the close (docs
-only, the S8 final gate). Open after S8 (recorded, not built): the
-eligibility circuit of the paper and a prover (O50 and O58 stay
-PARTIAL); winner selection from the sealed bids on chain (the rest of O7
-and O44; `processBid` stays off chain under R76); a run-time Bag
-lowering (`src/lower.c`, R84, O37); the 7 kit `od -v` lines (R79 (a)); a
-Nat-indexed family (R80 (a)); the EIP-170 budget (O48: 17069 bytes, 7507
-free). The paper text is not local. The USER makes the repo public.
+Status 2026-10-19 (S9 closed): M0 to M3 are DONE. S8 closed at 2aa2cf9
+(the S8 final gate). S9 built the open list after S8 in 5 steps: 9.1 the
+docs (cee610f; O7 and O44 closed, not taken, R88), 9.2k the 7 kit `od -v`
+lines (lang-template 0ead0b7, R85), 9.3 a Nat-indexed family (0c0c428,
+R86), 9.4 the run-time Bag lowering (24c8090, `lower_local_fold`, R84)
+and 9.5 the close (docs only, the S9 final gate). Open after S9
+(recorded, not built): the eligibility circuit of the paper and a prover
+(O50 and O58 stay PARTIAL, R87 (a)); the EIP-170 budget (O48: 17069
+bytes, 7507 free, R89); F15 EVM output (no Bag or family state field,
+R80). Winner selection on chain is closed, not taken (R88). The paper
+text is not local. The USER makes the repo public.
