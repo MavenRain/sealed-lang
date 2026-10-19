@@ -242,7 +242,7 @@ Entry body (slice K4b):
 - A trap reverts with the 4 bytes of the `Trap()` selector, `0xae96083a`.
 - `some (pair STATE OUT)` writes each changed word field and each Map write with SSTORE. Then the block stops (STOP).
 - Before the stores, the block writes one LOG1 for each event of the OUT part, in the order of the list (C-K4-13). Topic 0 is the keccak256 of the event signature (see `## Events`). The data is the field words, 32 bytes each, in the order of the fields. An event with no fields has empty data. An event in a `flagIf` branch is logged only when the branch runs. A revert or a trap removes the logs.
-- `src/lower.c` lowers the first-order word part of the body: Nat, Flag, U256 and Addr values, Option, Prod and `if`. Each op gives the result of the evaluator: Nat add uses the K2 u64 rules; U256 add traps on overflow and sub stops at 0. O19 removed Nat mul and U256 mul, div and min (`docs/PLAN.md:368-369`).
+- `src/lower.c` lowers the first-order word part of the body: Nat, Flag, U256 and Addr values, Option, Prod and `if`. Each op gives the result of the evaluator: Nat add uses the K2 u64 rules; U256 add traps on overflow and sub stops at 0. O19 removed Nat mul and U256 mul, div and min (`docs/PLAN.md:371-372`).
 
 View body (slice K4c):
 

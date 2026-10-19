@@ -547,7 +547,7 @@ Current references reconciled in the staged 8.3 review (line counts kept):
   `docs/host/README.md:316`, `probe/CAPABILITY.md:115-116` and the formers row.
 - `self` in the operation table and entry body: `SPEC.md:183`, :230 and
   `docs/host/README.md:240`. O35 and O57 now show their S8 closures above.
-- Kept as records: `docs/PLAN.md:302-308` (O6, S5), `docs/STATUS.md:278`
+- Kept as records: `docs/PLAN.md:305-311` (O6, S5), `docs/STATUS.md:278`
   (S5) and :396 (S6).
 
 8.4: `settle` refuses a caller with no deposit (R73 (a), O73). The check
@@ -609,8 +609,8 @@ These lines now give 17069 bytes, 26 assertions or 44 calls:
 `SPEC.md:247`, :326-327, :420, `docs/host/README.md:316`, :318,
 `probe/CAPABILITY.md:115-119`, `formers/tcc-evm-contract.md:92`, and
 `docs/STATUS.md:27` and :41. Line counts stay, except at the end of
-`SPEC.md` (section 10, +6 lines) and here: no cite moved. Kept as records: `docs/PLAN.md:497` (O47), :500 (the O48
-history), :543 (S6), :586 (O78) and the gate lines of `## S5` to `## S7`.
+`SPEC.md` (section 10, +6 lines) and here: no cite moved. Kept as records: `docs/PLAN.md:500` (O47), :503 (the O48
+history), :546 (S6), :589 (O78) and the gate lines of `## S5` to `## S7`.
 The open list after S8 is the `SPEC.md` section 10 status line.
 
 The S8 final gate `make -B check` is GREEN, every count at the 8.5
@@ -760,3 +760,40 @@ steps 45, precompile 32 steps and 0 failures, deposit 26 assertions,
 deposit EVM 44 calls and 0 failures, runtime 17069 bytes (R89), mock 13
 rows, diff 16 rows and 0 failures, emit 24, and every regressions line
 passed. S9 is closed.
+
+## S10
+
+10.1 (the docs: R92, the R93 (a) records, R97 (a); R91 to R98 RULED
+2026-10-19, defaults (a)):
+
+- `docs/PLAN.md`: the S10 row of section 7 at :272-274 (3 lines, 648 to
+  651) and the rows O91 to O98 at :652-708 (708 lines). The S10 row
+  moves each cite of a `docs/PLAN.md` line at or above the old line 272
+  by 3 lines: 22 explicit `docs/PLAN.md:NNN` cites on 21 lines:
+  `SPEC.md` 14, this file :550 and :612, `docs/host/README.md:245`,
+  and `probe/CAPABILITY.md:47`, :116, :132, :155; 72 bare `SPEC.md`
+  section 9 cites (:302-443), 4 continuation cites (`SPEC.md:148`,
+  this file :612-613) and the two ranges (`SPEC.md:304`, section 8
+  is :278-701; `SPEC.md:447`, section 7 is :232-276). The `## S8` records
+  here (:550, :612-613) move: a PLAN cite is live (the 9.1 precedent).
+- `SPEC.md`: :322 adds R93 (a) to the O50, O58 row; :466 says the repo
+  is public since 2026-10-18 (R97 (a): the USER confirmed it with the
+  ruling). 466 lines kept.
+- O93 holds the S10 survey facts of the circuit (the open relation, root
+  input, Merkle depth, hash, scalar encoding and setup provenance;
+  circom and snarkjs on the machine, no gnark, no BN254 arithmetic in
+  the repo). Deviation from the R93 (a) text: the facts are in O93, not
+  appended to O87, so that the cites to O88 to O90 do not move a second
+  time.
+- No code change. The deposit runtime is 17069 bytes (R96). The kit does
+  not change. `docs/VALIDATION.md` does not change.
+
+The 10.1 gate `make -B check` is GREEN at the S9 baseline: examples 29,
+parse refusals 15, check refusals 86, evals 85, runs 6, run refusals 10,
+asmtool 8, builds 3, lower refusals 14, checks 32, dispatch 20, evm steps
+45, precompile 32 steps and 0 failures, deposit 26 assertions, deposit
+EVM 44 calls and 0 failures, runtime 17069 bytes (R96), mock 13 rows,
+diff 16 rows and 0 failures, emit 24, and every regressions line passed.
+
+The staged review adds `probe/*.md` to O98's audit scope after finding
+four PLAN citations there that also need the 3-line move.

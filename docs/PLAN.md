@@ -269,6 +269,9 @@ deploys the program on `evm` and replays the same scripts.
 - S9: the open list after S8: a Nat-indexed family, the run-time Bag
   lowering (Bag to List erasure), the kit `od -v` lines and the docs.
   Mutants M15 and M16.
+- S10: the open list after S9: a `Lot n` state field (F15 EVM output),
+  the whole-repo cite audit, the visibility line and the docs. Mutants
+  M17 and M18.
 - Gate: `make check` in this directory. Mutants one at a time, `make -B`
   for each build.
 
@@ -646,3 +649,60 @@ names the S8 step that builds it:
   `src/lower.c` as the site of the run-time Bag lowering (R84), not the
   kit. The visibility line stays: the USER did not confirm it. Docs only.
   RULED 2026-10-18, defaults (a). Built in step 9.1.
+- O91 (R91): the S10 scope. S10 takes a `Lot n` state field (O95), the
+  cite audit (O98), the visibility line (O97) and the docs (O92, O93).
+  The eligibility circuit stays open and BLOCKED on the paper text (O93).
+  Winner selection on chain stays closed (O88). RULED 2026-10-19,
+  defaults (a). To build in steps 10.1 to 10.5.
+- O92 (R92): the S10 row of section 7 at :272 and the rows O91 to O98.
+  The S10 row moves each cite at or above the old line 272 by 3 lines
+  (21 explicit lines, 72 bare `SPEC.md` section 9 cites, 4 continuation
+  cites and the two ranges). Docs only. RULED 2026-10-19, defaults (a).
+  Built in step 10.1.
+- O93 (R93): the eligibility circuit of the paper and a prover stay open
+  (O50, O58 PARTIAL; O87 stays as written). The S10 survey facts
+  (2026-10-19): the paraphrase (:60-64, :287-297) does not give the
+  relation of pi^m (which values are witnesses and which are public
+  inputs), whether root_s is a public input, the Merkle depth in the
+  circuit, the hash (Poseidon per :288 against keccak on chain, O4), the
+  encoding of hu and cm as BN254 scalars (about 81 percent of raw keccak
+  words exceed r and fail `domain/domain.lang:203-204`) or the setup
+  provenance. circom 2.2.3 and snarkjs (a node script) are on the
+  machine; no gnark. The repo has no BN254 arithmetic: a C99 prover
+  under TinyCC is 10 sessions or more. BLOCKED until the USER supplies
+  the paper text and rules the hash, the encoding and the setup; then a
+  kickoff addendum schedules the circuit steps. Docs only. RULED
+  2026-10-19, defaults (a). Recorded in step 10.1. Deviation from the
+  R93 (a) text: the facts are in this row, not appended to O87, so that
+  the cites to O88 to O90 do not move a second time.
+- O94 (R94): the prover tool, if the circuit comes in scope (R93 (b)
+  only): circom and snarkjs as a one-shot generator out of the gate; the
+  repo keeps the vk constants, the proofs and the inputs as constants
+  and the circuit source as a record. No effect in S10 at R93 (a).
+  RULED 2026-10-19, defaults (a). Recorded in step 10.1.
+- O95 (R95): the `Lot n` state field (F15 EVM output, over R80 and R86
+  (a)). The checker accepts a one-constructor, non-recursive family with
+  closed indices and word fields as a state field
+  (`src/front/check.c:2681`). The lowering gets a form of k consecutive
+  slots for k constructor fields, the index dropped (`src/lower.c:27`,
+  :33, :151-157, :1137-1140). Rows: `test/lot-state.lang`, one build
+  row, one evm row with `test/lot-state.script`, one check refusal row.
+  Mutants M17 (the checker) and M18 (the slot offset). A Bag state field
+  stays refused (O84). RULED 2026-10-19, defaults (a). To build in steps
+  10.2 and 10.3.
+- O96 (R96): S10 does not change the deposit runtime: 17069 bytes, 7507
+  bytes under 24576 (O48). A step that changes it stops and asks the
+  USER. Each step records the size in `docs/STATUS.md` `## S10`. No pin.
+  RULED 2026-10-19, defaults (a). Applies to each step, 10.1 to 10.5.
+- O97 (R97): the USER confirmed with the R97 ruling that the repository
+  is public since 2026-10-18. `SPEC.md:466` says so (O90 kept the old
+  line for lack of the confirmation). Docs only. RULED 2026-10-19,
+  defaults (a). Built in step 10.1.
+- O98 (R98): the whole-repo cite audit: a scratchpad extractor over
+  every `FILE:line` and `FILE:line-line` cite in `SPEC.md`, `README.md`,
+  `docs/*.md`, `docs/host/README.md`, `probe/*.md`, `formers/*.md` and
+  `src/*.c`, plus bare section 9 cites of `SPEC.md` against `docs/PLAN.md`.
+  Skip the foreign matrix columns of `formers/FORMERS.md` (:252-256)
+  and slice records of `docs/STATUS.md`. Fix each stale live cite in
+  place; record the counts in `docs/STATUS.md` `## S10`. Docs only.
+  RULED 2026-10-19, defaults (a). To build in step 10.4.
