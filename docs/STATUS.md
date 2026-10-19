@@ -547,7 +547,7 @@ Current references reconciled in the staged 8.3 review (line counts kept):
   `docs/host/README.md:316`, `probe/CAPABILITY.md:115-116` and the formers row.
 - `self` in the operation table and entry body: `SPEC.md:183`, :230 and
   `docs/host/README.md:240`. O35 and O57 now show their S8 closures above.
-- Kept as records: `docs/PLAN.md:299-305` (O6, S5), `docs/STATUS.md:278`
+- Kept as records: `docs/PLAN.md:302-308` (O6, S5), `docs/STATUS.md:278`
   (S5) and :396 (S6).
 
 8.4: `settle` refuses a caller with no deposit (R73 (a), O73). The check
@@ -609,8 +609,8 @@ These lines now give 17069 bytes, 26 assertions or 44 calls:
 `SPEC.md:247`, :326-327, :420, `docs/host/README.md:316`, :318,
 `probe/CAPABILITY.md:115-119`, `formers/tcc-evm-contract.md:92`, and
 `docs/STATUS.md:27` and :41. Line counts stay, except at the end of
-`SPEC.md` (section 10, +6 lines) and here: no cite moved. Kept as records: `docs/PLAN.md:494` (O47), :497 (the O48
-history), :540 (S6), :583 (O78) and the gate lines of `## S5` to `## S7`.
+`SPEC.md` (section 10, +6 lines) and here: no cite moved. Kept as records: `docs/PLAN.md:497` (O47), :500 (the O48
+history), :543 (S6), :586 (O78) and the gate lines of `## S5` to `## S7`.
 The open list after S8 is the `SPEC.md` section 10 status line.
 
 The S8 final gate `make -B check` is GREEN, every count at the 8.5
@@ -621,3 +621,34 @@ deposit 26 assertions, deposit EVM 44 calls and 0 failures, runtime 17069
 bytes (R78 ceiling 18143, 1074 bytes under; EIP-170 24576, 7507 bytes
 free), mock 13 rows, diff 16 rows and 0 failures, emit 24, and every
 regressions line passed. The S8 mutants M12 to M14 are KILLED (above).
+
+## S9
+
+Slice S9 (the open list after S8) has the rulings R82 to R90, RULED
+2026-10-18 with defaults (a) (`docs/PLAN.md` O82 to O90).
+
+9.1 (docs only; R83, R88, R90 and the records of R87 (a)):
+
+- `docs/PLAN.md`: the S9 row after the S8 row of section 7 (N = 3 lines,
+  :269-271). The O7 and O44 rows are closed, not taken (R88; :314-315,
+  :477-478, line counts kept). The rows O82 to O90 follow O81 (:603-643).
+- The cite move (+3, records included): `SPEC.md` 88 (15 named cites, 72
+  bare cites in section 9 and at :148, the range end at :447),
+  `probe/CAPABILITY.md` 4, `docs/STATUS.md` 5 (:550, :612-613),
+  `docs/host/README.md` 1. A scratchpad script compared the cited text at
+  2aa2cf9 with the work tree: 120 cite pairs, 0 differences.
+- `SPEC.md`: the range at :304 ends at :643; :316 and :318 (O7 and O44
+  closed, R88); :349 and :412-413 (the O7 and O44 rows); :424-425 and
+  :437-438 (O50 and O58 stay PARTIAL, R87 (a): circom and snarkjs, no
+  gnark; a prover out of the repo, its output kept as constants); :464
+  (`src/lower.c`, R84). :466 stays. Line counts kept.
+- `docs/VALIDATION.md:98-103`: the S5 facts in the past tense and the S8
+  facts (R75 in 8.5, R73 in 8.4). Line count kept.
+
+The 9.1 gate `make -B check` is GREEN, every count at the S8 baseline:
+examples 28, parse refusals 15, check refusals 85, evals 84, runs 6, run
+refusals 10, asmtool 8, builds 3, lower refusals 14, checks 31, dispatch
+20, evm steps 44, precompile 32 steps and 0 failures, deposit 26
+assertions, deposit EVM 44 calls and 0 failures, runtime 17069 bytes
+(R89, 7507 bytes free), mock 13 rows, diff 16 rows and 0 failures, emit
+24, and every regressions line passed. No mutant (docs only).

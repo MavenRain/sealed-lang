@@ -266,6 +266,9 @@ deploys the program on `evm` and replays the same scripts.
 - S8: the open list after S7. `settle` takes a depositor only, `self` for
   the vault, the binding of each cm to its proof with a re-based fixture
   key, the `rule_hcomp` refactor, the stale cites. Mutants M12 to M14.
+- S9: the open list after S8: a Nat-indexed family, the run-time Bag
+  lowering (Bag to List erasure), the kit `od -v` lines and the docs.
+  Mutants M15 and M16.
 - Gate: `make check` in this directory. Mutants one at a time, `make -B`
   for each build.
 
@@ -308,8 +311,8 @@ deploys the program on `evm` and replays the same scripts.
   transaction. Alternative: out of scope. Note (S5): `settle` is in, with
   the 8 entries of O7 and `addTuple` (R43). `settle` also requires `id <
   ctr`, and a second `settle` of the same auction reverts. It accepts
-  a caller with a deposit (R73) and any price after the end; selecting the
-  winner from sealed bids is deferred to S6 (`processBid`).
+  a caller with a deposit (R73) and any price after the end. Selecting the
+  winner from sealed bids on chain is closed, not taken (R88, O88).
 - O8: a `Map` value is a word, so an auction record is one map per field
   and `getAucRecord` is one view per field. Alternative: extend `Map` to
   product values (kit work). Note (S5): the record views are `aucItemOf`,
@@ -471,8 +474,8 @@ existing program:
   and `slash` take any caller, with proof and signature checks subject
   to the fixture limits of O50. `settle` takes a caller with a deposit
   (R73) as payer and winner at the given price, with no proof, signature or
-  sealed-bid winner check (S6). `addTuple` and `updateActivity` need
-  the user or a proposer.
+  sealed-bid winner check: closed, not taken (R88, O88). `addTuple` and
+  `updateActivity` need the user or a proposer.
 - O45 (R45): a Π tuple is two words (id : U256, h : U256). `addTuple au
   id h` sets `piAcc[au] := hash piAcc[au] (hash id h)`, `piCount[au] +
   1` and `piHas[piKey au nonce h] := flagYes`. The user signs `hash
@@ -597,3 +600,44 @@ names the S8 step that builds it:
   Built in step 8.1.
 - O81 (R81): the 6 stale cites of `docs/STATUS.md` `## S7` are fixed.
   Docs only. RULED 2026-10-18. Built in step 8.1.
+- O82 (R82): the S9 scope. S9 takes a Nat-indexed family (O86), the
+  run-time Bag lowering (O84), the 7 kit `od -v` lines (O85) and the docs
+  (O83, O88, O90). The eligibility circuit stays open (O87). RULED
+  2026-10-18, defaults (a). To build in steps 9.1 to 9.5.
+- O83 (R83): the S9 row of section 7 and the rows O82 to O90. The S9 row
+  moves each cite at or above the old line 269 by 3 lines. Docs only.
+  RULED 2026-10-18, defaults (a). Built in step 9.1.
+- O84 (R84): the run-time Bag lowering (O37), in `src/lower.c`, not in the
+  kit. `Bag A` erases to `List A`: bagNil to nil, bagCons to cons, and a
+  Bag fold lowers as a List fold without the path cases. A Bag stays
+  local to an entry (no Bag state field, K4c). One build row and one evm
+  row. Mutant M16. RULED 2026-10-18, defaults (a). To build in step 9.4.
+- O85 (R85): the 7 kit `od -v` lines of O79, as one lang-template step and
+  one kit commit. sealed-lang does not change. No mutant. RULED
+  2026-10-18, defaults (a). To build in step 9.2k.
+- O86 (R86): a Nat-indexed family (F15, O80): the kit shape `family Lot
+  (size : Nat)` in `domain/domain.lang`, one example, one eval row, one
+  check refusal row (an index mismatch) and one `test/fronttool.c` row.
+  Mutant M15. RULED 2026-10-18, defaults (a). To build in step 9.3.
+- O87 (R87): the eligibility circuit of the paper and a prover stay open.
+  O50 and O58 stay PARTIAL. The circuit statement needs the paper text.
+  The tools on this machine are circom and snarkjs (no gnark). A prover
+  would be a one-shot generator out of the repo, with its output kept in
+  the repo as constants. Docs only. RULED 2026-10-18, defaults (a). The
+  records are built in step 9.1.
+- O88 (R88): the rest of O7 and O44 (winner selection from the sealed bids
+  on chain) is closed, not taken. The paper keeps the bids and the winner
+  selection off chain (`docs/PLAN.md:33-35`, :66-68) and leaves settlement
+  to the bid transaction (O7). `processBid` stays off chain (R76, O57).
+  `settle` keeps its S8 form. Docs only. RULED 2026-10-18, defaults (a).
+  Built in step 9.1.
+- O89 (R89): S9 does not change the deposit runtime: 17069 bytes, 7507
+  bytes under 24576 (O48). A step that changes it stops and asks the
+  USER. Each step records the size in `docs/STATUS.md` `## S9`. No pin.
+  RULED 2026-10-18, defaults (a). Applies to each step, 9.1 to 9.5.
+- O90 (R90): the docs lines that the S9 survey found.
+  `docs/VALIDATION.md:98-103` keeps the S5 facts as S5 facts and adds the
+  S8 facts (R73, R75). The `SPEC.md` section 10 status line names
+  `src/lower.c` as the site of the run-time Bag lowering (R84), not the
+  kit. The visibility line stays: the USER did not confirm it. Docs only.
+  RULED 2026-10-18, defaults (a). Built in step 9.1.

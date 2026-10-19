@@ -95,12 +95,12 @@ emit 24, run refusals 10). The holes: `langc eval` cannot step
 `ecrecover` or the curve operations, so the signed and proof calls are
 chain rows only, with no eval differential (O47); `test/diff.sh` cannot
 kill a mutant in the source that eval and the EVM share (M1, M8), and the
-expected output `deposit.out` kills it; neither cm is bound to the proof
-inputs, and the chain test accepts the same proof with inputs (2, 3) for
-cm1 = 5 and cm2 = 6 (R50). Replacing the key alone does not fix this;
-the fixture is synthetic (R39), so this test does not establish real
-eligibility or a double commitment. `settle` records any caller and
-supplied price after the end slot; winner selection from sealed bids is
+expected output `deposit.out` kills it. In S5 no cm was bound to the proof
+inputs: the chain test accepted one proof with inputs (2, 3) for cm1 = 5
+and cm2 = 6 (R50). Since S8 step 8.5 (R75), input 1 is the cm and (2, 3)
+reverts, but the key does not bind input 1 and the fixture is synthetic
+(R39): no real eligibility. In S5 `settle` recorded any caller and price
+after the end slot (S8 step 8.4, R73: a depositor only); winner selection was
 deferred to S6. Mutants M1 to M9 of S5 are in `docs/STATUS.md`: 9 of
 9 killed, and the extra M9b killed.
 
