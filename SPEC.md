@@ -90,7 +90,7 @@ table gives each former that has a deviation.
 
 | ID | Status on tcc-evm-contract | Effect on this language | Open item |
 |---|---|---|---|
-| F7 | DONE in checking and evaluation (`formers/FORMERS.md:292`) | `unfold` runs into `List` only, with a `Nat` step limit. A residual `unfold` is not lowered to EVM code (`src/lower.c:775`, :404). | none |
+| F7 | DONE in checking and evaluation (`formers/FORMERS.md:292`) | `unfold` runs into `List` only, with a `Nat` step limit. A residual `unfold` is not lowered to EVM code (`src/lower.c:835`, :404). | none |
 | F12 | DONE as `Path` since S3 (:297) | Equality is the cubical `Path`: `refl`, `sym`, `trans`. There is no UIP. The EVM output erases a path. | O3 |
 | F13 | DONE as `Path` (:298) | Transport is `transp`. `cong` is a BUILTINS row. Both erase. | O3 |
 | F14 | DONE for `Type 0` and `Type 1` (:299) | There is no cumulativity. | none |

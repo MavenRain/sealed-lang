@@ -1,0 +1,15 @@
+-- A Bag local to an entry (S9 step 9.4, R84 (a)). The entry sumBag sorts
+-- the Bag of x, 2 and 3 with the Bag fold (laws 3 and 4, insNat) and
+-- writes the sum of the sorted List to total. The evaluator reduces the
+-- Bag fold; src/lower.c lowers the sum over the List that insNat gives
+-- (lower_local_fold). The chain test of test/evm.sh runs test/bag.script.
+state State := makeState (total : Nat)
+def init : State := makeState 0
+
+def sortBag : (b : Bag Nat) -> List Nat :=
+  fun (b : Bag Nat) => fold nil insNat insSwap listNatSet b
+
+def sumBag : (env : Env) -> (s : State) -> (x : Nat) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (x : Nat) =>
+    some (pair (makeState (fold (fun (y : Nat) (acc : Nat) => natAdd y acc) 0
+      (sortBag (bagCons Nat x (bagCons Nat 2 (bagCons Nat 3 (bagNil Nat))))))) nil)

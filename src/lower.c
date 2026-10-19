@@ -530,6 +530,66 @@ static const IrExpr *lower_fold(Low *l, Stmts *b, const Value *v, uint32_t field
   return push(l, b, s) ? ir_local(l, acc) : NULL;
 }
 
+/* fold F Z over a List value that is not a field (S9 step 9.4, R84): the
+   erased Bag of an entry. The evaluator reduces a Bag fold over its
+   constructors (bagNil, bagCons; the path cases have no run-time value),
+   thus lower.c sees the List that the Bag fold gives: nil, a cons chain,
+   or a flagIf tree of them when an element is an argument of the entry
+   (insNat compares with natLe). nil gives Z. cons X REST gives
+   F X (fold F Z REST): the word of X and the fold of REST go to locals,
+   and the step is F at the levels of the locals (as lower_fold). flagIf
+   C A B gives an IF that sets one local to fold F Z A or to fold F Z B.
+   The eager IR computes X and the fold of REST before F: when one of
+   them can trap, F must trap on a trapped X and on a trapped
+   accumulator (the lower_fold rule). Any other List value is refused. */
+static const IrExpr *lower_local_fold(Low *l, Stmts *b, const Value *v) {
+  static const Value trapped = {.kind = VAL_TRAP};
+  const Value *list = v->args[2];
+  if (val_is(list, OP_NIL)) return lower_expr(l, b, v->args[1]);
+  if (is_op(list, OP_FLAG_IF) && list->argc == 3) {
+    const IrExpr *cond = lower_expr(l, b, list->args[0]);
+    uint32_t local = l->locals++;
+    Stmts arms[2] = {{NULL, 0, 0, b}, {NULL, 0, 0, b}};
+    IrStmt *s = cond != NULL ? new_stmt(l, IR_STMT_IF) : NULL;
+    for (int k = 0; s != NULL && k < 2; k++) {
+      const Value *sub[3] = {v->args[0], v->args[1], list->args[1 + k]};
+      const Value *arm = val_op(l->m, VAL_STUCK, OP_FOLD_LIST, 0, 0, sub, 3);
+      if (arm == NULL || !push_set(l, &arms[k], local, lower_local_fold(l, &arms[k], arm))) s = NULL;
+    }
+    if (s == NULL) return NULL;
+    s->expr = cond;
+    s->body = block_of(&arms[0]);
+    s->otherwise = block_of(&arms[1]);
+    return push(l, b, s) ? ir_local(l, local) : NULL;
+  }
+  if (!is_op(list, OP_CONS) || list->argc != 2)
+    return refuse(l, v, "(a fold over a List that is not a field, nil, cons or a flagIf of them)"), NULL;
+  const Value *sub[3] = {v->args[0], v->args[1], list->args[1]};
+  const Value *rest = val_op(l->m, VAL_STUCK, OP_FOLD_LIST, 0, 0, sub, 3);
+  Stmts init = {NULL, 0, 0, b};
+  uint32_t x = l->locals++, acc = l->locals++;
+  if (rest == NULL || !push_set(l, &init, x, lower_expr(l, &init, list->args[0]))
+      || !push_set(l, &init, acc, lower_local_fold(l, &init, rest)))
+    return NULL;
+  l->m->fuel = EVAL_FUEL_STEPS;
+  const Value *fx = apply_value(l->m, v->args[0], val_var(l->m, x + 2u));
+  const Value *step = fx != NULL ? apply_value(l->m, fx, val_var(l->m, acc + 2u)) : NULL;
+  if (step == NULL) return NULL;
+  if (block_may_trap(block_of(&init))) {
+    l->m->fuel = EVAL_FUEL_STEPS;
+    const Value *ft = apply_value(l->m, v->args[0], &trapped);
+    const Value *on_x = ft != NULL ? apply_value(l->m, ft, val_var(l->m, acc + 2u)) : NULL;
+    l->m->fuel = EVAL_FUEL_STEPS;
+    const Value *on_acc = apply_value(l->m, fx, &trapped);
+    if (on_x == NULL || on_acc == NULL) return NULL;
+    if (!must_trap(on_x) || !must_trap(on_acc))
+      return refuse(l, v, "(a fold that can discard a trapped element or accumulator)"), NULL;
+  }
+  for (size_t i = 0; i < init.count; i++)
+    if (!push(l, b, init.items[i])) return NULL;
+  return lower_expr(l, b, step);
+}
+
 /* 1 when V is the STUCK value of ecAdd or ecMul: a G1 in a block of two words. */
 static int is_curve(const Value *v) {
   return v != NULL && v->kind == VAL_STUCK && (v->op == OP_EC_ADD || v->op == OP_EC_MUL);
@@ -774,6 +834,7 @@ static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
   if (is_op(v, OP_FLAG_IF) && v->argc == 3) return lower_if_value(l, b, v);
   if (is_op(v, OP_FOLD_LIST) && v->argc == 3 && field_of(v->args[2], 1u, &f) && form_at(l, f) == FORM_LIST)
     return lower_fold(l, b, v, f);
+  if (is_op(v, OP_FOLD_LIST) && v->argc == 3) return lower_local_fold(l, b, v);
   for (size_t k = 0; v != NULL && v->argc == 2 && k < sizeof BINARY_OPS / sizeof BINARY_OPS[0]; k++)
     if (is_op(v, BINARY_OPS[k].op)) {
       const IrExpr *x = lower_expr(l, b, v->args[0]);

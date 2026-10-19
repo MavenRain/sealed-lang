@@ -97,6 +97,13 @@ build/langc build test/lower/list-nil-tail.lang >/dev/null 2>"$tmp/err" || statu
 expect 'list-nil-tail exit' 1 "$status"
 expect 'list-nil-tail message' 'langc: REFUSE_LOWER: single: K4c does not lower cons as a List field value (want cons over the old field, or nil)' "$(head -n 1 "$tmp/err")"
 
+# test/bag.lang (S9 step 9.4, R84): a Bag local to an entry builds. The
+# evaluator reduces the Bag fold to the List that insNat gives, and the
+# sum is a fold over that List (lower_local_fold).
+status=0
+build/langc build test/bag.lang >/dev/null 2>"$tmp/err" || status=$?
+expect 'bag exit' 0 "$status"
+
 # `-o OUT` writes the bytes of stdout. A refused build keeps an existing OUT
 # and makes no new OUT.
 build/langc build examples/storage.lang >"$tmp/ref.hex"

@@ -1,0 +1,2 @@
+-- A call script for test/bag.lang (S9 step 9.4, R84): sumBag 5 folds the Bag of 5, 2 and 3 and writes 10 to total.
+1 0x00000000000000000000000000000000000000bb sumBag 5

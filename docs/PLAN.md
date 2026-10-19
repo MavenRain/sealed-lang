@@ -439,8 +439,8 @@ No ruling changes the EVM output of an existing program:
   `truncMapped` (trunc) with its eval row. Thus evals is 61, not the
   kickoff 63.
 - O37 (R37): a path at run time is a path in an entry, and the EVM is the
-  run time of an entry: the R31 fixture is that refusal. `langc run` has
-  no new row (run refusals 10).
+  run time of an entry: the R31 fixture is that refusal, and it stays.
+  The run-time Bag of an entry is built in step 9.4 (O84). Run refusals 10.
 - O38 (R38): the patch method was GNU patch `gpatch -p1 -N -F 1` per file,
   with a placement check of each insert-only hunk; a rejected or misplaced
   hunk went in by exact one-occurrence replacements. From step 4.5 the
@@ -608,10 +608,15 @@ names the S8 step that builds it:
   moves each cite at or above the old line 269 by 3 lines. Docs only.
   RULED 2026-10-18, defaults (a). Built in step 9.1.
 - O84 (R84): the run-time Bag lowering (O37), in `src/lower.c`, not in the
-  kit. `Bag A` erases to `List A`: bagNil to nil, bagCons to cons, and a
-  Bag fold lowers as a List fold without the path cases. A Bag stays
-  local to an entry (no Bag state field, K4c). One build row and one evm
-  row. Mutant M16. RULED 2026-10-18, defaults (a). To build in step 9.4.
+  kit. BUILT in step 9.4 (RULED 2026-10-18, defaults (a)). The finding of
+  the probe: the erasure `Bag A` to `List A` (bagNil to nil, bagCons to
+  cons, the path cases dropped) is the evaluator's reduction of a Bag fold
+  over its constructors (`src/front/eval.c:915-928`), before `lower.c`
+  runs. The `lower.c` site is `lower_local_fold` (`src/lower.c:533-591`):
+  the List fold over a local List value (nil, a cons chain, a flagIf tree
+  of them), after `lower_fold`. A Bag stays local to an entry (no Bag
+  state field, K4c). One build row (`test/build.sh`, `bag exit`) and one
+  evm row (`test/evm.sh`, `test/bag.script`). Mutant M16 KILLED.
 - O85 (R85): the 7 kit `od -v` lines of O79, as one lang-template step and
   one kit commit. sealed-lang does not change. No mutant. RULED
   2026-10-18, defaults (a). To build in step 9.2k.

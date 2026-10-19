@@ -130,6 +130,8 @@ chain examples/lists.lang test/run/lists.script
 chain test/same-state.lang test/same-state.script
 # test/self.lang: the view here gives self env, the contract (R74 (a), M14).
 chain test/self.lang test/self.script
+# test/bag.lang: the entry sumBag folds a Bag local to the entry (S9 step 9.4, R84, M16).
+chain test/bag.lang test/bag.script
 
 rm -rf "$tmp"
 echo "evm steps: $steps checked"

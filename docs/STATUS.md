@@ -686,3 +686,46 @@ runs 6, run refusals 10, asmtool 8, builds 3, lower refusals 14, checks
 deposit 26 assertions, deposit EVM 44 calls and 0 failures, runtime 17069
 bytes (R89, no change), mock 13 rows, diff 16 rows and 0 failures, emit
 24, and every regressions line passed.
+
+9.4 (R84 (a), the run-time Bag lowering):
+
+- Probe (session s1): a closed Bag sum builds at 9.3 (the evaluator
+  reduces the Bag fold and the sum to a constant). A Bag with the entry
+  argument as an element is refused (`K4c does not lower fold at a word
+  position`): the Bag fold did reduce, and the stuck value is the List
+  fold of the sum over the flagIf tree that `insNat` gives. A neutral Bag
+  needs a run-time List value, out of the K4c scope.
+- Finding: the erasure `Bag A` to `List A` (bagNil to nil, bagCons to
+  cons, the path cases dropped) is the evaluator's reduction of a Bag
+  fold over its constructors (`src/front/eval.c:915-928`), before
+  `src/lower.c` runs. The gap is a List fold over a local List value.
+- `src/lower.c:533-591`: `lower_local_fold` after `lower_fold`. nil gives
+  Z; cons X REST gives F X (fold F Z REST) over two locals, the step is F
+  at the levels of the locals; flagIf C A B gives an IF that sets one
+  local; when the element or the fold of the rest can trap, F must trap
+  on a trapped element and on a trapped accumulator (the `lower_fold`
+  rule); any other List value is refused. One dispatch line (:837) after
+  the field fold. The insert moves three cites: `SPEC.md:93`
+  (`src/lower.c:835`), `formers/FORMERS.md:300` (:1005, :1036).
+- `test/bag.lang` and `test/bag.script`: the entry `sumBag 5` sorts the
+  Bag of 5, 2 and 3 and writes 10 to `total`. The build row `bag exit`
+  in `test/build.sh` (checks 31 to 32) and the chain row in `test/evm.sh`
+  (evm steps 44 to 45). Examples stay 29, builds 3, lower refusals 14 (no
+  row of `test/lower/expect.txt` lowers).
+- Docs: `formers/FORMERS.md:305` (the S6 cell: EVM output since 9.4),
+  `docs/PLAN.md` O37 and O84. `SPEC.md` (466 lines) and
+  `docs/VALIDATION.md` (166 lines) keep their counts.
+- Mutant M16 at the last line of `lower_local_fold`: `return
+  lower_expr(l, b, step);` becomes `return ir_local(l, acc);` (the cons
+  case drops the head: the sum is 0). The evm row kills it: `FAIL evm
+  test/bag.script:1 sumBag: want ok, got ok` (a storage diff), `evm
+  gate: 1 failures`. Restored: `git diff --stat src/` is as before the
+  mutant (61 insertions in `src/lower.c`).
+
+The 9.4 gate `make -B check` is GREEN: checks 32, evm steps 45, and each
+other count at the 9.3 baseline: examples 29, parse refusals 15, check
+refusals 86, evals 85, runs 6, run refusals 10, asmtool 8, builds 3,
+lower refusals 14, dispatch 20, precompile 32 steps and 0 failures,
+deposit 26 assertions, deposit EVM 44 calls and 0 failures, runtime 17069
+bytes (R89, no change), mock 13 rows, diff 16 rows and 0 failures, emit
+24, and every regressions line passed.

@@ -19,13 +19,13 @@ section `EVM output`). The facts a program author needs:
 - An entry body lowers to first-order word code: the word values, Option,
   Prod, `flagIf` and `if`. `some (pair STATE OUT)` stores the changed
   fields, `none` reverts, a trap reverts with `Trap()` (K4b).
-- A view returns one word (K4c). A residual `fold` over a List field runs
-  its body once per element, from the last element to the head. Its seed
-  and step must lower to words. If either can trap, the step must be
-  provably strict in its accumulator, or the build gives REFUSE_LOWER.
-  A residual fold at a word position that is not over a List field also
-  gives REFUSE_LOWER (K4c). Folds that normalize to words before lowering,
-  such as a sum over a closed `cons` chain, can build.
+- A view returns one word (K4c). A residual `fold` over a List field scans
+  from the last element to the head; its seed and step must lower to words.
+  If either can trap, the step must be provably strict in its accumulator.
+  Since 9.4 (R84), word folds also lower over local nil, cons chains and
+  `flagIf` trees of them (`test/bag.lang`). Elements and tail folds must
+  lower to words; if either can trap, the step must be strict in both arguments.
+  Other residual folds give REFUSE_LOWER; folds that normalize to words build.
 - `pay` and `pull` are token CALLs (K4d). `emit` has no EVM form: use a
   named event.
 - The formers F1 to F15 are checked and evaluated (F12 and F13 as `Path`
