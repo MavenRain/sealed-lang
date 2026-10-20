@@ -685,7 +685,7 @@ names the S8 step that builds it:
   closed indices and word fields as a state field
   (`src/front/check.c:2733`). The lowering gets a form of k consecutive
   slots for k constructor fields, the index dropped (`src/lower.c:29`,
-  :35, :175-188, :1176-1179). Rows: `test/lot-state.lang`, one build
+  :35, :175-188, :1208-1211). Rows: `test/lot-state.lang`, one build
   row, one evm row with `test/lot-state.script`, one check refusal row.
   Mutants M17 (the checker) and M18 (the slot offset). A Bag state field
   stays refused (O84). RULED 2026-10-19, defaults (a). To build in steps

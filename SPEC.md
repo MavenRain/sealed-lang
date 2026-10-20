@@ -94,7 +94,7 @@ table gives each former that has a deviation.
 | F12 | DONE as `Path` since S3 (:297) | Equality is the cubical `Path`: `refl`, `sym`, `trans`. There is no UIP. The EVM output erases a path. | O3 |
 | F13 | DONE as `Path` (:298) | Transport is `transp`. `cong` is a BUILTINS row. Both erase. | O3 |
 | F14 | DONE for `Type 0` and `Type 1` (:299) | There is no cumulativity. | none |
-| F15 | PARTIAL (:300) | Only `domain/domain.lang` declares an indexed family (`family Lot (size : Nat)`, S9 step 9.3): DONE in `check` and `eval`. A program `family` gives REFUSE_DATA. EVM output: no family state field. | R1, O32, R86 |
+| F15 | PARTIAL (:300) | Only `domain/domain.lang` declares an indexed family (`family Lot (size : Nat)`, S9 step 9.3): DONE in `check` and `eval`. A program `family` gives REFUSE_DATA. EVM output: a state field of a one-constructor family with closed indices and word fields stores its k constructor fields at k consecutive slots, the index dropped; an entry loads a projection of the field and stores a new constructor value (S10 steps 10.2 and 10.3, `test/lot-state.lang`). No Bag state field. | R1, O32, R86, R95 |
 
 ## 4. Structures
 
@@ -329,7 +329,7 @@ Open at S7, with the state of each at the S9 close (S8 closed O46, O57 and O35):
   have `-v`) and in the kit: the 7 kit sites of `docs/PLAN.md:593-600` (R79 (a))
   have `-v` since the kit commit 0ead0b7 (R85, S9 step 9.2k).
 - F15: DONE in `check` and `eval` (`family Lot (size : Nat)`, S9 step 9.3, R86);
-  PARTIAL for EVM output, no Bag or family state field (`formers/FORMERS.md:300`, R80). No new O row.
+  PARTIAL for EVM output: a one-constructor family of words as a state field, k slots, the index dropped, the projection load and the constructor store (S10 steps 10.2 and 10.3, R95); no Bag state field (`formers/FORMERS.md:300`, R80). No new O row.
 
 M11 is not open: the 7.1 row of `test/fronttool.c` kills it (R61 (a),
 bbe668d).
@@ -461,6 +461,6 @@ R86), 9.4 the run-time Bag lowering (24c8090, `lower_local_fold`, R84)
 and 9.5 the close (docs only, the S9 final gate). Open after S9
 (recorded, not built): the eligibility circuit of the paper and a prover
 (O50 and O58 stay PARTIAL, R87 (a)); the EIP-170 budget (O48: 17069
-bytes, 7507 free, R89); F15 EVM output (no Bag or family state field,
-R80). Winner selection on chain is closed, not taken (R88). The paper
+bytes, 7507 free, R89); F15 EVM output (no Bag state field, R80; the family
+state field is S10 R95). Winner selection on chain is closed, not taken (R88). The paper
 text is not local. The repo is public since 2026-10-18.

@@ -63,7 +63,7 @@ chain() {
       =) _want="out $(word "$_value")" ;;
       *) _want=unknown ;;
     esac
-    want "$(awk '$1 == "state" { sub(/^state /, ""); print }' "$tmp/run")"
+    want "$(awk '$1 == "state" { sub(/^state /, ""); print }' "$tmp/run")" "$_prog"
     _input=$(input "$_prog" "$_name" "$@")
     if ! step "$_now" "$_caller" "$_input"; then
       echo "FAIL evm $_script:$_k $_name: evm: $(head -n 1 "$tmp/dump")"
@@ -132,6 +132,9 @@ chain test/same-state.lang test/same-state.script
 chain test/self.lang test/self.script
 # test/bag.lang: the entry sumBag folds a Bag local to the entry (S9 step 9.4, R84, M16).
 chain test/bag.lang test/bag.script
+# test/lot-state.lang: lotCost loads lotPrice of the Lot 3 state field and restock stores a new
+# makeLot at slot 1 (S10 step 10.3, R95 (a), M18).
+chain test/lot-state.lang test/lot-state.script
 
 rm -rf "$tmp"
 echo "evm steps: $steps checked"

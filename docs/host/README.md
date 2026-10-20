@@ -86,7 +86,7 @@ state State := makeState (owner : Addr) (held : U256) history (earned : U256) (c
 
 - `state` is a keyword. A program can declare one state only.
 - The state type must have the name `State`, no parameters and one constructor.
-- Each field type must be first order: `Nat`, `Flag`, `U256`, `Addr`, or `Option`, `Prod` or `List` of first-order types. A field cannot have the type `State`, a function type or a `Type`.
+- Each field type must be first order: `Nat`, `Flag`, `U256`, `Addr`, or `Option`, `Prod` or `List` of first-order types, or a family with one constructor, closed indices and word fields (`Lot 3`, S10 R95). A field cannot have the type `State`, a function type or a `Type`.
 - Field types are checked after normalization, so type aliases are allowed, including inside containers and in history fields.
 - The word `history` marks each field of the next `(...)` group as a history field. A history field must have the type `Nat` or `U256`.
 - `history` is not a reserved word. It has this function only in the field list of a state.
@@ -256,7 +256,7 @@ Output:
 - The output goes into a temporary buffer first. A refused build writes nothing on stdout, keeps an existing OUT and makes no new OUT.
 - Exit 0: the build is correct. Exit 1: `langc: REFUSE_LOWER: ...` or another refusal. Exit 2: `langc: IO_WRITE: -: stdout: ...` when a write fails.
 
-REFUSE_LOWER refuses a state that has no storage form in slice K4a: an Option field, a Prod field, a List of a type that is not a word, a nested List, a Map with a key or a value that is not a word, an `init` with arguments, and a program with no state or no `init`. `langc check` refuses a Map with a List value first (REFUSE_MAP).
+REFUSE_LOWER refuses a state that has no storage form in slice K4a: an Option field, a Prod field, a List of a type that is not a word, a nested List, a Map with a key or a value that is not a word, an `init` with arguments, and a program with no state or no `init`. `langc check` refuses a Map with a List value first (REFUSE_MAP). A family state field (S10 R95, `test/lot-state.lang`) takes one slot for each constructor field and drops the index; an entry loads a projection of the field and stores an application of the one constructor; every other family value in an entry is refused.
 
 REFUSE_LOWER also refuses an entry body that slice K4c does not lower: a List field value that is not a chain of `cons` over the old field or `nil` (`test/lower/list-write.lang`; the message names the whole value, O-c11-1), a residual `fold` outside the supported List forms (for example, the Nat fold in `test/lower/nat-fold.lang`), a fold that can discard a trapped accumulator or local List element, and each other residual that is not first-order word code. It also refuses an entry that makes an `emit` (`test/lower/emit.lang`), because `emit` has no EVM form: use a named event. Until the CALL lowering of slice K4d, it refuses an entry that makes a `pay` or a `pull` (`test/lower/pay.lang`, `test/lower/pull.lang`, C-K4d-1). The same rules apply to the body of a view. A def with the type of an entry or a view and an argument that is not a word is a helper: it is not in the dispatcher.
 

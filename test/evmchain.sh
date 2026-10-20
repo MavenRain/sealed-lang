@@ -88,12 +88,11 @@ map() {
   done
 }
 
-# want STATE: tmp/want gets the sorted storage rows `SLOT VALUE` of the state
-# text STATE (`makeState ARGS...`). Field i of the state is at slot i.
-want() {
-  : >"$tmp/want.rows"
+# tokens TEXT: the top-level tokens of TEXT, one for each line; a parenthesized
+# or bracketed group is one token.
+tokens() {
   printf '%s\n' "$1" | awk '{
-    s = $0; sub(/^makeState /, "", s); d = 0; a = ""
+    s = $0; d = 0; a = ""
     for (i = 1; i <= length(s); i++) {
       c = substr(s, i, 1)
       if (c == "(" || c == "[") d++
@@ -101,16 +100,52 @@ want() {
       if (c == " " && d == 0) { print a; a = "" } else a = a c
     }
     if (a != "") print a
-  }' >"$tmp/args"
+  }'
+}
+
+# family SLOT ARG PROG: the storage rows of the constructor value ARG, `(CTOR
+# INDEX... FIELD...)`, of a family state field at the decimal slot SLOT: the k
+# constructor fields at k consecutive slots from SLOT, the index arguments
+# dropped (the form of lower_family_field, S10 R95 (a)). The index count p and
+# the width k come from the one-constructor family line `family F (i : T)... :=
+# CTOR (f : T)...` of PROG or of the domain. Prints k.
+family() {
+  _inner=${2#\(}
+  tokens "${_inner%\)}" >"$tmp/ctor"
+  _ctor=$(head -n 1 "$tmp/ctor")
+  tokens "$(awk -v c="$_ctor" '$1 == "family" && $0 ~ (":= " c "( |$)") { print; exit }' "$3" domain/domain.lang)" >"$tmp/family"
+  _params=0 _width=0 _side=0
+  while IFS= read -r _tok; do
+    case $_tok in
+      :=) _side=1 ;;
+      "|") break ;;
+      "("*) if [ "$_side" -eq 0 ]; then _params=$((_params + 1)); else _width=$((_width + 1)); fi ;;
+    esac
+  done <"$tmp/family"
+  _m=0
+  while [ "$_m" -lt "$_width" ]; do
+    put "$(pad "$(printf '%x' "$(($1 + _m))")")" "$(word "$(awk -v n="$((_params + _m + 2))" 'NR == n' "$tmp/ctor")")"
+    _m=$((_m + 1))
+  done
+  echo "$_width"
+}
+
+# want STATE PROG: tmp/want gets the sorted storage rows `SLOT VALUE` of the
+# state text STATE (`makeState ARGS...`) of PROG. A word, List or Map field
+# takes one slot; a family field takes k slots, one for each constructor field
+# (S10 R95 (a)).
+want() {
+  : >"$tmp/want.rows"
+  tokens "${1#makeState }" >"$tmp/args"
   _n=0
   while IFS= read -r _arg; do
     _s=$(pad "$(printf '%x' "$_n")")
     case $_arg in
-      "(cons "*|nil) list "$_s" "$_arg" ;;
-      "(mapOf "*) map "$_s" "$_arg" ;;
-      *) put "$_s" "$(word "$_arg")" ;;
+      "(cons "*|nil) list "$_s" "$_arg"; _n=$((_n + 1)) ;;
+      "(mapOf "*) map "$_s" "$_arg"; _n=$((_n + 1)) ;;
+      "("*) _n=$((_n + $(family "$_n" "$_arg" "$2"))) ;;
+      *) put "$_s" "$(word "$_arg")"; _n=$((_n + 1)) ;;
     esac
-    _n=$((_n + 1))
   done <"$tmp/args"
   sort "$tmp/want.rows" >"$tmp/want"
 }

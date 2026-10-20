@@ -65,7 +65,7 @@ row() {
   if [ "$6" = ok ]; then
     build/langc run "$prog" "$tmp/calls" >"$tmp/run" 2>"$tmp/err" ||
       { echo "FAIL diff $1: langc run: $(head -n 1 "$tmp/err")"; fail=$((fail + 1)); return; }
-    want "$(awk '$1 == "state" { sub(/^state /, ""); print }' "$tmp/run")"
+    want "$(awk '$1 == "state" { sub(/^state /, ""); print }' "$tmp/run")" "$prog"
   else
     norm <"$3" >"$tmp/want"
   fi
@@ -176,7 +176,7 @@ script() {
     acct "$token" >"$tmp/m"
   done
   norm <"$tmp/raw" >"$tmp/c"
-  want "$(awk '$1 == "state" { sub(/^state /, ""); print }' "$tmp/run")"
+  want "$(awk '$1 == "state" { sub(/^state /, ""); print }' "$tmp/run")" "$_prog"
   cmp -s "$tmp/want" "$tmp/c" || {
     echo "FAIL diff $_script: contract storage: want $(tr '\n' ' ' <"$tmp/want"), got $(tr '\n' ' ' <"$tmp/c")"
     fail=$((fail + 1))

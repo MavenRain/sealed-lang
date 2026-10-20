@@ -2,7 +2,18 @@
 -- holds a Lot 3, the Nat-indexed family of domain/domain.lang. The build
 -- stores the init value at slots 0 to 2: owner, then lotPrice (one slot for
 -- each field of makeLot; the index 3 is in the type and is not stored), then
--- count. Step 10.3 adds the entries that read lotPrice and store a new makeLot.
+-- count. Step 10.3 adds the view lotCost (the projection load: an SLOAD of
+-- slot 1) and the entry restock (the constructor store: makeLot 3 price
+-- writes slot 1 and drops the index). The chain test of test/evm.sh runs
+-- test/lot-state.script.
 state State := makeState (owner : Addr) (lots : Lot 3) (count : Nat)
 
 def init : State := makeState 0x00000000000000000000000000000000000000aa (makeLot 3 250) 7
+
+-- View: the price of the lot (lotPrice over the state field lots).
+def lotCost : (env : Env) -> (s : State) -> Nat := fun (env : Env) (s : State) => lotPrice (lots s)
+
+-- Entry: store a new lot at the price; owner and count stay.
+def restock : (env : Env) -> (s : State) -> (price : Nat) -> Option (Prod State (List Out)) :=
+  fun (env : Env) (s : State) (price : Nat) =>
+    some (pair (makeState (owner s) (makeLot 3 price) (count s)) nil)

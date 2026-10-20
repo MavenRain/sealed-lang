@@ -11,7 +11,7 @@ The sections above `## S2` give the summary of S0 to S6; the slice records give 
 - The kit host tcc-evm-contract (S0, beae7ec): `langc check`, `eval`,
   `build` and `run` (`probe/CAPABILITY.md` section 1).
 - The type formers F1 to F14 are DONE, F7 in `check` and `eval` only. F15
-  is DONE in `check` and `eval` (S9 step 9.3), PARTIAL for EVM output (`SPEC.md:83-97`).
+  is DONE in `check` and `eval` (S9 step 9.3), PARTIAL for EVM output: a family state field builds, loads and stores (S10 R95), no Bag state field (`SPEC.md:83-97`).
 - The base span (S2): the core types `Nat`, `Flag`, `U256` and `Addr`,
   and the operations `hash`, `natDiv`, `natMod`, `addrToU256`,
   `ecrecover`, `ecAdd`, `ecMul` and `ecPairing`. On the EVM, a curve
@@ -40,7 +40,7 @@ The sections above `## S2` give the summary of S0 to S6; the slice records give 
 5. The R35 refactor of `rule_hcomp` (O35): done in S8 step 8.2 (R77).
 6. The EIP-170 budget (O48): 7507 bytes are free under 24576 at the S9 close (R89).
 7. `od -v`: sealed-lang's 4 copies are fixed (R79); the 7 kit sites too, kit commit 0ead0b7 (R85).
-8. F15: DONE in `check` and `eval` (`family Lot`, 9.3, R86); PARTIAL for EVM output (R80).
+8. F15: DONE in `check` and `eval` (`family Lot`, 9.3, R86); PARTIAL for EVM output: the `Lot n` state field builds, loads and stores (S10 steps 10.2 and 10.3, R95), no Bag state field (R80).
 
 ## Known limits
 
@@ -877,3 +877,74 @@ failures, emit 24, and every regressions line passed.
 - The reviewed `make -B check` passes in an isolated copy of the complete
   worktree, including the new C regressions. Deposit runtime remains
   17069 bytes (R96). The O95 lowering refusal citation moves by 8 lines.
+
+10.3 (R95 (a) part 2: the projection load, the constructor store and the
+`Lot n` entries; 2026-10-19, sessions s4 and s4b):
+
+- The USER rows of 10.2 (the 10.2 staged review above) are the base:
+  `slot_of` (`src/lower.c:453`, the slot helper that the s4 prompt named
+  as its 2.1) routed through every slot site, three `test/lowertool.c`
+  layout regressions, the O95 cite of `docs/PLAN.md` moved by 8.
+- `git diff --stat` against 167f580: 11 files, 111 insertions, 24
+  deletions: `src/lower.c` 32, `test/evmchain.sh` 55, `test/lot-state.lang`
+  13, `test/lot-state.script` 6 (new), `test/evm.sh` 5, `test/diff.sh` 4,
+  `SPEC.md` 8, `docs/host/README.md` 4, this file 4, `docs/PLAN.md` 2,
+  `formers/FORMERS.md` 2.
+- The projection load, `src/lower.c` (1267 to 1299 lines): `family_at`
+  (:460-463) after `slot_of`; the OP_PROJ arm of `lower_expr` (:863-866)
+  lowers `lotPrice (lots s)`, a projection of the one constructor over a
+  read of a FORM_FAMILY state field, to an SLOAD of `slot_of(l, f) +
+  v->field`.
+- The constructor store: `is_family_ctor` (:956-961) and
+  `lower_family_write` (:963-977) before `lower_state_write`; the
+  FORM_FAMILY arm (:996-997) of `lower_state_write` stores the k
+  constructor fields of the value at `slot_of(i) + j` and drops the index
+  arguments (the form of `lower_family_field`); a value that is not the
+  constructor falls to the "does not lower a write of the field" refusal.
+  The K4a refusal block moved from :1176-1179 to :1208-1211.
+- The entries, `test/lot-state.lang` (8 to 19 lines): the view `lotCost`
+  (`lotPrice (lots s)`) and the entry `restock price` (`makeLot 3 price`,
+  owner and count kept). The script `test/lot-state.script` (new, 3
+  steps: lotCost 250, restock 300, lotCost 300) and the evm row `chain
+  test/lot-state.lang test/lot-state.script` in `test/evm.sh` (:131-133;
+  139 to 142 lines). The script is at `test/` with the same-state, self
+  and bag scripts, not at `test/run/` as O95 says.
+- The want fix (s4b), `test/evmchain.sh` (181 to 216 lines): the `want`
+  helper put field i of the state text at slot i and gave each argument
+  to `bc` as one word, so the family value `(makeLot 3 300)` was a
+  "Parse error: bad expression" and the three lot-state steps FAILED on
+  the storage rows. Now `tokens` (:93-104) is the top-level tokenizer,
+  `family` (:112-131) puts the k constructor fields of a `(CTOR INDEX...
+  FIELD...)` value at k consecutive slots and drops the index arguments,
+  with the index count p and the width k read from the one-constructor
+  `family` line of the program or the domain, and `want STATE PROG`
+  (:137-151) advances the slot by k for a family field and by one
+  otherwise. The three callers pass the program: `test/evm.sh:66`,
+  `test/diff.sh:68` and `:179`. The other 45 chain steps and the 16 diff
+  rows do not change.
+- The F15 docs lines: `SPEC.md` :97 (R95 in the refs), :332 and
+  :464-465; `formers/FORMERS.md:300` (the sealed-lang cell: check.c:2733,
+  lower.c:155-189, :863-866, :957-977); this file :14 and :43;
+  `docs/host/README.md:89` (the field rule gains the family clause; the
+  Map clause is still missing there: step 10.4) and :259;
+  `docs/PLAN.md:688` (the O95 cite :1176-1179 to :1208-1211).
+- Cites: the 10.3 insertions in `src/lower.c` shift a cite by +5 at or
+  above the old 459, by +4 at or above the old 859 and by +32 at or above
+  the old 1176, on top of the 10.2 shifts and the +8 of `slot_of`. The
+  `want` helper of `test/evmchain.sh` moved from :93 to :137; the cites
+  `evmchain.sh:8` and `evmchain.sh:14` did not move. The whole-repo audit
+  is step 10.4 (R98).
+- Mutant M18 (the constructor store at `slot_of(l, field) + j + 1`,
+  `src/lower.c:972`): the evm row `test/lot-state.script:2` (restock)
+  FAILS on the storage rows (slot 1 keeps 250, slot 2 gets 300) and step
+  3 reads 250. KILLED by `test/lot-state.script:2`. The line is restored;
+  the restored chain gate is 48 steps and 0 failures, and the worktree
+  equals the index. The deposit runtime is 17069 bytes (R96).
+  `docs/VALIDATION.md` does not change.
+
+The 10.3 gate `make -B check` is GREEN: examples 29, parse refusals 15,
+check refusals 87, evals 85, runs 6, run refusals 10, asmtool 8, builds
+3, lower refusals 14, checks 33, dispatch 20, evm steps 48, precompile
+32 steps and 0 failures, deposit 26 assertions, deposit EVM 44 calls and
+0 failures, runtime 17069 bytes (R96), mock 13 rows, diff 16 rows and 0
+failures, emit 24, and every regressions line passed.

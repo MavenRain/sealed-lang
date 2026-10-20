@@ -457,6 +457,11 @@ static uint64_t slot_of(Low *l, uint32_t field) {
   return slot;
 }
 
+/* The family of the FORM_FAMILY state field FIELD (S10 R95 (a)). */
+static const FamilyInfo *family_at(Low *l, uint32_t field) {
+  return &l->m->families[field_type(l->m, l->state, field)->inst];
+}
+
 static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v);
 
 /* B gets LOCAL := E. */
@@ -855,6 +860,10 @@ static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
   }
   if (v != NULL && v->kind == VAL_VAR && v->nat >= 2u) return ir_local(l, (uint32_t)v->nat - 2u);
   if (field_of(v, 1u, &f) && form_at(l, f) == FORM_WORD) return ir_sload(l, ir_const(l, slot_of(l, f)));
+  /* The projection load (S10 R95 (a)): the j-th constructor field of a family state field is the SLOAD of its slot plus j. */
+  if (is_op(v, OP_PROJ) && v->argc == 1 && field_of(v->args[0], 1u, &f) && form_at(l, f) == FORM_FAMILY
+      && v->inst == family_at(l, f)->first_ctor)
+    return ir_sload(l, ir_const(l, slot_of(l, f) + v->field));
   if (field_of(v, 0u, &f) && l->env != NULL && f < l->env->field_count) {
     const char *name = l->env->fields[f].name;
     IrExpr *e = strcmp(name, "now") == 0 || strcmp(name, "caller") == 0 || strcmp(name, "self") == 0 ? new_expr(l, IR_EXPR_ENV) : NULL;
@@ -944,6 +953,27 @@ static int push_all(Low *l, Stmts *b, const Stmts *from) {
   return 1;
 }
 
+/* 1 when V is an application of the one constructor of the family state field FIELD. */
+static int is_family_ctor(Low *l, const Value *v, uint32_t field) {
+  const FamilyInfo *fam = family_at(l, field);
+  return is_op(v, OP_CTOR) && v->inst == fam->first_ctor
+      && v->argc == fam->param_count + l->m->ctors[fam->first_ctor].field_count;
+}
+
+/* The constructor store (S10 R95 (a)): the k constructor fields of V, an
+   application of the one constructor of the family state field FIELD, go to k
+   consecutive slots from the slot of FIELD; the index arguments are dropped
+   (the form of lower_family_field). */
+static int lower_family_write(Low *l, Stmts *b, Stmts *stores, const Value *v, uint32_t field) {
+  const FamilyInfo *fam = family_at(l, field);
+  uint32_t count = l->m->ctors[fam->first_ctor].field_count;
+  for (uint32_t j = 0; j < count; j++) {
+    const IrExpr *value = ir_set(l, b, lower_expr(l, b, v->args[fam->param_count + j]));
+    if (value == NULL || !push_store(l, stores, ir_const(l, slot_of(l, field) + j), value)) return 0;
+  }
+  return 1;
+}
+
 /* The state write: force the field words, then the stores, then FX (the LOGs
    of the Out list, C-K4d-2), then STOP. */
 static int lower_state_write(Low *l, Stmts *b, const Stmts *fx, const Value *st) {
@@ -963,6 +993,8 @@ static int lower_state_write(Low *l, Stmts *b, const Stmts *fx, const Value *st)
       if (!lower_map_writes(l, b, &stores, v, i)) return 0;
     } else if (form == FORM_LIST) {
       if (!lower_list_write(l, b, &stores, v, i)) return 0;
+    } else if (form == FORM_FAMILY && is_family_ctor(l, v, i)) {
+      if (!lower_family_write(l, b, &stores, v, i)) return 0;
     } else {
       return diag_fail(l->m->diag, "REFUSE_LOWER", l->entry, "the EVM build does not lower a write of the field %s",
                        l->state->fields[i].name);

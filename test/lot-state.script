@@ -1,0 +1,6 @@
+-- A call script for test/lot-state.lang (S10 step 10.3, R95 (a)): lotCost reads lotPrice of the
+-- Lot 3 state field (250 from init), restock 300 stores makeLot 3 300 at slot 1 and keeps slots 0
+-- and 2, then lotCost reads 300.
+100 0x00000000000000000000000000000000000000bb lotCost
+101 0x00000000000000000000000000000000000000bb restock 300
+102 0x00000000000000000000000000000000000000bb lotCost
