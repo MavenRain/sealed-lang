@@ -547,7 +547,7 @@ Current references reconciled in the staged 8.3 review (line counts kept):
   `docs/host/README.md:316`, `probe/CAPABILITY.md:115-116` and the formers row.
 - `self` in the operation table and entry body: `SPEC.md:183`, :230 and
   `docs/host/README.md:240`. O35 and O57 now show their S8 closures above.
-- Kept as records: `docs/PLAN.md:305-311` (O6, S5), `docs/STATUS.md:278`
+- Kept as records: `docs/PLAN.md:309-315` (O6, S5), `docs/STATUS.md:278`
   (S5) and :396 (S6).
 
 8.4: `settle` refuses a caller with no deposit (R73 (a), O73). The check
@@ -609,8 +609,8 @@ These lines now give 17069 bytes, 26 assertions or 44 calls:
 `SPEC.md:247`, :326-327, :420, `docs/host/README.md:316`, :318,
 `probe/CAPABILITY.md:115-119`, `formers/tcc-evm-contract.md:92`, and
 `docs/STATUS.md:27` and :41. Line counts stay, except at the end of
-`SPEC.md` (section 10, +6 lines) and here: no cite moved. Kept as records: `docs/PLAN.md:500` (O47), :503 (the O48
-history), :546 (S6), :589 (O78) and the gate lines of `## S5` to `## S7`.
+`SPEC.md` (section 10, +6 lines) and here: no cite moved. Kept as records: `docs/PLAN.md:504` (O47), :507 (the O48
+history), :550 (S6), :593 (O78) and the gate lines of `## S5` to `## S7`.
 The open list after S8 is the `SPEC.md` section 10 status line.
 
 The S8 final gate `make -B check` is GREEN, every count at the 8.5
@@ -927,7 +927,7 @@ failures, emit 24, and every regressions line passed.
   lower.c:155-189, :863-866, :957-977); this file :14 and :43;
   `docs/host/README.md:89` (the field rule gains the family clause; the
   Map clause is still missing there: step 10.4) and :259;
-  `docs/PLAN.md:688` (the O95 cite :1176-1179 to :1208-1211).
+  `docs/PLAN.md:692` (the O95 cite :1176-1179 to :1208-1211).
 - Cites: the 10.3 insertions in `src/lower.c` shift a cite by +5 at or
   above the old 459, by +4 at or above the old 859 and by +32 at or above
   the old 1176, on top of the 10.2 shifts and the +8 of `slot_of`. The
@@ -975,7 +975,7 @@ failures, emit 24, and every regressions line passed.
   accumulator refusal);
   `SPEC.md:247` lower.c:208-223 -> 239-254 (the entry role lines);
   `SPEC.md:262` lower.c:391 -> 422 (VAL_AXIOM) and :404 -> :435;
-  `docs/PLAN.md:618` lower.c:533-591 -> 577-635 (`lower_local_fold`, the
+  `docs/PLAN.md:622` lower.c:533-591 -> 577-635 (`lower_local_fold`, the
   comment to the closing brace);
   `probe/CAPABILITY.md:75` check.c:2750 -> 2802;
   `probe/CAPABILITY.md:89` lower.c:411 -> 442 (the op table);
@@ -991,11 +991,11 @@ failures, emit 24, and every regressions line passed.
 - Fresh, not moved (verified): `SPEC.md:71` (2177), :73 (1573-1575),
   :74 (2413-2425), :75 (2585-2610), the BUILTINS rows :132-182
   (check.c:99-166), `probe/CAPABILITY.md:84` (143-144); the 10.2 and
-  10.3 cites `docs/PLAN.md:686-688` (check.c:2733, lower.c:29, :35,
+  10.3 cites `docs/PLAN.md:690-692` (check.c:2733, lower.c:29, :35,
   :175-188, :1208-1211) and `formers/FORMERS.md:300` (check.c:2733,
   lower.c:863-866, :957-977); the shell cites evmchain.sh:8
   (check.c:3105, `docs/host/README.md:125`), evmchain.sh:14 and
-  diff.sh:29 (`docs/PLAN.md:597`) and diff.sh:192-198
+  diff.sh:29 (`docs/PLAN.md:601`) and diff.sh:192-198
   (`probe/CAPABILITY.md:57`); the 60 bare section 9 `docs/PLAN.md` cites
   of `SPEC.md` (each points at its O row; 10.1 moved them). The other
   cite targets (host README 328, FORMERS 306, tcc-evm-contract 131,
@@ -1073,3 +1073,101 @@ Validation: `make -q build/langc` exits 0. The Map checks above exit 1
 48 EVM steps and a 17069-byte deposit runtime; code, tests and the
 Makefile are unchanged from 419d5a6. The full gate was not rerun for
 these documentation corrections.
+
+## S11
+
+Kickoff (2026-10-20, docs only; R1 to R3 given by the USER on
+2026-10-20; R99 to R106 are kickoff defaults (a) for the USER):
+
+- Precondition: HEAD 5fd5301 "S10 steps 10.4 and 10.5: audit citations
+  and close S10" on 419d5a6, tree 6d7d3937, pushed, index empty. The
+  tree is the USER commit, not the staged 8bd56ef5: the post-stage
+  review rows are `SPEC.md` 4 lines (:316, :320, :327, :461), this file
+  :1058-1075 (the 10.4/10.5 staged review), `docs/host/README.md:89` and
+  `probe/CAPABILITY.md` :134-135 and :171. Line counts at the start:
+  SPEC.md 466, docs/PLAN.md 708, this file 1075, docs/VALIDATION.md 166,
+  probe/CAPABILITY.md 188, docs/host/README.md 328.
+- The paper: no local copy; a fetch of the text was denied at the
+  permission gate (2026-10-19 and 2026-10-20); the WebFetch tool read
+  the arXiv HTML in two windows. arXiv:2606.14939v1
+  "Censorship-Resistant Sealed-Bid Auctions on Blockchains" (Alpos,
+  Heimbach, Nayak, Wadhwa, 2026-06-12). The facts: the relation of pi^m
+  is in section 5.3 ("Zero-Knowledge proof of membership") and
+  Algorithm 2 (elgPrv line 7): hu = Hash(rho_u || AucID) and there is
+  C_u with C_u = Hash(rho_u), (A_u, C_u) in merkle(root_s) and cm =
+  Hash(tx || C_u); the statement is (root_s, hu, cm); the witnesses are
+  rho_u, A_u, the Merkle path, AucID and tx. Algorithm 2 takes AucID
+  as an elgPrv argument but omits it from the ZkPrv witness tuple;
+  root_s is public, recomputed by
+  elgVrf from the contract's deposits tree for the slot s (Algorithm
+  2); the section 5.3 text claims an activity check that the relation
+  lacks; the depth is benchmarked at 2^8, 2^16, 2^24 and 2^32 bidders
+  (section 6, Table 1); the leaves are (A_u, C_u) (Algorithm 1
+  registerDeposit; the section 5.2 text says (C_u, D)); Poseidon for
+  all hash computations in the circuits (section 6); Groth16 over BN254
+  in Rust with arkworks (abstract, section 6); the on-chain hash is not
+  named; slashUsr(hu, (cm, pi), (cm', pi')) runs elgVrf twice and adds
+  hu to the slashed set, with no slot argument (Algorithm 1); Lemma 14
+  (Appendix A) assumes a collision-resistant Hash. The paper gives no
+  constraint count, no Poseidon parameters and no field encoding of hu,
+  cm or root.
+- The rulings as given: R1 the circuit hash = a (Poseidon per the
+  paper; keccak stays on chain, O4). R2 the encoding of hu and cm as
+  BN254 scalars = two 128-bit limbs per keccak word, two scalars per
+  value, lossless. R3 the setup provenance = a (a local snarkjs powers
+  of tau).
+- `docs/PLAN.md`: the S11 row of section 7 at :275-278 (4 lines, 708 to
+  712) and the rows O99 to O106 at :713-841 (841 lines): O99 the scope,
+  O100 the relation (AucID a witness, no activity term, depth 32, the
+  leaf and the activity limit), O101 the hash and the four registry root
+  options ((a) Poseidon on chain over `mulmod`, including address-bound
+  registration leaves; the USER's call before 11.3), O102 the encoding
+  (6 canonical inputs built by the contract with a U256 guest splitter,
+  the 21-word `slashUsr`),
+  O103 the setup (2^15), O104 the tool (circomlib from a scratch npm
+  install, `circuits/gen.sh`, `test/vkfmt.c`), O105 the runtime budget
+  (11.3 and 11.4 stop and ask) and O106 the steps 11.1 to 11.5 with a
+  gate and a mutant each (M19 to M22).
+- The cite move: the S11 row moves each cite of a `docs/PLAN.md` line
+  at or above the old line 275 by 4 lines. The extractor
+  `sealed-lang-plan-cites.py` (threshold 275, shift 4, apply) listed
+  116 cites on 101 lines (explicit 26, continuation 19, bare 71) and
+  rewrote 4 files; 14 cites on 8 lines of this file were restored by
+  hand as slice-record prose or self-cites (:634 `:603-643`; :637
+  `:550`, `:612-613`; :640-643 `:316`, `:318`, `:349`, `:412-413`,
+  `:424-425`, `:464`; :744 `:622`; :1031 `:656`, `:691`, `:708`; :1033
+  `:693-696`; the 10.4 audit rule). Moved: 102 cites on 93 lines:
+  `SPEC.md` 15 explicit on 14 lines, 8 continuation, 65 bare section 9
+  cites (:302-443) with the range start at :304; `probe/CAPABILITY.md`
+  :47, :116, :132, :155; `docs/host/README.md:245`; this file :550 and
+  :612-613 (the `## S8` records, live by the 9.1 and 10.1 precedent) and
+  :930, :978, :994, :998 (the S10 records: explicit PLAN cites, moved as
+  live; the choice recorded here). By hand: the range ends `SPEC.md:304`
+  (section 8 is :282-841) and `SPEC.md:447` (section 7 is :232-280).
+  The pairs check: the target line of each moved cite after the move
+  equals its target before the move (0 differences).
+- No code, no circuit file, no test change. The deposit runtime is
+  17069 bytes (the R96 form, O105). The gate counts are unchanged; the
+  gate was not rerun.
+
+S11 staged review (2026-10-20):
+
+- O102's Nat division could neither accept U256 nor represent 2^128.
+  The checker probes returned TYPE_MISMATCH and LEX_NAT_RANGE. The
+  plan now uses a closed U256 comparison/subtraction splitter and
+  requires evaluator/EVM boundary checks and its runtime measurement.
+- Limb bounds and field equality admit x + r as well as x. A Circom
+  probe accepted 1 + r with high < 2^126 and low < 2^128; snarkjs
+  checked that witness successfully. O102 now requires strict canonical
+  decomposition, including AliasCheck, and rejects those aliases.
+- O101/O106 now migrate the registry in 11.3 before real-key slashing
+  in 11.4. Migration includes empty-tree hashes and address-bound
+  registration leaves: `registerDeposit` currently inserts raw cu.
+  The equality row must exercise actual registration and `rootAt`.
+- O100 now records that current activity is not proved by the
+  append-only registry or `slashUsr`; existing lifecycle checks remain.
+  AucID is an Algorithm 2 argument, omitted only from its ZkPrv tuple.
+- The review extends PLAN to 865 lines; SPEC's live section 8 range
+  now ends there. The kickoff's :713-841 ranges above are historical.
+- These are design corrections. No implementation, circuit or gate
+  changed in this review; the existing gate counts remain as recorded.

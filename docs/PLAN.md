@@ -272,6 +272,10 @@ deploys the program on `evm` and replays the same scripts.
 - S10: the open list after S9: a `Lot n` state field (F15 EVM output),
   the whole-repo cite audit, the visibility line and the docs. Mutants
   M17 and M18.
+- S11: the eligibility circuit (R93 (b), R94): the relation of pi^m from
+  the paper, Poseidon in the circuit (R1), two 128-bit limbs per word
+  (R2), a local powers of tau (R3), circom and snarkjs out of the gate,
+  the key, the proofs and the inputs as constants. Mutants M19 to M22.
 - Gate: `make check` in this directory. Mutants one at a time, `make -B`
   for each build.
 
@@ -706,3 +710,156 @@ names the S8 step that builds it:
   and slice records of `docs/STATUS.md`. Fix each stale live cite in
   place; record the counts in `docs/STATUS.md` `## S10`. Docs only.
   RULED 2026-10-19, defaults (a). Built in step 10.4.
+- O99 (R99): the S11 scope. R93 (b) is in effect: the eligibility
+  circuit of the paper and a prover come in scope (O50 and O58 PARTIAL;
+  O87 and O93 stay as written). The paper is arXiv:2606.14939v1,
+  "Censorship-Resistant Sealed-Bid Auctions on Blockchains" (Alpos,
+  Heimbach, Nayak, Wadhwa, 2026-06-12), read on 2026-10-20 from the
+  arXiv HTML; the facts with their section numbers are in
+  `docs/STATUS.md` `## S11`. The USER gave R1 (the hash), R2 (the
+  encoding) and R3 (the setup) on 2026-10-20; O101 to O103 record them.
+  The kickoff is docs only. RULED 2026-10-20 (USER). Kickoff record.
+- O100 (R100): the relation of pi^m, paper section 5.3 ("Zero-Knowledge
+  proof of membership") and Algorithm 2 (elgPrv, elgVrf): hu =
+  Hash(rho_u || AucID), and there is C_u with C_u = Hash(rho_u), (A_u,
+  C_u) in merkle(root_s) and cm = Hash(tx || C_u). The statement (the
+  public inputs) is (root_s, hu, cm). The witnesses are rho_u, A_u, the
+  Merkle path and tx; C_u is computed inside the circuit. root_s is
+  public: elgVrf recomputes it from the deposits tree of the contract
+  for the slot s. AucID: section 5.3 lists it as a witness; Algorithm 2
+  takes it as an elgPrv argument but omits it from the line 7 ZkPrv
+  witness tuple. Default (a): include AucID in that tuple (hu binds it;
+  the contract compares hu only). (b): AucID public. The activity check:
+  section 5.3 says the proof shows an active deposit; the displayed
+  relation has no such term. Default (a): no activity term. Lifecycle
+  entry checks stay; neither the append-only root nor `slashUsr` proves
+  current activity. This remains a limit. The depth: Table 1 benchmarks 2^8
+  to 2^32 bidders. Default (a): depth 32 = `treeDepth` (O42). The leaf:
+  (A_u, C_u) in Algorithm 1 (registerDeposit); the section 5.2 text says
+  (C_u, D). Default (a): the leaf is the hash of (addrToU256 A_u, C_u),
+  the two-word form of O16. Kickoff 2026-10-20, defaults (a). To build
+  in step 11.1.
+- O101 (R101): the hash, R1 (a): Poseidon in the circuit for every hash
+  of the relation (C_u, hu, cm, the leaf and the Merkle nodes), as the
+  paper does (section 6: Poseidon for all hash computations; arkworks,
+  Groth16, BN254). Keccak stays the on-chain `hash` (O4, R16): hu and cm
+  are not recomputed on chain; signCom (O55) and the Pi accumulator
+  (O45) keep keccak. The one shared value is the root: `rootAt` is the
+  root of a keccak incremental tree (O9, R42), and the circuit proves a
+  Poseidon path. Options for the registry root: (a) the registry node
+  hash becomes Poseidon on chain through a guest library in
+  `domain/domain.lang` over one new base operation `mulmod` (EVM MULMOD
+  0x09, exact in `langc eval`); the minimum-span rule admits it because
+  the paper's contract hashes the tree with the circuit's hash. The
+  library carries the t = 3 constants (8 full and 57 partial rounds, 195
+  round constants and a 3 by 3 MDS: 204 words, 6528 bytes) and does 32
+  hashes per insert; it does not fit under O48 (7507 bytes free) without
+  a measurement, so step 11.3 stops and asks with the measured size
+  (O105). All tree hashes change together, including `zeroHash`,
+  `treeLevel` and `treePairStep`. `registerDeposit` currently inserts
+  raw cu, not O100's leaf: it must instead insert Poseidon(addrToU256
+  (caller env), cu), while `leaf[caller]` retains cu. Require cu < r;
+  fix the fixtures and compare actual registration roots with the
+  circuit roots. (b) the circuit proves a keccak path (R1 (b): 32 keccak
+  permutations, about 4.8 million constraints, a 2^23 power of tau); not
+  taken, R1. (c) root_s is posted per slot by a proposer (R44) and not
+  recomputed on chain; weaker than the paper. (d) a Poseidon library
+  contract (a second `langc build` output) called by STATICCALL at a
+  `def poseidon` address, as `asset` (O46); keeps O48, adds a call form.
+  Default (a); steps 11.1 and 11.2 do not depend on the choice. RULED
+  2026-10-20 (USER, R1); the root option is the USER's call before step
+  11.3. Real-key slashing in 11.4 depends on this registry migration;
+  a proof for a Poseidon root cannot verify against the old keccak root.
+- O102 (R102): the encoding, R2: a 256-bit word public input enters
+  `verify` as two 128-bit limbs (high, then low), two scalars per value,
+  lossless, so the bound of `domain/domain.lang:203-204` never refuses.
+  Applied to root_s, hu and cm: n = 6 public inputs; the key has 7 IC
+  points. For each of root_s, hu and cm, use `Num2Bits_strict` (254
+  bits, including AliasCheck) on the field value and derive high and
+  low from those bits. This enforces high * 2^128 + low < r as an
+  integer, as well as high < 2^126 and low < 2^128. A field equality
+  plus limb bounds alone accepts both x and x + r. Witness checks
+  must reject a public pair encoding x + r. Under R1 (a) no public
+  input is a keccak word, so (b) one
+  scalar per value (n = 3) is lossless too and saves 3 `ecMul` per
+  proof; R2 stands as given. The contract builds the 6 inputs itself
+  from (`rootAt` slot, hu, cm). R14's `natDiv` and `natMod` accept only
+  Nat (u64), so cannot split U256 or represent 2^128. Use a guest
+  helper: walk the 128 closed weights 2^255 down to 2^128, compare and
+  subtract each weight from a U256 remainder, and add its 2^127 down
+  to 1 quotient weight when it fits. The result is (high, remainder);
+  no Nat conversion or new base operation. Check eval/EVM agreement
+  at 0, 2^128 - 1, 2^128, r - 1 and 2^256 - 1, and include the helper
+  in O105's size measurement. The caller passes no input words.
+  `slashUsr` takes 21
+  words: hu, then for each commit its slot, its cm and its proof (8
+  words); the paper's slashUsr has no slot argument and signCom
+  (Algorithm 2) carries s, so default (a): one slot word per commit.
+  Under ENTRY_PARAMS_MAX 32 (R23). The O50 input-order fixture goes with
+  the synthetic key. RULED 2026-10-20 (USER, R2); to build in steps
+  11.1 and 11.4.
+- O103 (R103): the setup, R3 (a): a local snarkjs powers of tau
+  (`snarkjs powersoftau new bn128 15`, one contribution, a beacon,
+  `prepare phase2`, `groth16 setup`, one zkey contribution, `zkey export
+  verificationkey`). The constraint count of the depth-32 circuit is
+  about 10^4 (32 Poseidon nodes and 4 hashes, about 240 constraints
+  each), under 2^15. The setup has one contributor and is recorded as a
+  test setup; a named ceremony (b) is not taken, R3. The ptau and zkey
+  files stay out of the repo. Memory and time are far under the 4 GB
+  rule. RULED 2026-10-20 (USER, R3); to build in step 11.2.
+- O104 (R104): the tool (O94 in effect): circom 2.2.3 and snarkjs 0.7.6
+  (node 23.10.0) are on the machine; no circomlib and no .ptau file (fd
+  2026-10-20). The circuit source `circuits/eligibility.circom` is a
+  record; its includes of circomlib Poseidon and strict bitify
+  (GPL-3.0) resolve
+  from a scratch `npm install circomlib@2.0.5` outside the repo (one
+  network fetch; the 11.1 session asks first), so no GPL source enters
+  the repo; the public Poseidon constants reused on chain (O101 (a)) are
+  numbers, not code. `circuits/gen.sh` runs the one-shot (compile,
+  setup, key, proofs, `zkey export soliditycalldata`); `make check`
+  never runs it; its outputs enter the repo as guest constants. A C tool
+  `test/vkfmt.c` turns the snarkjs JSON (decimal strings) into the guest
+  `VerifyKey` and `VerifyProof` constants in the EIP-197 order of
+  `proofOf`. The generator is a shell one-shot out of the gate, not a
+  test harness (the tests stay in the guest language and the C tools);
+  the USER confirms this reading. Default (a). Kickoff 2026-10-20; to
+  build in steps 11.1 and 11.2.
+- O105 (R105): the runtime budget (O48, the O96 form): steps 11.1 and
+  11.2 do not change the deposit runtime (17069 bytes). 11.3 (the
+  on-chain Poseidon and the address-bound leaves) and 11.4 (the
+  re-keyed `slashUsr`: 7 IC points, the limb split, the slot argument)
+  change it. Each of these measures the
+  size on a scratch build first, then stops and asks the USER with the
+  number before it stages; each step records the size in
+  `docs/STATUS.md` `## S11`. The S11 ceiling is 24576 (EIP-170); no
+  other pin. Default (a). Kickoff 2026-10-20.
+- O106 (R106): the S11 steps, one per session, each with its gate and
+  mutant. 11.1 the circuit: `circuits/eligibility.circom` (O100, the
+  O102 limbs, depth 32) and `circuits/gen.sh` through the compile
+  (`--r1cs --wasm --sym`); the constraint count recorded; no `make
+  check` change; mutant M19 by hand (the cm constraint dropped; the
+  count drops; recorded). 11.2 the setup, the key and the proofs: R3
+  (a), `test/vkfmt.c`, the key and three proofs (hu with cm1, hu with
+  cm2, hu' with cm3) and their inputs as constants in
+  `examples/eligibility.lang` with one entry `check`; gate: two chain
+  rows in `test/evm.sh` (a valid proof gives flagYes, a flipped limb
+  reverts), evm steps 48 to 50; mutant M20 (`vkfmt.c`: the IC point
+  order) KILLED by the rows. 11.3 the registry root (O101, after the
+  USER rules): `mulmod`, the Poseidon library, the node and empty-tree
+  hash switch, and the address-bound registration leaf. A root equality
+  row registers the 11.2 fixture deposits through `registerDeposit`
+  and checks `rootAt` against the circuit's root_s; also check the
+  library root for those same leaves. Re-measure the lowertool row
+  `insert-depth-32` (O41); the runtime
+  stop-and-ask; mutant M21 (one round constant off by one) KILLED by the
+  equality row. 11.4 `slashUsr` on the real key, after 11.3: the
+  21-word form (O102), `slashKey` replaced, `test/deposit.sh` rows (two
+  commits slash hu; the same cm twice reverts; a proof under hu'
+  reverts), the split helper's boundary checks, and the canonical-limb
+  rejection checks. `test/run/deposit.script` stays unchanged (O47).
+  The runtime stop-and-ask (O105); mutant M22 (high and low swapped)
+  KILLED. 11.5 the docs and the close: `SPEC.md` :321-322 (the O50
+  and O58 state), :456-466 (the status line), `probe/CAPABILITY.md` (the
+  new operation and the circuit record), `docs/STATUS.md`,
+  `docs/VALIDATION.md`, `README.md`; the final gate. Default (a).
+  Kickoff 2026-10-20.
