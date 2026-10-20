@@ -1171,3 +1171,129 @@ S11 staged review (2026-10-20):
   now ends there. The kickoff's :713-841 ranges above are historical.
 - These are design corrections. No implementation, circuit or gate
   changed in this review; the existing gate counts remain as recorded.
+
+Step 11.1 PARTIAL (2026-10-20; the circuit and the generator written,
+the circomlib compile pending):
+
+- Precondition: HEAD ff166a3 "S11 kickoff: plan eligibility proofs and
+  registry migration" on 5fd5301, tree 61ad25fb, index empty. The tree
+  is the USER commit, not the staged e3f1cf31: the staged review rows
+  are `SPEC.md:304` (the section 8 range end, 841 to 865),
+  `docs/PLAN.md` O100 to O106 (:722-865; 841 to 865 lines) and this
+  file :1153-1173 (the S11 staged review). Line counts at the start:
+  SPEC.md 466, docs/PLAN.md 865, this file 1173. The USER inputs of the
+  11.1 prompt were blank; the defaults apply: O101 (a), O102 (a), O104
+  (a) and the circomlib fetch (a).
+- `circuits/eligibility.circom` (144 lines): the template Limbs (one
+  `Num2Bits_strict` per field value; the limbs are the bit sums 0 to
+  127 and 128 to 253; O102 as reviewed), the template Node (the switch
+  `left = cur + bit * (sib - cur)`, `right = cur + sib - left`, one
+  boolean constraint, one Poseidon(2)) and the template
+  Eligibility(depth): the witnesses rho, aucId, addr, tx,
+  pathElements[depth] and pathIndex[depth]; C = Poseidon(1)(rho); leaf
+  = Poseidon(2)(addr, C); depth Node levels; hu = Poseidon(2)(rho,
+  aucId); cm = Poseidon(2)(tx, C); the outputs rootHi, rootLo, huHi,
+  huLo, cmHi, cmLo. `main = Eligibility(32)` has no public input, so
+  the public signals are the six outputs in that order. The header
+  cites section 5.3, Algorithm 2 and O100 to O102. No activity term.
+- `circuits/gen.sh` (47 lines): `set -eu`; CIRCOMLIB (required) and
+  OUT (default `build/circuits`, ignored by git); the 11.1 compile
+  `circom --r1cs --wasm --sym -l "$CIRCOMLIB" -o "$OUT"` and `snarkjs
+  r1cs info`; the 11.2 commands as comment lines marked "11.2" (powers
+  of tau 2^15, contribute, beacon, prepare phase2, groth16 setup, zkey
+  contribute, export verificationkey, the three proofs, the calldata
+  and the vkfmt note). `make check` does not run it (Makefile :78-88
+  unchanged).
+- The circomlib fetch: the scratch `npm install circomlib@2.0.5` failed
+  inside the sandbox (the sandbox proxy certificate fails npm's TLS
+  check, UNABLE_TO_GET_ISSUER_CERT_LOCALLY). A run with that check
+  relaxed, a run outside the sandbox and a curl of the tarball were
+  each denied at the permission gate. No local copy (fd over
+  ~/Documents, ~/.npm and the homebrew node_modules). The compile
+  against circomlib, the constraint count, the wire count and M19 are
+  pending; the circuit is not yet verified against the real Poseidon
+  and Num2Bits_strict templates.
+- Structure check in the scratchpad against two interface stubs
+  (Poseidon(nInputs) with inputs[nInputs] and out; Num2Bits_strict with
+  in and out[254]; not hashes; not in the repository): circom 2.2.3
+  compiles the circuit (6 template instances, 68 private inputs, 6
+  public outputs; the stub constraint counts are not the record); a
+  witness for rho 1, aucId 2, addr 3, tx 4 and a zero path computes,
+  and `snarkjs wtns check` passes; the .sym file lists wires 1 to 6 as
+  main.rootHi, rootLo, huHi, huLo, cmHi, cmLo.
+- M19 procedure (with the real compile): delete the `cm` Poseidon block
+  and feed `cmLimbs.in <== tx`; recompile; the count drops by one
+  Poseidon(2); restore; `git diff -- circuits/` is empty.
+- No `make check` change, no runtime change (17069), no test change.
+  `docs/PLAN.md` O106 11.1 stays "To build"; `probe/CAPABILITY.md` and
+  `SPEC.md` unchanged. Nothing staged: the compile and M19 gate the
+  stage; `circuits/` is untracked in the working tree. No U+2014 or
+  U+2013 and no trailing space in the two files.
+
+Step 11.1 DONE (2026-10-20; the second run: the circomlib compile, the
+witness check and M19; the PARTIAL record above stays as history):
+
+- Precondition: HEAD ff166a3 on 5fd5301, tree 61ad25fb, index empty;
+  `circuits/` untracked (eligibility.circom 144 lines, gen.sh 47
+  lines) and this file modified (1231 lines) as the PARTIAL record left
+  them; no USER edit to the three files. Line counts at the start:
+  SPEC.md 466, docs/PLAN.md 865, this file 1231. The two USER inputs of
+  the second-run prompt were blank; the defaults apply: the USER
+  installed circomlib outside the repository, and the stage follows
+  the compile and M19.
+- circomlib: the USER ran `npm --prefix
+  /Users/oobi/Documents/lang-template-work/sealed-lang-circomlib
+  install circomlib@2.0.5`. CIRCOMLIB is
+  `/Users/oobi/Documents/lang-template-work/sealed-lang-circomlib/node_modules/circomlib/circuits`;
+  its package.json says version 2.0.5. No circomlib source entered the
+  repository (O104). Tools: circom 2.2.3, snarkjs 0.7.6.
+- The compile: `circuits/gen.sh` with CIRCOMLIB set and OUT in the
+  scratchpad (not `build/circuits`; `build/` is ignored by git in
+  either case). circom: 148 template instances, 10330 non-linear
+  constraints, 9836 linear constraints, 0 public inputs, 68 private
+  inputs, 6 public outputs, 20197 wires, 31550 labels. `snarkjs r1cs
+  info`: curve bn-128, 20197 wires, 20166 constraints, 68 private
+  inputs, 0 public inputs, 31550 labels, 6 outputs. The circuit
+  compiled against the real `Poseidon` and `Num2Bits_strict` templates
+  with no edit: the PARTIAL stubs had the same interfaces. The
+  constraint count fits the step 11.2 powers of tau 2^15 (32768) of
+  gen.sh.
+- The witness check: the input rho 1, aucId 2, addr 3, tx 4, 32 zero
+  pathElements and 32 zero pathIndex through `snarkjs wtns calculate`
+  (the wasm of the compile) and `snarkjs wtns check` against the r1cs:
+  WITNESS IS CORRECT. `eligibility.sym` lists wires 1 to 6 as
+  main.rootHi, main.rootLo, main.huHi, main.huLo, main.cmHi, main.cmLo
+  (31549 symbol lines). The six public signals for that input: rootHi
+  7650090108874387082857176246551507058, rootLo
+  294153503748241550514129587062917868477, huHi
+  23078480944622919715078613621964728783, huLo
+  56108445557924594573412581975426275482, cmHi
+  42250290571493636015585258131685485346, cmLo
+  50494532298133833272365025720714752028. These values record the
+  compile; they are not a step 11.2 fixture.
+- The Poseidon(2) probe (scratchpad only): a two-input circuit over the
+  same include on (1, 2) gives
+  7853200120776062878684798364095072458815029376092732009249414926327459813530,
+  equal to the circomlib test vector for `hash([1, 2])` at t = 3 in
+  `test/poseidoncircuit.js:52` of the install. The probe alone: 243
+  non-linear and 274 linear constraints, 520 wires.
+- Mutant M19 by hand: a copy of the circuit in the scratchpad with the
+  four-line `cm` Poseidon block deleted and `cmLimbs.in <== tx`. The
+  copy compiles: 10087 non-linear and 9562 linear constraints (19649),
+  19680 wires, 30783 labels. The drop is 243 non-linear and 274 linear
+  constraints (517 constraints, 517 wires): one Poseidon(2), equal to
+  the probe counts. For the same input the mutant's public signals
+  agree on the root and hu limbs and differ on cm: cmHi 0, cmLo 4
+  (the limbs of tx). The repository file was not touched: the mutant
+  diff against it is the five deleted lines and the one changed line
+  only, and `git status --porcelain` showed `?? circuits/` and
+  ` M docs/STATUS.md` only.
+- Files: `circuits/eligibility.circom` (144 lines) and
+  `circuits/gen.sh` (47 lines) are unchanged from the PARTIAL record.
+  The compile outputs (eligibility.r1cs 2793900 bytes, eligibility.sym
+  1509397 bytes, eligibility_js/) stay in the scratchpad. No `make
+  check` change, no runtime change (17069), no test change.
+  `docs/PLAN.md` O106 11.1 stays "To build" until the close;
+  `probe/CAPABILITY.md` and `SPEC.md` unchanged. Staged: `circuits/`
+  (both files) and this file. No U+2014 or U+2013; `git diff --cached
+  --check` clean.
