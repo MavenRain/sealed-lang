@@ -1297,3 +1297,87 @@ witness check and M19; the PARTIAL record above stays as history):
   `probe/CAPABILITY.md` and `SPEC.md` unchanged. Staged: `circuits/`
   (both files) and this file. No U+2014 or U+2013; `git diff --cached
   --check` clean.
+
+Step 11.2 DONE (2026-10-20; the setup, the key, the three proofs, the
+chain rows and M20):
+
+- Precondition: HEAD fa8e165 (the USER commit of 11.1) on ff166a3,
+  tree 7b6b925d, index empty, working tree clean. Line counts at the
+  start: SPEC.md 466, docs/PLAN.md 865, this file 1299. The gate at the
+  start: evm steps 48, precompile 32 steps, deposit EVM runtime 17069
+  bytes, examples 29, all other counts as in 11.1. The five USER inputs
+  were blank; the defaults (a) apply.
+- The fixture tree (`circuits/fixture.circom`, no inputs, no GPL
+  source): depth 32, u = (addr 3, rho 1) at index 0, u' = (addr 5,
+  rho 7) at index 1, aucId 2 for both. The empty leaf is 0, E[0] = 0
+  and E[i + 1] = H(E[i], E[i]); E[1] = 1474426961996641120857921182459
+  8458697587494354926760081771325075741142829156. The sibling at level
+  0 is the other leaf and the sibling at level i (1 to 31) is E[i]. Step
+  11.3 uses this empty-tree convention on the chain.
+  `circuits/input-1.json`, `input-2.json` and `input-3.json` (41 lines
+  each) hold the witnesses as decimal strings: u with tx 4, u with tx 9,
+  u' with tx 11.
+- The root (all three proofs):
+  0x1efb9d39eb45e39697c03d8c7236557e ba62ac405c584d59b5b96d1c18938d3a.
+  The (hu, cm) limb pairs (hi, lo):
+  proof 1: hu 0x115cc0f5e7d690413df64c6b9662e9cf
+  0x2a3617f2743245519e19607a4417189a, cm1
+  0x1fc91c27750f83fb2454de806a61ab22 0x25fce4a75194fc0539184c4476f5701c;
+  proof 2: the same hu, cm2 0x080dd4db0f1125728d2c783646ee0cb1
+  0x6e4361ea742e13b1645f8a3987cd7588;
+  proof 3: hu' 0x24feed8cfd4f2e44245ca976fac48b24
+  0xd00120b4895ce3e929a8fadbe73f47d3, cm3
+  0x0a8bb43812004ec0e6755b2ccc5795b3 0xea342ba8d746c858742d3b1eae2be805.
+  Proofs 1 and 2 have the same root and hu and a different cm; proof 3
+  has the same root and a different hu.
+- `circuits/gen.sh` (one run, CIRCOMLIB set, OUT in the scratchpad, exit
+  0, about 12 minutes; `powersoftau prepare phase2` at 2^15 takes about
+  9): the fixture compile and witness, then the 11.2 lines without the
+  comment marks. Hashes: ptau first contribution eca6f514 b89180fc
+  fc6bf9f8 81a5670c 45419054 f1f6fec9 3628d6d1 bf995fbf 677d427c d40a7c05
+  ebb14fe5 ee96aff2 b4994dc0 e2904852 b408a9e7 fe36a02e; the beacon
+  response c0f5c4f1 ... e368a6b7 is imported, then the next challenge
+  6f43fc88 58cd0635 ... cbf15954 68e203d4; circuit hash ddf2daea 4b9ba82a
+  ... c974adb2 71275a85; zkey contribution 935faea5 dff71579 9e3e45bc
+  925ab139 52f5d891 59e68fbc 7aed2db1 fc04250a 7e4e31db a385400c 2853fb39
+  504c7a40 fae36c87 8cd2aa1f 399bee86 8f5ad397. `verification_key.json`:
+  groth16, bn128, nPublic 6, 7 IC points; gamma is the G2 generator.
+  `groth16 verify`: OK for each of the three proofs. The three
+  `soliditycalldata` lines give B in the order (x_im, x_re), (y_im,
+  y_re) and the six public words in the order of the statement. The
+  ptau, zkey, r1cs, wasm, witness and proof files stay in the
+  scratchpad.
+- `test/vkfmt.c` (C, no JSON library; `make build/vkfmt`, not in `make
+  check`): `build/vkfmt KEY [PROOF PUBLIC]...` finds each key of the
+  snarkjs files and reads the decimal strings after it. It refuses a
+  key that is not groth16 bn128 or has a point that is not affine (exit
+  1) and a bad argument count (exit 2). It prints eligibilityKey,
+  proofN and statementN. It writes G2 as (x_im, x_re), (y_im, y_re):
+  the first B word of proof 1 is pi_b[0][1] and equals the first B word
+  of its calldata. tcc and the clang syntax check accept it.
+- `examples/eligibility.lang`: proofOf (as in deposit.lang), the
+  generated key, proofs and statements, and the view `check n rootHi
+  rootLo huHi huLo cmHi cmLo`. A flagIf that selects a proof value is
+  refused (REFUSE_LOWER: K4c does not lower first at a word position),
+  thus check selects among three verify flags. Runtime 7711 bytes (a
+  new contract; EIP-170 ceiling 24576). The deposit runtime stays
+  17069.
+- The rows: `langc run` keeps verify stuck (R17; it prints an
+  ecPairing term), thus the two rows are in `test/precompile.sh`, the
+  chain-only gate of the verify rows, not in `test/evm.sh`. Row 1:
+  check 1 with the words of statement1 gives out 1 (flagYes). Row 2:
+  the same proof with cmLo xor 1 gives out 0 (flagNo): verify reverts
+  only on a point that is not on the curve (R18).
+- The gate at the end: precompile 34 steps, examples 30 (gate.sh
+  checks each file of examples/), evm steps 48, deposit EVM runtime
+  17069 bytes, all other counts unchanged.
+- M20 (a scratch copy of vkfmt.c, never the repo file): the emitted
+  order of IC[1] and IC[2] swapped. Only the two IC lines of the key
+  differ. On the mutant key, row 1 gives out 0: KILLED. `test/vkfmt.c`
+  has no mutant line.
+- Files: new `circuits/fixture.circom`, `circuits/input-{1,2,3}.json`,
+  `test/vkfmt.c`, `examples/eligibility.lang`; changed
+  `circuits/gen.sh`, `Makefile` (the build/vkfmt rule),
+  `test/precompile.sh` and this file. `docs/PLAN.md` O106 11.2 stays
+  "To build" until the close; `probe/CAPABILITY.md` and `SPEC.md`
+  unchanged.

@@ -113,6 +113,21 @@ else
   call revert verifyPoint 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffu
 fi
 
+# The eligibility proof (S11 step 11.2): the key and proof 1 of circuits/gen.sh accept the six
+# words of statement1 (root, hu, cm1 as limbs). The same proof with cmLo xor 1 gives flagNo:
+# verify reverts only on a point that is not on the curve (R18). These rows are here and not in
+# test/evm.sh because `langc run` keeps verify stuck (R17).
+prog=examples/eligibility.lang
+if ! deploy "$prog"; then
+  echo "FAIL precompile deploy eligibility: $(head -n 1 "$tmp/dump")"
+  fail=$((fail + 1))
+else
+  root='0x1efb9d39eb45e39697c03d8c7236557eu 0xba62ac405c584d59b5b96d1c18938d3au'
+  hu='0x115cc0f5e7d690413df64c6b9662e9cfu 0x2a3617f2743245519e19607a4417189au'
+  call "out 1" check 1u $root $hu 0x1fc91c27750f83fb2454de806a61ab22u 0x25fce4a75194fc0539184c4476f5701cu
+  call "out 0" check 1u $root $hu 0x1fc91c27750f83fb2454de806a61ab22u 0x25fce4a75194fc0539184c4476f5701du
+fi
+
 rm -rf "$tmp"
 echo "precompile: $steps steps checked"
 echo "precompile gate: $fail failures"

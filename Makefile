@@ -62,6 +62,12 @@ build/emittool: $(EMIT_TOOL) src/evm.c $(HEADERS)
 	mkdir -p build
 	$(TCC) $(CFLAGS) -o build/emittool $(EMIT_TOOL)
 
+# The generator of the eligibility constants (S11 step 11.2, O104). It is not in
+# `build` or `check`: `make build/vkfmt`, then circuits/gen.sh gives its inputs.
+build/vkfmt: test/vkfmt.c
+	mkdir -p build
+	$(TCC) $(CFLAGS) -o build/vkfmt test/vkfmt.c
+
 check-clang: build/domain.c
 	$(CC) $(CLANG_FLAGS) $(SRC) build/domain.c
 	$(CC) $(CLANG_FLAGS) $(TOOL)
