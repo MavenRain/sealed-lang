@@ -615,7 +615,7 @@ names the S8 step that builds it:
   the probe: the erasure `Bag A` to `List A` (bagNil to nil, bagCons to
   cons, the path cases dropped) is the evaluator's reduction of a Bag fold
   over its constructors (`src/front/eval.c:915-928`), before `lower.c`
-  runs. The `lower.c` site is `lower_local_fold` (`src/lower.c:533-591`):
+  runs. The `lower.c` site is `lower_local_fold` (`src/lower.c:577-635`):
   the List fold over a local List value (nil, a cons chain, a flagIf tree
   of them), after `lower_fold`. A Bag stays local to an entry (no Bag
   state field, K4c). One build row (`test/build.sh`, `bag exit`) and one
@@ -653,7 +653,7 @@ names the S8 step that builds it:
   cite audit (O98), the visibility line (O97) and the docs (O92, O93).
   The eligibility circuit stays open and BLOCKED on the paper text (O93).
   Winner selection on chain stays closed (O88). RULED 2026-10-19,
-  defaults (a). To build in steps 10.1 to 10.5.
+  defaults (a). Built in steps 10.1 to 10.5 (10.5 = the close).
 - O92 (R92): the S10 row of section 7 at :272 and the rows O91 to O98.
   The S10 row moves each cite at or above the old line 272 by 3 lines
   (21 explicit lines, 72 bare `SPEC.md` section 9 cites, 4 continuation
@@ -688,7 +688,7 @@ names the S8 step that builds it:
   :35, :175-188, :1208-1211). Rows: `test/lot-state.lang`, one build
   row, one evm row with `test/lot-state.script`, one check refusal row.
   Mutants M17 (the checker) and M18 (the slot offset). A Bag state field
-  stays refused (O84). RULED 2026-10-19, defaults (a). To build in steps
+  stays refused (O84). RULED 2026-10-19, defaults (a). Built in steps
   10.2 and 10.3.
 - O96 (R96): S10 does not change the deposit runtime: 17069 bytes, 7507
   bytes under 24576 (O48). A step that changes it stops and asks the
@@ -705,4 +705,4 @@ names the S8 step that builds it:
   Skip the foreign matrix columns of `formers/FORMERS.md` (:252-256)
   and slice records of `docs/STATUS.md`. Fix each stale live cite in
   place; record the counts in `docs/STATUS.md` `## S10`. Docs only.
-  RULED 2026-10-19, defaults (a). To build in step 10.4.
+  RULED 2026-10-19, defaults (a). Built in step 10.4.

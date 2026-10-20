@@ -86,7 +86,7 @@ state State := makeState (owner : Addr) (held : U256) history (earned : U256) (c
 
 - `state` is a keyword. A program can declare one state only.
 - The state type must have the name `State`, no parameters and one constructor.
-- Each field type must be first order: `Nat`, `Flag`, `U256`, `Addr`, or `Option`, `Prod` or `List` of first-order types, or a family with one constructor, closed indices and word fields (`Lot 3`, S10 R95). A field cannot have the type `State`, a function type or a `Type`.
+- Each field type must be first order: `Nat`, `Flag`, `U256`, `Addr`, or `Option`, `Prod` or `List` of first-order types, or a `Map K V` at the top level with `K` in `Nat`, `U256`, `Addr` and `V` in `Nat`, `Flag`, `U256`, `Addr` (one slot: the hash seed; the value of key k is at keccak256(k . slot), see `test/evmchain.sh` `map` and `src/lower.c` `lower_field`), or a family with one constructor, closed indices and word fields (`Lot 3`, S10 R95). A field cannot have the type `State`, a function type or a `Type`.
 - Field types are checked after normalization, so type aliases are allowed, including inside containers and in history fields.
 - The word `history` marks each field of the next `(...)` group as a history field. A history field must have the type `Nat` or `U256`.
 - `history` is not a reserved word. It has this function only in the field list of a state.

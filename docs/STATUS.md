@@ -3,7 +3,7 @@
 The build implements the kit milestones M0 to M3 (`SPEC.md` section 10).
 The slices S0 to S6 built the language, the deposit contract and the
 protocol layer. S7 wrote the docs and ran the final gate (`## S7`). S8
-fixed the S7 review items (`## S8`). S9 built the open list after S8 (`## S9`).
+fixed the S7 review items (`## S8`). S9 built the open list after S8 (`## S9`). S10 built the open list after S9 (`## S10`).
 The sections above `## S2` give the summary of S0 to S6; the slice records give the details.
 
 ## Implemented
@@ -11,7 +11,7 @@ The sections above `## S2` give the summary of S0 to S6; the slice records give 
 - The kit host tcc-evm-contract (S0, beae7ec): `langc check`, `eval`,
   `build` and `run` (`probe/CAPABILITY.md` section 1).
 - The type formers F1 to F14 are DONE, F7 in `check` and `eval` only. F15
-  is DONE in `check` and `eval` (S9 step 9.3), PARTIAL for EVM output: a family state field builds, loads and stores (S10 R95), no Bag state field (`SPEC.md:83-97`).
+  is DONE in `check` and `eval` (S9 step 9.3) and in EVM output for a one-constructor family state field (S10 R95); no Bag state field (O84, R80; `SPEC.md:83-97`).
 - The base span (S2): the core types `Nat`, `Flag`, `U256` and `Addr`,
   and the operations `hash`, `natDiv`, `natMod`, `addrToU256`,
   `ecrecover`, `ecAdd`, `ecMul` and `ecPairing`. On the EVM, a curve
@@ -24,23 +24,23 @@ The sections above `## S2` give the summary of S0 to S6; the slice records give 
 - The deposit contract (S5, Algorithm 1 of the paper):
   `examples/deposit.lang` with 9 entries and 10 views, the share rule, and
   the Merkle tree library and the Groth16 verifier as guest definitions.
-  The runtime code is 17069 bytes at the S9 close (`SPEC.md:244-250`).
+  The runtime code is 17069 bytes at the S10 close (`SPEC.md:244-250`).
 - The protocol layer (S6, Algorithms 2 and 3): `Bag`, `Bid`, the four laws, the median, `processBid` and the property checks.
   Since S9 step 9.4, local `Bag` folds that reduce to word code can reach the EVM (`test/bag.lang`); `processBid` stays off chain (R76).
   Laws have no run-time value. `langc check` prints the axiom report (`SPEC.md:283-300`).
 
 ## Remaining work
 
-`SPEC.md:316-332` gives the items open at S7 and their state at the S9 close:
+`SPEC.md:316-332` gives the items open at S7 and their state at the S10 close:
 
 1. `settle` (O7, O44): closed, not taken (9.1, R88); it refuses a caller with no deposit (8.4).
 2. `vault` (O46): closed in S8 step 8.3; `pull` credits `self env` (R74).
 3. The binding of each cm to its proof (O50, O58): PARTIAL; input 1 = cm (8.5); the circuit stays open (R87).
 4. An entry that calls `processBid` (O57): closed as off chain only (R76).
 5. The R35 refactor of `rule_hcomp` (O35): done in S8 step 8.2 (R77).
-6. The EIP-170 budget (O48): 7507 bytes are free under 24576 at the S9 close (R89).
+6. The EIP-170 budget (O48): 7507 bytes are free under 24576 at the S10 close (R96).
 7. `od -v`: sealed-lang's 4 copies are fixed (R79); the 7 kit sites too, kit commit 0ead0b7 (R85).
-8. F15: DONE in `check` and `eval` (`family Lot`, 9.3, R86); PARTIAL for EVM output: the `Lot n` state field builds, loads and stores (S10 steps 10.2 and 10.3, R95), no Bag state field (R80).
+8. F15: DONE in `check` and `eval` (`family Lot`, 9.3, R86) and in EVM output for the `Lot n` state field (10.2 and 10.3, R95); no Bag state field (O84, R80).
 
 ## Known limits
 
@@ -948,3 +948,128 @@ check refusals 87, evals 85, runs 6, run refusals 10, asmtool 8, builds
 32 steps and 0 failures, deposit 26 assertions, deposit EVM 44 calls and
 0 failures, runtime 17069 bytes (R96), mock 13 rows, diff 16 rows and 0
 failures, emit 24, and every regressions line passed.
+
+10.4 (R98 (a): the whole-repo cite audit and the README:89 Map clause;
+2026-10-19, sessions s5 and s5b):
+
+- The method: the repo has no cite tool. A scratchpad sh extractor took
+  every `FILE:line` and `FILE:line-line` cite in `SPEC.md`, `README.md`,
+  `docs/*.md`, `docs/host/README.md`, `formers/*.md`, `probe/*.md`,
+  `src/*.c` and `test/*.c` and compared the cited line now with the
+  cited line at 05c0582 (the S9 close, the last commit before any S10
+  code change). This explicit-cite pass missed a bare continuation cite,
+  fixed in the staged review below. The S10 drift is (`src/front/check.c` +52 at or above the old 2657;
+  `src/lower.c` by content). The C test tools and `src/*.c` cite no
+  `check.c` or `lower.c` line (`check.c:3105` cites `test/evmchain.sh:8`,
+  fresh). The foreign anchor `check.c:908` of `formers/FORMERS.md:299`
+  is skipped (O98).
+- Original pass: 22 moved cites on 20 lines, `file:line old -> new`:
+  `SPEC.md:67` check.c:2746 -> 2798 (REFUSE_DATA);
+  `SPEC.md:68` check.c:2723-2724 -> 2775-2776 (REFUSE_AXIOM_TYPE);
+  `SPEC.md:69` check.c:2726 -> 2778 (REFUSE_AXIOM);
+  `SPEC.md:70` check.c:2750 -> 2802 (REFUSE_REC; :1817 stays);
+  `SPEC.md:72` check.c:2666-2684 -> 2718-2736 (the REFUSE_STATE block);
+  `SPEC.md:93` lower.c:835 -> 883 (the field fold line of `lower_expr`)
+  and :404 -> :435 (the K4c refusal);
+  `SPEC.md:243` lower.c:502-520 -> 546-564 (`lower_fold` to the trapped
+  accumulator refusal);
+  `SPEC.md:247` lower.c:208-223 -> 239-254 (the entry role lines);
+  `SPEC.md:262` lower.c:391 -> 422 (VAL_AXIOM) and :404 -> :435;
+  `docs/PLAN.md:618` lower.c:533-591 -> 577-635 (`lower_local_fold`, the
+  comment to the closing brace);
+  `probe/CAPABILITY.md:75` check.c:2750 -> 2802;
+  `probe/CAPABILITY.md:89` lower.c:411 -> 442 (the op table);
+  `probe/CAPABILITY.md:130` check.c:2746 -> 2798;
+  `probe/CAPABILITY.md:165` check.c:2792 -> 2844 (`report_axioms`);
+  `probe/CAPABILITY.md:170` check.c:2726 -> 2778;
+  `formers/FORMERS.md:300` lower.c:155-189 -> 155-188 (the block ends at
+  the brace);
+  `formers/FORMERS.md:305` lower.c:533-591 -> 577-635 and lower.c:391
+  -> 422;
+  `formers/tcc-evm-contract.md:114` lower.c:533-591 -> 577-635;
+  `formers/tcc-evm-contract.md:115` lower.c:391 -> 422.
+- Fresh, not moved (verified): `SPEC.md:71` (2177), :73 (1573-1575),
+  :74 (2413-2425), :75 (2585-2610), the BUILTINS rows :132-182
+  (check.c:99-166), `probe/CAPABILITY.md:84` (143-144); the 10.2 and
+  10.3 cites `docs/PLAN.md:686-688` (check.c:2733, lower.c:29, :35,
+  :175-188, :1208-1211) and `formers/FORMERS.md:300` (check.c:2733,
+  lower.c:863-866, :957-977); the shell cites evmchain.sh:8
+  (check.c:3105, `docs/host/README.md:125`), evmchain.sh:14 and
+  diff.sh:29 (`docs/PLAN.md:597`) and diff.sh:192-198
+  (`probe/CAPABILITY.md:57`); the 60 bare section 9 `docs/PLAN.md` cites
+  of `SPEC.md` (each points at its O row; 10.1 moved them). The other
+  cite targets (host README 328, FORMERS 306, tcc-evm-contract 131,
+  CAPABILITY 188, `docs/host/CAPABILITY.md` 52, domain.lang 220, check.h
+  33, contract.c 12) kept their line counts since 05c0582 with in-place
+  S10 edits only; this file grows at its end only; `SPEC.md` kept 466.
+- `docs/host/README.md:89`: the field rule gains the Map clause between
+  the List clause and the family clause: "or a `Map K V` with word types
+  `K` and `V` at the top level (one slot: the hash seed; the value of
+  key k is at keccak256(k . slot), see `test/evmchain.sh` `map` and
+  `src/lower.c` `lower_field`)". 328 lines kept.
+- Files (6, 20 insertions, 20 deletions against 419d5a6): `SPEC.md` 18,
+  `docs/PLAN.md` 2, `docs/host/README.md` 2, `formers/FORMERS.md` 4,
+  `formers/tcc-evm-contract.md` 4, `probe/CAPABILITY.md` 10. Every line
+  count kept (SPEC 466, PLAN 708, host README 328, CAPABILITY 188,
+  FORMERS 306, tcc-evm-contract 131). No code change. The deposit
+  runtime is 17069 bytes (R96).
+
+The 10.4 gate `make -B check` is GREEN: examples 29, parse refusals 15,
+check refusals 87, evals 85, runs 6, run refusals 10, asmtool 8, builds
+3, lower refusals 14, checks 33, dispatch 20, evm steps 48, precompile
+32 steps and 0 failures, deposit 26 assertions, deposit EVM 44 calls and
+0 failures, runtime 17069 bytes (R96), mock 13 rows, diff 16 rows and 0
+failures, emit 24, and every regressions line passed.
+
+10.5 (the S10 close, docs only; the USER committed 10.3 as 419d5a6):
+
+- `SPEC.md`: section 9 at the S10 state (:331-332 the F15 row: DONE in
+  `check`, `eval` and EVM output for a one-constructor family of words
+  as a state field; no Bag state field, O84, R80) and section 10
+  (:456-466 the status line: S10 closed, the 5 steps with their
+  commits, the open list after S10). 466 lines kept.
+- `docs/PLAN.md` O91 (:656), O95 (:691) and O98 (:708): "To build" is
+  now "Built" (steps 10.1 to 10.5 with 10.5 = the close; steps 10.2 and
+  10.3; step 10.4). O96 (:693-696) stays: it applies to each step. 708
+  lines kept.
+- `docs/VALIDATION.md` :3-4 and :8-13: the S10 final gate header,
+  `build/langc` at 419d5a6 (10.4 and 10.5 are docs only), the 10.3
+  counts (87 check refusals, 33 build checks, 48 evm steps), M17 and
+  M18. 166 lines kept.
+- This file: :6 (S10 in the history line), :14 and :43 (the F15 lines),
+  :27 and :41 (17069 bytes and 7507 free at the S10 close, R96) and :34
+  (the state at the S10 close). The summary keeps its line count.
+  No cite moved. No code change. The kit does not change.
+- Open after S10 (recorded, not built): the eligibility circuit of the
+  paper and a prover (O50, O58 PARTIAL; BLOCKED on the paper text and
+  the USER rulings of the hash, the encoding and the setup, R93 (a),
+  O93); the EIP-170 budget (O48: 17069 bytes, 7507 free, R96); no Bag
+  state field (O84, R80). Winner selection on chain is closed, not taken
+  (R88). The paper text is not local.
+
+The S10 final gate `make -B check` is GREEN at the 10.3 baseline: examples
+29, parse refusals 15, check refusals 87, evals 85, runs 6, run refusals
+10, asmtool 8, builds 3, lower refusals 14, checks 33, dispatch 20, evm
+steps 48, precompile 32 steps and 0 failures, deposit 26 assertions,
+deposit EVM 44 calls and 0 failures, runtime 17069 bytes (R96), mock 13
+rows, diff 16 rows and 0 failures, emit 24, and every regressions line
+passed. S10 is closed.
+
+10.4/10.5 staged review (2026-10-19, docs only):
+
+- `docs/host/README.md:89`: spell out the Map key and value types.
+  `Map Flag Nat` gives REFUSE_MAP; `Map Nat Flag` checks. A Flag is a
+  word value but is not an allowed Map key (`src/front/check.c:1573-1575`).
+- `probe/CAPABILITY.md:134-135`: replace the stale "planned" EVM claim
+  with the implemented one-constructor family state fields (S10 R95).
+- `probe/CAPABILITY.md:171`: move the bare REFUSE_AXIOM_TYPE cite from
+  :2724 to :2776. The original pass above moved 22 cites on 20 lines;
+  this continuation makes the final audit 23 cites on 21 lines.
+- `SPEC.md:316`, :322 and :327: the open-list summary now names the
+  S10 close, with the unchanged runtime governed by R96.
+
+Validation: `make -q build/langc` exits 0. The Map checks above exit 1
+(REFUSE_MAP) and 0 respectively. The recorded 10.4 gate exits 0 with
+48 EVM steps and a 17069-byte deposit runtime; code, tests and the
+Makefile are unchanged from 419d5a6. The full gate was not rerun for
+these documentation corrections.

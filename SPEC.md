@@ -64,12 +64,12 @@ R1 to R5, :45-59):
 
 | Form | Code | Source |
 |---|---|---|
-| a `family` (R1: only the domain declares a family) | REFUSE_DATA | `src/front/check.c:2746` |
-| an `axiom` whose type is not a Path or PathP after its Pi binders | REFUSE_AXIOM_TYPE | `src/front/check.c:2723-2724` |
-| an `axiom` with a law type (R2: only the domain declares a law) | REFUSE_AXIOM | `src/front/check.c:2726` |
-| `def rec`, or a reference to a later name or to its own name (R3) | REFUSE_REC | `src/front/check.c:2750`, :1817 |
+| a `family` (R1: only the domain declares a family) | REFUSE_DATA | `src/front/check.c:2798` |
+| an `axiom` whose type is not a Path or PathP after its Pi binders | REFUSE_AXIOM_TYPE | `src/front/check.c:2775-2776` |
+| an `axiom` with a law type (R2: only the domain declares a law) | REFUSE_AXIOM | `src/front/check.c:2778` |
+| `def rec`, or a reference to a later name or to its own name (R3) | REFUSE_REC | `src/front/check.c:2802`, :1817 |
 | a definition with a core name or a prelude name (R4) | REFUSE_NAME | `src/front/check.c:2177` |
-| a state that is not the one `State` above, or a state field containing a nested `Map` | REFUSE_STATE | `src/front/check.c:2666-2684`, `docs/host/README.md:94`, :174 |
+| a state that is not the one `State` above, or a state field containing a nested `Map` | REFUSE_STATE | `src/front/check.c:2718-2736`, `docs/host/README.md:94`, :174 |
 | a `Map` key outside `Nat`, `U256`, `Addr`, or a value outside `Nat`, `Flag`, `U256`, `Addr` | REFUSE_MAP | `src/front/check.c:1573-1575` |
 | an event with more than 32 fields, a field that is not a word, or two fields with one name | REFUSE_EVENT | `src/front/check.c:2413-2425` |
 | a write to a `history` field that rule D-9 does not accept | REFUSE_HISTORY_WRITE | `src/front/check.c:2585-2610` |
@@ -90,7 +90,7 @@ table gives each former that has a deviation.
 
 | ID | Status on tcc-evm-contract | Effect on this language | Open item |
 |---|---|---|---|
-| F7 | DONE in checking and evaluation (`formers/FORMERS.md:292`) | `unfold` runs into `List` only, with a `Nat` step limit. A residual `unfold` is not lowered to EVM code (`src/lower.c:835`, :404). | none |
+| F7 | DONE in checking and evaluation (`formers/FORMERS.md:292`) | `unfold` runs into `List` only, with a `Nat` step limit. A residual `unfold` is not lowered to EVM code (`src/lower.c:883`, :435). | none |
 | F12 | DONE as `Path` since S3 (:297) | Equality is the cubical `Path`: `refl`, `sym`, `trans`. There is no UIP. The EVM output erases a path. | O3 |
 | F13 | DONE as `Path` (:298) | Transport is `transp`. `cong` is a BUILTINS row. Both erase. | O3 |
 | F14 | DONE for `Type 0` and `Type 1` (:299) | There is no cumulativity. | none |
@@ -240,11 +240,11 @@ The entries and the guards:
   `docs/host/README.md:249`). A residual fold over a `List` field runs
   from the last element to the head. Its seed and step must lower to
   words. If either can trap, the step must be provably strict in its
-  accumulator, else REFUSE_LOWER (`src/lower.c:502-520`).
+  accumulator, else REFUSE_LOWER (`src/lower.c:546-564`).
 - The deposit contract (`examples/deposit.lang`) has 9 entries (O43,
   `docs/PLAN.md:475`) and 10 views: the nine accessors (O8) and
   `byUserOrProposer`, whose type also gives it the view role
-  (`examples/deposit.lang:144`, `src/lower.c:208-223`). Its runtime code is 17069 bytes
+  (`examples/deposit.lang:144`, `src/lower.c:239-254`). Its runtime code is 17069 bytes
   (R48, `formers/tcc-evm-contract.md:92`), under the EIP-170 limit of
   24576 bytes (`docs/host/README.md:255`). The sketch of PLAN section 6 is
   old: O42 removes its `depth` field (`docs/PLAN.md:473-474`).
@@ -259,7 +259,7 @@ The erasure of proofs:
   formal hcomp gives REFUSE_LOWER (O31, `docs/PLAN.md:413-416`).
 - A path at run time in an entry gives REFUSE_LOWER (O37,
   `docs/PLAN.md:444-446`).
-- A law has no run-time value: REFUSE_LOWER (`src/lower.c:391`, :404).
+- A law has no run-time value: REFUSE_LOWER (`src/lower.c:422`, :435).
 
 ## 8. Host and target
 
@@ -313,23 +313,23 @@ proof call (s7, O47) and `od -v` at the 4 kit `od` sites (s8, :454-456).
 "Probe-forced" marks an item that a host probe fact forced (sections 5
 and 7, `probe/CAPABILITY.md`).
 
-Open at S7, with the state of each at the S9 close (S8 closed O46, O57 and O35):
+Open at S7, with the state of each at the S10 close (S8 closed O46, O57 and O35):
 
 - O7, O44: closed, not taken (S9 step 9.1, R88). `settle` refuses a caller with no deposit (S8 step 8.4, R73) and keeps its S8 form. The paper paraphrase keeps the bids and the winner selection off chain (`docs/PLAN.md:33-35`, :66-68, :313-314), thus winner selection from the sealed bids on chain is not taken (`docs/PLAN.md:478-480`, `docs/STATUS.md:396`).
 - O46: closed in S8 step 8.3 (R74): `pull` credits `self env`, `def vault`
   is gone (`docs/PLAN.md:489-492`, `formers/tcc-evm-contract.md:106-108`).
 - O50, O58: PARTIAL. `eligible` requires input 1 = cm (S8 step 8.5, R75);
-  the circuit binding stays open at the S9 close (R50, R87 (a), R93 (a), `docs/PLAN.md:515-517`, :547-548).
+  the circuit binding stays open at the S10 close (R50, R87 (a), R93 (a), `docs/PLAN.md:515-517`, :547-548).
 - O57: closed in S8 step 8.1 (R76): off chain, as in the paper
   (`docs/PLAN.md:581-584`).
 - O35: closed in S8 step 8.2 (R77): `rule_hcomp` uses the shared helpers (`docs/STATUS.md:513`).
 - O48: the R48 EIP-170 budget stays open. The deposit runtime code is 17069
-  bytes at the S9 close (R89, no change in S9), 7507 bytes under 24576 (`docs/PLAN.md:503`).
+  bytes at the S10 close (R96, no change in S10), 7507 bytes under 24576 (`docs/PLAN.md:503`).
 - The lang-template `od -v` unit: closed in sealed-lang (its 4 copies
   have `-v`) and in the kit: the 7 kit sites of `docs/PLAN.md:593-600` (R79 (a))
   have `-v` since the kit commit 0ead0b7 (R85, S9 step 9.2k).
-- F15: DONE in `check` and `eval` (`family Lot (size : Nat)`, S9 step 9.3, R86);
-  PARTIAL for EVM output: a one-constructor family of words as a state field, k slots, the index dropped, the projection load and the constructor store (S10 steps 10.2 and 10.3, R95); no Bag state field (`formers/FORMERS.md:300`, R80). No new O row.
+- F15: DONE in `check`, `eval` and EVM output for a one-constructor family of words as a state field (`family Lot (size : Nat)`, S9 step 9.3, R86;
+  k slots, the index dropped, the projection load and the constructor store, S10 steps 10.2 and 10.3, R95); no Bag state field (`formers/FORMERS.md:300`, O84, R80). No new O row.
 
 M11 is not open: the 7.1 row of `test/fronttool.c` kills it (R61 (a),
 bbe668d).
@@ -453,14 +453,14 @@ The kit milestones M0 to M3 map onto the slices S0 to S7 of
 | M2 | S5 | The deposit contract: the share rule, the Merkle tree, the Groth16 verifier, 9 entries and 10 views | 43fb213 to 4626ed3 (2026-10-16 to 2026-10-17) | DONE |
 | M3 | S6, S7 | The protocol layer (`Bag`, the four laws, the median, `processBid`, the property checks) and the docs | S6 1bc714b to 17ef85c (2026-10-17 to 2026-10-18); S7 bbe668d, b0b1b37, cf0f324, f05d6f4 and 85b76dd (2026-10-18) | DONE |
 
-Status 2026-10-19 (S9 closed): M0 to M3 are DONE. S8 closed at 2aa2cf9
-(the S8 final gate). S9 built the open list after S8 in 5 steps: 9.1 the
-docs (cee610f; O7 and O44 closed, not taken, R88), 9.2k the 7 kit `od -v`
-lines (lang-template 0ead0b7, R85), 9.3 a Nat-indexed family (0c0c428,
-R86), 9.4 the run-time Bag lowering (24c8090, `lower_local_fold`, R84)
-and 9.5 the close (docs only, the S9 final gate). Open after S9
-(recorded, not built): the eligibility circuit of the paper and a prover
-(O50 and O58 stay PARTIAL, R87 (a)); the EIP-170 budget (O48: 17069
-bytes, 7507 free, R89); F15 EVM output (no Bag state field, R80; the family
-state field is S10 R95). Winner selection on chain is closed, not taken (R88). The paper
-text is not local. The repo is public since 2026-10-18.
+Status 2026-10-19 (S10 closed): M0 to M3 are DONE. S9 closed at 05c0582
+(the S9 final gate). S10 built the open list after S9 in 5 steps: 10.1 the
+docs (58c13ca; R92, R93 (a), R97), 10.2 the checker case and the lowering
+form of the `Lot n` state field (167f580, R95, M17 KILLED), 10.3 the
+projection load, the constructor store and the `want` fix (419d5a6, M18
+KILLED), 10.4 the cite audit (23 cites including the staged review, R98) and the README Map clause, and
+10.5 the close (docs only, the S10 final gate). Open after S10 (recorded,
+not built): the eligibility circuit of the paper and a prover (O50 and O58
+stay PARTIAL; BLOCKED on the paper text and the USER rulings of the hash,
+the encoding and the setup, R93 (a), O93); the EIP-170 budget (O48: 17069
+bytes, 7507 free, R96); no Bag state field (O84, R80). Winner selection on chain is closed, not taken (R88). The paper text is not local. The repo is public since 2026-10-18.
