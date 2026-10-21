@@ -158,6 +158,8 @@ static const Builtin BUILTINS[] = {
   {"natDiv", 2, RULE_NAT2, OP_NAT_DIV, OP_NAT, 0},
   {"natMod", 2, RULE_NAT2, OP_NAT_MOD, OP_NAT, 0},
   {"hash", 2, RULE_U256_2, OP_HASH, OP_U256, 0},
+  {"poseidon1", 1, RULE_U256_2, OP_POSEIDON1, OP_U256, 0},
+  {"poseidon2", 2, RULE_U256_2, OP_POSEIDON2, OP_U256, 0},
   {"ecrecover", 4, RULE_FIXED, OP_ECRECOVER, OP_ADDR, 0},
   {"ecAdd", 2, RULE_FIXED, OP_EC_ADD, OP_PROD, 0},
   {"ecMul", 2, RULE_FIXED, OP_EC_MUL, OP_PROD, 0},

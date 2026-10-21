@@ -272,17 +272,19 @@ static int fold_regression(const char *name, const char *step, const char *seed,
 }
 
 /* The share rule (S5 R41): an unrolled depth-32 tree insert, level form
-   `flagIf b (hash cur z) (hash f cur)`, builds under EIP-170. Without the
-   rule the code doubles at each level (depth 8 = 24311 bytes). */
-static int insert_regression(void) {
+   `flagIf b (poseidon2 cur z) (poseidon2 f cur)` (the tree level; poseidon2
+   is in the share rule since S11 step 11.3), builds under EIP-170. Without
+   the rule the code doubles at each level (depth 8 = 24311 bytes with
+   keccak). Keep both hash implementations covered. */
+static int insert_regression(const char *hash_op) {
   static const char head[] =
     "state State := makeState (root : U256) (fill : U256)\ndef init : State := makeState 0u 0u\n"
     "def level : (b : Flag) -> (z : U256) -> (f : U256) -> (cur : U256) -> U256 :=\n"
-    "  fun (b : Flag) (z : U256) (f : U256) (cur : U256) => flagIf b (hash cur z) (hash f cur)\n"
+    "  fun (b : Flag) (z : U256) (f : U256) (cur : U256) => flagIf b (%s cur z) (%s f cur)\n"
     "def insert : (env : Env) -> (s : State) -> (idx : Nat) -> (leaf : U256) -> Option (Prod State (List Out)) :=\n"
     "  fun (env : Env) (s : State) (idx : Nat) (leaf : U256) => some (pair (makeState ";
   char source[8192];
-  size_t n = (size_t)snprintf(source, sizeof source, "%s", head);
+  size_t n = (size_t)snprintf(source, sizeof source, head, hash_op, hash_op);
   for (unsigned k = 1; k <= 32 && n < sizeof source; k++)
     n += (size_t)snprintf(source + n, sizeof source - n, "(level (natEq (natMod (natDiv idx %llu) 2) 1) 0u (fill s) ",
                           (unsigned long long)1u << (32u - k));
@@ -301,7 +303,7 @@ static int insert_regression(void) {
     && check_program(&arena, &decls, &machine, &diag)
     && lower_build(&machine, TARGET_PART_RUNTIME, out) == 0 && diag.code == NULL;
   if (!ok) {
-    fputs("FAIL insert-depth-32: a depth-32 insert must build under EIP-170\n", stderr);
+    fprintf(stderr, "FAIL insert-depth-32 (%s): a depth-32 insert must build under EIP-170\n", hash_op);
     if (diag.set) diag_print(&diag, stderr);
   }
   fclose(out);
@@ -543,7 +545,8 @@ int main(void) {
     "some (pair (makeState 9) (cons (pay " TOKEN " " TOKEN " 7u) nil))\n", 0);
   ok &= order_regression("call-order-stored-pull", ENTRY
     "some (pair (makeState 9) (flagIf (natEq (counter s) 0) nil (cons (pull " TOKEN " " TOKEN " " TOKEN " 7u) nil)))\n", 1);
-  ok &= insert_regression();
+  ok &= insert_regression("hash");
+  ok &= insert_regression("poseidon2");
   if (ok) puts("lower regressions: passed");
   return ok ? 0 : 1;
 }

@@ -1,0 +1,2 @@
+-- TYPE_MISMATCH (S11 step 11.3, O101): poseidon2 takes two U256 words, not Nat.
+def wrong : U256 := poseidon2 1 2

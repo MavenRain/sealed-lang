@@ -1,6 +1,7 @@
 /* The evaluator, the conversion test, quote and the printer (see
    front/core.h). SHARED by the tcc kits. */
 #include "front/core.h"
+#include "front/poseidon.h"
 #include "keccak.h"
 
 #include <string.h>
@@ -25,7 +26,8 @@ static const char *const OP_NAMES[] = {
   [OP_FLAG_IF] = "flagIf", [OP_U256_ADD] = "u256Add", [OP_U256_SUB] = "u256Sub",
   [OP_U256_LE] = "u256Le",
   [OP_U256_EQ] = "u256Eq", [OP_TO_U256] = "toU256",
-  [OP_NAT_DIV] = "natDiv", [OP_NAT_MOD] = "natMod", [OP_HASH] = "hash", [OP_ECRECOVER] = "ecrecover",
+  [OP_NAT_DIV] = "natDiv", [OP_NAT_MOD] = "natMod", [OP_HASH] = "hash", [OP_POSEIDON1] = "poseidon1",
+  [OP_POSEIDON2] = "poseidon2", [OP_ECRECOVER] = "ecrecover",
   [OP_EC_ADD] = "ecAdd", [OP_EC_MUL] = "ecMul", [OP_EC_PAIRING] = "ecPairing", [OP_ADDR_TO_U256] = "addrToU256",
   [OP_ADDR_EQ] = "addrEq", [OP_PROJ] = "?", [OP_KMAP] = "Map", [OP_KMAP_OF] = "mapOf",
   [OP_KMAP_GET] = "mapGet", [OP_KMAP_SET] = "mapSet",
@@ -48,7 +50,8 @@ static const unsigned char OP_ARITY[] = {
   [OP_NAT_EQ] = 2, [OP_NAT_LE] = 2, [OP_FLAG_IF] = 3, [OP_U256_ADD] = 2,
   [OP_U256_SUB] = 2, [OP_U256_LE] = 2,
   [OP_U256_EQ] = 2, [OP_TO_U256] = 1, [OP_ADDR_EQ] = 2,
-  [OP_NAT_DIV] = 2, [OP_NAT_MOD] = 2, [OP_HASH] = 2, [OP_ECRECOVER] = 4,
+  [OP_NAT_DIV] = 2, [OP_NAT_MOD] = 2, [OP_HASH] = 2, [OP_POSEIDON1] = 1, [OP_POSEIDON2] = 2,
+  [OP_ECRECOVER] = 4,
   [OP_EC_ADD] = 2, [OP_EC_MUL] = 2, [OP_EC_PAIRING] = 1, [OP_ADDR_TO_U256] = 1,
   [OP_PROJ] = 1, [OP_KMAP] = 2, [OP_KMAP_OF] = VARIES, [OP_KMAP_GET] = 3, [OP_KMAP_SET] = 4,
   [OP_INTERVAL] = 0, [OP_TRANSP] = 3,
@@ -1219,6 +1222,18 @@ static const Value *hash_words(Machine *m, const Value *const *a, uint32_t n) {
   return word_value(m, &r);
 }
 
+/* poseidon1 x and poseidon2 x y (S11 step 11.3, O101): the circomlib Poseidon
+   over the BN254 scalar field. The C code takes each input word mod r. */
+static const Value *poseidon_words(Machine *m, Op op, const Value *const *a, uint32_t n) {
+  const Value *out;
+  U256 in[2], r;
+  if (!word_args(m, op, VAL_WORD, a, n, &out))
+    return out;
+  for (uint32_t i = 0; i < n && i < 2u; i++)
+    in[i] = *a[i]->word;
+  return poseidon(&r, in, n) ? word_value(m, &r) : internal(m, "a poseidon of another arity");
+}
+
 /* addrToU256 a (S2, R20): the same word in the U256 sort. */
 static const Value *addr_to_u256(Machine *m, const Value *const *a, uint32_t n) {
   const Value *out;
@@ -1798,6 +1813,8 @@ static const Value *transp_data(Machine *m, const Value *head, const Value *line
   case OP_NAT_DIV:
   case OP_NAT_MOD:
   case OP_HASH:
+  case OP_POSEIDON1:
+  case OP_POSEIDON2:
   case OP_ECRECOVER:
   case OP_EC_ADD:
   case OP_EC_MUL:
@@ -2285,6 +2302,9 @@ static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, 
     return nat_divmod(m, op, a, n);
   case OP_HASH:
     return hash_words(m, a, n);
+  case OP_POSEIDON1:
+  case OP_POSEIDON2:
+    return poseidon_words(m, op, a, n);
   case OP_ADDR_TO_U256:
     return addr_to_u256(m, a, n);
   case OP_ECRECOVER:

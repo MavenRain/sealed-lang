@@ -371,6 +371,12 @@ static int emit_stmt(Emit *e, const IrStmt *s) {
     asm_push(a, s->address);
     emit_ops(a, (const Op[]){EVM_OP_GAS, EVM_OP_STATICCALL, EVM_OP_ISZERO}, 3);
     asm_jump_if(a, e->revert);
+    if (s->address == 0xf5u) { /* Poseidon requires a complete library result. */
+      asm_op(a, EVM_OP_RETURNDATASIZE);
+      asm_push(a, 32u * (uint64_t)s->out_count);
+      emit_ops(a, (const Op[]){EVM_OP_EQ, EVM_OP_ISZERO}, 2);
+      asm_jump_if(a, e->revert);
+    }
     asm_push(a, out);
     emit_store(a, 32u * (uint64_t)s->local);
     return 1;

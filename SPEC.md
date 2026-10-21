@@ -64,15 +64,15 @@ R1 to R5, :45-59):
 
 | Form | Code | Source |
 |---|---|---|
-| a `family` (R1: only the domain declares a family) | REFUSE_DATA | `src/front/check.c:2798` |
-| an `axiom` whose type is not a Path or PathP after its Pi binders | REFUSE_AXIOM_TYPE | `src/front/check.c:2775-2776` |
-| an `axiom` with a law type (R2: only the domain declares a law) | REFUSE_AXIOM | `src/front/check.c:2778` |
-| `def rec`, or a reference to a later name or to its own name (R3) | REFUSE_REC | `src/front/check.c:2802`, :1817 |
-| a definition with a core name or a prelude name (R4) | REFUSE_NAME | `src/front/check.c:2177` |
-| a state that is not the one `State` above, or a state field containing a nested `Map` | REFUSE_STATE | `src/front/check.c:2718-2736`, `docs/host/README.md:94`, :174 |
-| a `Map` key outside `Nat`, `U256`, `Addr`, or a value outside `Nat`, `Flag`, `U256`, `Addr` | REFUSE_MAP | `src/front/check.c:1573-1575` |
-| an event with more than 32 fields, a field that is not a word, or two fields with one name | REFUSE_EVENT | `src/front/check.c:2413-2425` |
-| a write to a `history` field that rule D-9 does not accept | REFUSE_HISTORY_WRITE | `src/front/check.c:2585-2610` |
+| a `family` (R1: only the domain declares a family) | REFUSE_DATA | `src/front/check.c:2800` |
+| an `axiom` whose type is not a Path or PathP after its Pi binders | REFUSE_AXIOM_TYPE | `src/front/check.c:2777-2778` |
+| an `axiom` with a law type (R2: only the domain declares a law) | REFUSE_AXIOM | `src/front/check.c:2780` |
+| `def rec`, or a reference to a later name or to its own name (R3) | REFUSE_REC | `src/front/check.c:2804`, :1819 |
+| a definition with a core name or a prelude name (R4) | REFUSE_NAME | `src/front/check.c:2179` |
+| a state that is not the one `State` above, or a state field containing a nested `Map` | REFUSE_STATE | `src/front/check.c:2720-2738`, `docs/host/README.md:94`, :174 |
+| a `Map` key outside `Nat`, `U256`, `Addr`, or a value outside `Nat`, `Flag`, `U256`, `Addr` | REFUSE_MAP | `src/front/check.c:1575-1577` |
+| an event with more than 32 fields, a field that is not a word, or two fields with one name | REFUSE_EVENT | `src/front/check.c:2415-2427` |
+| a write to a `history` field that rule D-9 does not accept | REFUSE_HISTORY_WRITE | `src/front/check.c:2587-2612` |
 
 Thus a program cannot add a data type, an unproved fact or general
 recursion. Recursion comes only from `fold` and `unfold` (F6, F7).
@@ -90,7 +90,7 @@ table gives each former that has a deviation.
 
 | ID | Status on tcc-evm-contract | Effect on this language | Open item |
 |---|---|---|---|
-| F7 | DONE in checking and evaluation (`formers/FORMERS.md:292`) | `unfold` runs into `List` only, with a `Nat` step limit. A residual `unfold` is not lowered to EVM code (`src/lower.c:883`, :435). | none |
+| F7 | DONE in checking and evaluation (`formers/FORMERS.md:292`) | `unfold` runs into `List` only, with a `Nat` step limit. A residual `unfold` is not lowered to EVM code (`src/lower.c:889`, :435). | none |
 | F12 | DONE as `Path` since S3 (:297) | Equality is the cubical `Path`: `refl`, `sym`, `trans`. There is no UIP. The EVM output erases a path. | O3 |
 | F13 | DONE as `Path` (:298) | Transport is `transp`. `cong` is a BUILTINS row. Both erase. | O3 |
 | F14 | DONE for `Type 0` and `Type 1` (:299) | There is no cumulativity. | none |
@@ -141,8 +141,8 @@ and the key are products of words. The kit types and the domain types are:
 | `Bid` | a bid (PLAN 2, :34-35) | `Prod U256 U256` (`domain/domain.lang:67`) |
 | `Bag A` | the bid pool, a multiset (PLAN 2, :66-71) | a QIT (`domain/domain.lang:56-61`) |
 | `S1`, `Trunc1`, `Trunc0`, `Quot` | loops, HITs and quotients (`design/DESIGN.md:14`) | `domain/domain.lang:33`, :37, :41, :46-49 |
-| `G1Point`, `G2Point` | BN254 points for Groth16 (PLAN 2, :60-64) | `Prod U256 U256` and `Prod (Prod U256 U256) (Prod U256 U256)` (`domain/domain.lang:156-157`). Probe-forced: G2 is in EIP-197 order, (x_im, x_re), (y_im, y_re) (:153). |
-| `VerifyKey`, `VerifyProof` | a Groth16 key and proof (PLAN 2, :60-64) | word products (`docs/PLAN.md:103`, `domain/domain.lang:158-159`) |
+| `G1Point`, `G2Point` | BN254 points for Groth16 (PLAN 2, :60-64) | `Prod U256 U256` and `Prod (Prod U256 U256) (Prod U256 U256)` (`domain/domain.lang:162-163`). Probe-forced: G2 is in EIP-197 order, (x_im, x_re), (y_im, y_re) (:159). |
+| `VerifyKey`, `VerifyProof` | a Groth16 key and proof (PLAN 2, :60-64) | word products (`docs/PLAN.md:103`, `domain/domain.lang:164-165`) |
 
 Probe-forced: an entry or a view takes one tuple of at most 32 words for
 each call (O12, O23, `docs/PLAN.md:351-353`, :383; `ENTRY_PARAMS_MAX` in
@@ -153,9 +153,9 @@ each call (O12, O23, `docs/PLAN.md:351-353`, :383; `ENTRY_PARAMS_MAX` in
 The design names no operation (`design/DESIGN.md:14`). `docs/PLAN.md`
 section 2 (:60-64: hash, a Merkle tree, Groth16 over BN254, a signature
 check, caller, time, maps, a token transfer) and section 4 (:105-168) give
-the minimum. BUILTINS is `src/front/check.c:99-166`, 66 rows
+the minimum. BUILTINS is `src/front/check.c:99-168`, 68 rows
 (`docs/PLAN.md:147-150`): 10 type rows, 23 constructor and eliminator rows
-of F1 to F11, 11 path rows (S3), 14 kit operations and 8 S2 operations.
+of F1 to F11, 11 path rows (S3), 14 kit operations, 8 S2 operations and 2 S11 operations.
 The table gives the operations and the path rows of BUILTINS, the prelude
 names and the domain library. Each cite without a file is in the file of
 the row above it.
@@ -172,10 +172,11 @@ the row above it.
 | `mapEmpty`, `mapGet`, `mapSet` (:155-157) | `Map K V`, `Map K V -> K -> V`, `Map K V -> K -> V -> Map K V` | maps (PLAN 2, :60-64). A missing key reads as zero (`docs/host/README.md:168-170`). |
 | `natDiv`, `natMod` (`src/front/check.c:158-159`) | `Nat -> Nat -> Nat` | division of counts (PLAN 4). DIV and MOD, a trap on 0 (`formers/tcc-evm-contract.md:40`). |
 | `hash` (`src/front/check.c:160`) | `U256 -> U256 -> U256` | the hash (PLAN 2, :60-64). KECCAK256 of two words (`formers/tcc-evm-contract.md:41`). |
-| `ecrecover` (`src/front/check.c:161`) | `U256 -> Nat -> U256 -> U256 -> Addr` | the signature check (PLAN 2). One STATICCALL to precompile 1 (`formers/tcc-evm-contract.md:43`). |
-| `ecAdd`, `ecMul` (`src/front/check.c:162-163`) | `G1Point -> G1Point -> G1Point`, `G1Point -> U256 -> G1Point` | Groth16 over BN254 (PLAN 2). STATICCALL 6 and 7 (`formers/tcc-evm-contract.md:44`). |
-| `ecPairing` (`src/front/check.c:164`) | `List (Prod G1Point G2Point) -> Flag` | the pairing check (PLAN 2). STATICCALL 8, 6 words for each pair (`formers/tcc-evm-contract.md:45`). |
-| `addrToU256` (`src/front/check.c:165`) | `Addr -> U256` | an address as a word (PLAN 4, `formers/tcc-evm-contract.md:42`) |
+| `poseidon1`, `poseidon2` (`src/front/check.c:161-162`) | `U256 -> U256`, `U256 -> U256 -> U256` | the Merkle hash (PLAN O101). The circomlib 2.0.5 Poseidon(1) and Poseidon(2) over the BN254 scalar field r, each input word mod r (`src/front/poseidon.c`). `poseidon2` lowers to one STATICCALL to the Poseidon(2) library at address 0xf5 (`lower_curve`, `test/poseidonlib.c`); it requires exactly 32 return bytes or reverts. `poseidon1` has no EVM form (REFUSE_LOWER, `test/lower/poseidon1.lang`). |
+| `ecrecover` (`src/front/check.c:163`) | `U256 -> Nat -> U256 -> U256 -> Addr` | the signature check (PLAN 2). One STATICCALL to precompile 1 (`formers/tcc-evm-contract.md:43`). |
+| `ecAdd`, `ecMul` (`src/front/check.c:164-165`) | `G1Point -> G1Point -> G1Point`, `G1Point -> U256 -> G1Point` | Groth16 over BN254 (PLAN 2). STATICCALL 6 and 7 (`formers/tcc-evm-contract.md:44`). |
+| `ecPairing` (`src/front/check.c:166`) | `List (Prod G1Point G2Point) -> Flag` | the pairing check (PLAN 2). STATICCALL 8, 6 words for each pair (`formers/tcc-evm-contract.md:45`). |
+| `addrToU256` (`src/front/check.c:167`) | `Addr -> U256` | an address as a word (PLAN 4, `formers/tcc-evm-contract.md:42`) |
 | `I`, `i0`, `i1` (`src/front/check.c:109-111`) | the interval and its two ends | paths (`design/DESIGN.md:14`, PLAN 3 `docs/PLAN.md:88`). Erased (`formers/tcc-evm-contract.md:57`). |
 | `PathP`, `Path`, `refl` (`src/front/check.c:112-113`, :125) | `PathP A x y`, `Path A x y`, `refl` | paths, no UIP. Erased (`formers/tcc-evm-contract.md:58`). |
 | `sym`, `cong`, `funExt` (`src/front/check.c:138-140`) | `sym p`, `cong f p`, `funExt h` | path operations. `sym` and `cong` erase (`formers/tcc-evm-contract.md:59`). `funExt` is check only (:60). |
@@ -188,8 +189,8 @@ the row above it.
 | `isProp`, `isSet` (`domain/domain.lang:26`, :28) | the truncation levels | HITs and QITs (PLAN 3, `docs/PLAN.md:90-91`) |
 | `bidLe`, `bidMax` (`domain/domain.lang:68`, :70) | on `Bid` | the bid order and the maximum (PLAN 3, `docs/PLAN.md:92`) |
 | `insNatSeed`, `insNat` (`domain/domain.lang:86-87`) | on `List Nat` | the sort for the median (PLAN 3, `docs/PLAN.md:92`) |
-| `treeDepth` to `rootOfLeaves` (`domain/domain.lang:103-149`) | the Merkle tree, depth 32 | the Merkle registry (PLAN 3, `docs/PLAN.md:80`; O42) |
-| `listHead` to `verify` (`domain/domain.lang:151-215`) | the Groth16 verifier | Groth16 (PLAN 3, `docs/PLAN.md:81`). Exact on precompiles 6, 7 and 8 (`formers/tcc-evm-contract.md:90`). |
+| `treeDepth` to `rootOfLeaves` (`domain/domain.lang:103-155`) | the Merkle tree, depth 32 | the Merkle registry (PLAN 3, `docs/PLAN.md:80`; O42) |
+| `listHead` to `verify` (`domain/domain.lang:157-221`) | the Groth16 verifier | Groth16 (PLAN 3, `docs/PLAN.md:81`). Exact on precompiles 6, 7 and 8 (`formers/tcc-evm-contract.md:90`). |
 | `bidMaxSwap` (`domain/domain.lang:79`) | `(x : Bid) -> (y : Bid) -> (r : Bid) -> Path Bid (bidMax x (bidMax y r)) (bidMax y (bidMax x r))` | the law for the `bagSwap` case of `bagMax` (PLAN 3, `docs/PLAN.md:92`) |
 | `bidSet` (`domain/domain.lang:80`) | `isSet Bid` | the law for the isSet case of `bagMax` |
 | `insSwap` (`domain/domain.lang:100`) | `(x : Nat) -> (y : Nat) -> (l : List Nat) -> Path (List Nat) (insNat x (insNat y l)) (insNat y (insNat x l))` | the law for the `bagSwap` case of `sortBag` |
@@ -244,10 +245,10 @@ The entries and the guards:
 - The deposit contract (`examples/deposit.lang`) has 9 entries (O43,
   `docs/PLAN.md:479`) and 10 views: the nine accessors (O8) and
   `byUserOrProposer`, whose type also gives it the view role
-  (`examples/deposit.lang:144`, `src/lower.c:239-254`). Its runtime code is 17069 bytes
+  (`examples/deposit.lang:147`, `src/lower.c:239-254`). Its runtime code is 19822 bytes
   (R48, `formers/tcc-evm-contract.md:92`), under the EIP-170 limit of
   24576 bytes (`docs/host/README.md:255`). The sketch of PLAN section 6 is
-  old: O42 removes its `depth` field (`docs/PLAN.md:477-478`).
+  old: O42 removes its `depth` field (`docs/PLAN.md:477-478`). Before the staged review, with the `poseidon2` tree (step 11.3, USER pin 19237) the execution gas of `registerDeposit` is 1929582 for the first leaf and 1345576 for the second; a depth-32 insert uses 1104561 (`evm run --statdump`).
 
 The erasure of proofs:
 
@@ -301,7 +302,7 @@ that each of the four laws is true.
 
 ## 9. Open items
 
-Each item is one row of `docs/PLAN.md` section 8 (:282-865), with its
+Each item is one row of `docs/PLAN.md` section 8 (:282-883), with its
 status at S9: done in the slice that built it, closed (not taken), or
 open. O1 to O15 are the builder's calls, and the USER did not rule them
 (`docs/PLAN.md:18-19`). PLAN gives "RULED 2026-10-15" for O16 to O30
@@ -323,8 +324,8 @@ Open at S7, with the state of each at the S10 close (S8 closed O46, O57 and O35)
 - O57: closed in S8 step 8.1 (R76): off chain, as in the paper
   (`docs/PLAN.md:585-588`).
 - O35: closed in S8 step 8.2 (R77): `rule_hcomp` uses the shared helpers (`docs/STATUS.md:513`).
-- O48: the R48 EIP-170 budget stays open. The deposit runtime code is 17069
-  bytes at the S10 close (R96, no change in S10), 7507 bytes under 24576 (`docs/PLAN.md:507`).
+- O48: the R48 EIP-170 budget stays open. The deposit runtime code is 19822
+  bytes at step 11.3 (after the staged review; USER pin 19237 before it; 17069 at the S10 close, R96), 4754 bytes under 24576 (`docs/PLAN.md:507`).
 - The lang-template `od -v` unit: closed in sealed-lang (its 4 copies
   have `-v`) and in the kit: the 7 kit sites of `docs/PLAN.md:597-604` (R79 (a))
   have `-v` since the kit commit 0ead0b7 (R85, S9 step 9.2k).
@@ -417,7 +418,7 @@ The items (PLAN line, status):
   `self env` (R74). Closed in step 8.3. RULED 2026-10-16.
 - O47 (:497). The deposit script row of `test/diff.sh`. Done in S5 (diff
   15 to 16). RULED 2026-10-16, and the USER ruling s7.
-- O48 (:505). The runtime code is 17069 bytes at the S9 close (17119 in S5; R89). The EIP-170
+- O48 (:505). The runtime code is 19822 bytes after the staged review of step 11.3 (19237 before it; 17069 at the S9 close, 17119 in S5; R89). The EIP-170
   budget is open (above). RULED 2026-10-16.
 - O49 (:510). `regAuction` writes at most 4 slots. Done in S5. RULED
   2026-10-16.
@@ -462,5 +463,5 @@ KILLED), 10.4 the cite audit (23 cites including the staged review, R98) and the
 10.5 the close (docs only, the S10 final gate). Open after S10 (recorded,
 not built): the eligibility circuit of the paper and a prover (O50 and O58
 stay PARTIAL; BLOCKED on the paper text and the USER rulings of the hash,
-the encoding and the setup, R93 (a), O93); the EIP-170 budget (O48: 17069
-bytes, 7507 free, R96); no Bag state field (O84, R80). Winner selection on chain is closed, not taken (R88). The paper text is not local. The repo is public since 2026-10-18.
+the encoding and the setup, R93 (a), O93); the EIP-170 budget (O48: 19822
+bytes, 4754 free, step 11.3 after staged review); no Bag state field (O84, R80). Winner selection on chain is closed, not taken (R88). The paper text is not local. The repo is public since 2026-10-18.

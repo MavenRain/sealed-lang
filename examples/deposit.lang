@@ -76,27 +76,30 @@ def regAuction : (env : Env) -> (s : State) -> (item : U256) -> (tstart : Nat) -
 def depositLastLeaf : Nat := natSub (fold (fun (n : Nat) => natAdd n n) 1 treeDepth) 1
 
 -- Entry: the caller A_u deposits d of the asset with the commitment cu (C_u). A_u has no deposit,
--- d >= minDeposit, and the tree has room. The leaf cu goes in the tree at nextLeaf, and the new
--- root is the root of the current slot. The redex binds insertLeaf once, thus the root and the
--- 32 filled writes use the same level values (the S5 4.1 share rule).
+-- d >= minDeposit, the tree has room, and cu < r (treeFieldMax). The leaf poseidon2 A_u cu (S11
+-- step 11.3, the address-bound leaf) goes in the tree at nextLeaf, and the new root is the root of
+-- the current slot. The redex binds insertLeaf once, thus the root and the 32 filled writes use
+-- the same level values (the S5 4.1 share rule).
 def registerDeposit : (env : Env) -> (s : State) -> (cu : U256) -> (d : U256) -> Option (Prod State (List Out)) :=
   fun (env : Env) (s : State) (cu : U256) (d : U256) =>
     (fun (ins : Prod U256 (Map Nat U256)) =>
       flagIf (natLe (nextLeaf s) depositLastLeaf)
         (flagIf (u256Eq (mapGet (amount s) (caller env)) 0u)
           (flagIf (u256Le (minDeposit s) d)
-            (some (pair
-              (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
-                (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s)
-                (mapSet (amount s) (caller env) d) (mapSet (leaf s) (caller env) cu) (natAdd (nextLeaf s) 1)
-                (mapSet (rootAt s) (slotOf s (now env)) (first ins)) (second ins)
-                (inactiveSince s) (slashed s) (proposer s) (piAcc s) (piCount s) (piNonce s) (piHas s)
-                (winner s) (price s))
-              (cons (pull asset (caller env) (self env) d) nil)))
+            (flagIf (u256Le cu treeFieldMax)
+              (some (pair
+                (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
+                  (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s)
+                  (mapSet (amount s) (caller env) d) (mapSet (leaf s) (caller env) cu) (natAdd (nextLeaf s) 1)
+                  (mapSet (rootAt s) (slotOf s (now env)) (first ins)) (second ins)
+                  (inactiveSince s) (slashed s) (proposer s) (piAcc s) (piCount s) (piNonce s) (piHas s)
+                  (winner s) (price s))
+                (cons (pull asset (caller env) (self env) d) nil)))
+              none)
             none)
           none)
         none)
-      (insertLeaf (nextLeaf s) cu (filled s))
+      (insertLeaf (nextLeaf s) (poseidon2 (addrToU256 (caller env)) cu) (filled s))
 
 -- Entry: start the inactivity timer of the user au. The caller is a proposer (R44 (a)), au has a
 -- deposit, and au is active. The field keeps the current slot + 1 (0 = active).

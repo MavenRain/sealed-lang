@@ -71,6 +71,10 @@ typedef enum {
   OP_NAT_DIV,
   OP_NAT_MOD,
   OP_HASH,
+  /* S11 step 11.3 (O101): the circomlib Poseidon(1) and Poseidon(2) over the
+     BN254 scalar field, exact in the evaluator. */
+  OP_POSEIDON1,
+  OP_POSEIDON2,
   OP_ECRECOVER,
   OP_EC_ADD,
   OP_EC_MUL,

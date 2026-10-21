@@ -100,25 +100,31 @@ def insNat : (x : Nat) -> (l : List Nat) -> List Nat :=
 axiom insSwap : (x : Nat) -> (y : Nat) -> (l : List Nat) -> Path (List Nat) (insNat x (insNat y l)) (insNat y (insNat x l))
 axiom listNatSet : isSet (List Nat)
 
--- The tree library (S5, R40 (a)): an incremental Merkle tree of keccak
--- hashes with a closed depth (R42 (a)). Level 0 is the leaf level. An
--- empty leaf is 0u, and zeroHash l is the root of an empty subtree of
--- height l. All folds here are over a closed Nat or a closed list, thus
--- normalization unrolls them (32 levels) and an entry or a view can use
--- insertLeaf.
+-- The tree library (S5, R40 (a)): an incremental Merkle tree of
+-- Poseidon(2) hashes with a closed depth (R42 (a)). The hash is poseidon2
+-- (S11 step 11.3, O101 route (a)), the hash of circuits/eligibility.circom;
+-- on the chain it is a STATICCALL to the library at 0xf5. Level 0 is the
+-- leaf level. An empty leaf is 0u, and zeroHash l is the root of an empty
+-- subtree of height l (E[l] of the circuit fixture). All folds here are
+-- over a closed Nat or a closed list, thus normalization unrolls them (32
+-- levels) and an entry or a view can use insertLeaf.
 def treeDepth : Nat := 32
+-- r - 1, the largest scalar of the BN254 scalar field. The circuit reads a
+-- leaf input as a field element, thus an input must be below r.
+def treeFieldMax : U256 := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000u
 -- The levels from treeDepth - 1 down to 0. A list fold applies its step
 -- to the last element first, thus level 0 is the inner step.
 def treeLevels : List Nat := unfold (fun (n : Nat) => some (pair n (natSub n 1))) treeDepth (natSub treeDepth 1)
-def zeroHash : (l : Nat) -> U256 := fun (l : Nat) => fold (fun (acc : U256) => hash acc acc) 0u l
+def zeroHash : (l : Nat) -> U256 := fun (l : Nat) => fold (fun (acc : U256) => poseidon2 acc acc) 0u l
 -- flagYes when bit l of idx is 0: the node at level l is a left child.
 def treeLeft : (idx : Nat) -> (l : Nat) -> Flag :=
   fun (idx : Nat) (l : Nat) => natEq (natMod (natDiv idx (fold (fun (a : Nat) => natAdd a a) 1 l)) 2) 0
 -- One level (the 4.1 form, which the share rule keeps linear in the
--- depth): a left child cur hashes with the empty subtree z, a right child
--- hashes with the filled subtree f.
+-- depth; poseidon2 is in the share rule since S11 step 11.3): a left child
+-- cur hashes with the empty subtree z, a right child hashes with the filled
+-- subtree f. Only one of the two poseidon2 calls runs at each level.
 def treeLevel : (b : Flag) -> (z : U256) -> (f : U256) -> (cur : U256) -> U256 :=
-  fun (b : Flag) (z : U256) (f : U256) (cur : U256) => flagIf b (hash cur z) (hash f cur)
+  fun (b : Flag) (z : U256) (f : U256) (cur : U256) => flagIf b (poseidon2 cur z) (poseidon2 f cur)
 -- Insert the leaf cur at the index idx. The result is the new root and
 -- the new filled subtrees: a left child at level l becomes filled at l.
 -- The insert writes each level, with the old value for a right child.
@@ -138,7 +144,7 @@ def treePairSeed : (z : U256) -> (odd : Flag) -> Prod (List U256) (Prod U256 Fla
 def treePairStep : (x : U256) -> (acc : Prod (List U256) (Prod U256 Flag)) -> Prod (List U256) (Prod U256 Flag) :=
   fun (x : U256) (acc : Prod (List U256) (Prod U256 Flag)) =>
     flagIf (second (second acc))
-      (pair (cons (hash x (first (second acc))) (first acc)) (pair 0u flagNo))
+      (pair (cons (poseidon2 x (first (second acc))) (first acc)) (pair 0u flagNo))
       (pair (first acc) (pair x flagYes))
 def treePairLevel : (l : Nat) -> (xs : List U256) -> List U256 :=
   fun (l : Nat) (xs : List U256) =>

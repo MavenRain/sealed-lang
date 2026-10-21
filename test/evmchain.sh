@@ -8,6 +8,11 @@
 receiver=0000000000000000000000007265636569766572
 config='{"chainId":1,"homesteadBlock":0,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"istanbulBlock":0,"berlinBlock":0,"londonBlock":0,"mergeNetsplitBlock":0,"shanghaiTime":0,"terminalTotalDifficulty":0,"terminalTotalDifficultyPassed":true}'
 
+# The Poseidon(2) library (S11 step 11.3, O101): the code of build/poseidonlib
+# at the address of `poseidon2` (src/lower.c lower_curve). step() puts it in
+# each prestate.
+library=",\"0x00000000000000000000000000000000000000f5\":{\"balance\":\"0x0\",\"code\":\"0x$(build/poseidonlib)\",\"storage\":{}}"
+
 # keccak HEX: keccak256 of the bytes HEX (CALLDATACOPY, SHA3, RETURN of 32 bytes).
 keccak() { evm run --code 365f5f37365f205f5260205ff3 --input "$1" 2>&1 | cut -c3-; }
 # sel TEXT: the selector of the signature TEXT.
@@ -180,10 +185,10 @@ deploy() {
 # trap (the Trap() selector), error, `revert HEX` or `out HEX`. tmp/raw and
 # tmp/got get the storage after the call. A set alloc (`,"0xADDR":{...}`)
 # adds accounts to the prestate (test/diff.sh: the mock token); then tmp/raw
-# holds the storage of all accounts.
+# holds the storage of all accounts. The prestate also holds the library.
 step() {
   _st=$(awk '{ printf "%s\"0x%s\":\"0x%s\"", (NR > 1 ? "," : ""), $1, $2 }' "$tmp/raw")
-  genesis "$1" "\"0x$receiver\":{\"balance\":\"0x0\",\"code\":\"0x$(cat "$tmp/code")\",\"storage\":{$_st}}${alloc:-}"
+  genesis "$1" "\"0x$receiver\":{\"balance\":\"0x0\",\"code\":\"0x$(cat "$tmp/code")\",\"storage\":{$_st}}$library${alloc:-}"
   evm run --prestate "$tmp/pre.json" --receiver "0x$receiver" --sender "$2" --input "$3" \
     --dump >"$tmp/dump" 2>&1 || return 1
   result=$(awk '

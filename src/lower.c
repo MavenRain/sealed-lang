@@ -705,20 +705,22 @@ static int set_put(Low *l, ValueSet *s, const Value *v, unsigned char mark) {
   return 1;
 }
 
-/* The values that the share rule hoists (S5 R41): a hash and a word flagIf. */
+/* The values that the share rule hoists (S5 R41): a hash, a poseidon2 (S11
+   step 11.3) and a word flagIf. */
 static int shareable(const Value *v) {
-  return (is_op(v, OP_HASH) && v->argc == 2) || (is_op(v, OP_FLAG_IF) && v->argc == 3);
+  return (is_op(v, OP_HASH) && v->argc == 2) || (is_op(v, OP_POSEIDON2) && v->argc == 2) ||
+    (is_op(v, OP_FLAG_IF) && v->argc == 3);
 }
 
 static int pure_word(Low *l, const Value *v);
 
 /* 1 when the word value V cannot trap: a constant, a local, a load, now,
-   caller or self, a hash, a comparison or a subtraction of such values, a natDiv or
-   a natMod of such a value by a nonzero constant, and a word flagIf over such
-   values. Each of these lowers with no refusal. */
+   caller or self, a hash, a poseidon2, a comparison or a subtraction of such
+   values, a natDiv or a natMod of such a value by a nonzero constant, and a
+   word flagIf over such values. Each of these lowers with no refusal. */
 static int pure_word_of(Low *l, const Value *v) {
-  static const Op pure_binary[] = {OP_HASH,   OP_NAT_SUB, OP_NAT_EQ,  OP_NAT_LE,
-                                   OP_U256_SUB, OP_U256_LE, OP_U256_EQ, OP_ADDR_EQ};
+  static const Op pure_binary[] = {OP_HASH,     OP_POSEIDON2, OP_NAT_SUB, OP_NAT_EQ, OP_NAT_LE,
+                                   OP_U256_SUB, OP_U256_LE,   OP_U256_EQ, OP_ADDR_EQ};
   uint32_t f;
   if (v == NULL) return 0;
   if (v->kind == VAL_NAT || v->kind == VAL_WORD || val_is(v, OP_FLAG_YES) || val_is(v, OP_FLAG_NO)) return 1;
@@ -815,7 +817,8 @@ static int closed_list(const Value *v) {
 
 /* The STUCK value V of a curve op (S2, R17): local := the output block of
    one STATICCALL to the precompile (ecrecover 1, ecAdd 6, ecMul 7,
-   ecPairing 8). The input words are the words of the arguments; the
+   ecPairing 8), or to the Poseidon(2) library at 0xf5 for poseidon2 (S11
+   step 11.3, test/poseidonlib.c, one word out). The input words are the words of the arguments; the
    pairing list must be a closed list, 6 words per pair. One STATICCALL per
    value per entry: a second use in B, or in a block that runs after B,
    reads the first block. A use in the other arm of an IF gets its own call. */
@@ -839,14 +842,16 @@ static const IrExpr *lower_curve(Low *l, Stmts *b, const Value *v) {
   s->local = l->locals++;
   s->fields = fields;
   s->field_count = count;
-  s->address = v->op == OP_ECRECOVER ? 1u : v->op == OP_EC_ADD ? 6u : v->op == OP_EC_MUL ? 7u : 8u;
+  s->address = v->op == OP_ECRECOVER ? 1u : v->op == OP_EC_ADD ? 6u : v->op == OP_EC_MUL ? 7u : v->op == OP_POSEIDON2 ? 0xf5u : 8u;
   s->out_count = is_curve(v) ? 2u : 1u;
   return push(l, b, s) && memo_add(l, v, s, s->local) ? ir_local(l, s->local) : NULL;
 }
 
 static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
   uint32_t f;
-  size_t hit = shareable(v) ? memo_find(l, b, v) : l->memo_count;
+  /* The memo entry of a poseidon2 is the output block (lower_curve), thus
+     its row below reads it with ir_load. */
+  size_t hit = shareable(v) && !is_op(v, OP_POSEIDON2) ? memo_find(l, b, v) : l->memo_count;
   if (hit < l->memo_count) return ir_local(l, l->memo[hit].local);
   if (v != NULL && v->kind == VAL_TRAP) return push(l, b, new_stmt(l, IR_STMT_TRAP)) ? ir_const(l, 0) : NULL;
   if (v != NULL && v->kind == VAL_NAT) return ir_const(l, v->nat);
@@ -873,6 +878,7 @@ static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
   if (is_op(v, OP_TO_U256) && v->argc == 1) return lower_expr(l, b, v->args[0]);
   if (is_op(v, OP_ADDR_TO_U256) && v->argc == 1) return lower_expr(l, b, v->args[0]);
   if ((is_op(v, OP_ECRECOVER) || is_op(v, OP_EC_PAIRING)) && v->argc >= 1) return ir_load(l, lower_curve(l, b, v), 0);
+  if (is_op(v, OP_POSEIDON2) && v->argc == 2) return ir_load(l, lower_curve(l, b, v), 0);
   if ((is_op(v, OP_FIRST) || is_op(v, OP_SECOND)) && v->argc == 1 && is_curve(v->args[0]))
     return ir_load(l, lower_curve(l, b, v->args[0]), (uint32_t)is_op(v, OP_SECOND));
   if (is_op(v, OP_KMAP_GET) && v->argc == 3 && field_of(v->args[1], 1u, &f) && form_at(l, f) == FORM_MAP) {

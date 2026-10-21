@@ -24,21 +24,21 @@ The sections above `## S2` give the summary of S0 to S6; the slice records give 
 - The deposit contract (S5, Algorithm 1 of the paper):
   `examples/deposit.lang` with 9 entries and 10 views, the share rule, and
   the Merkle tree library and the Groth16 verifier as guest definitions.
-  The runtime code is 17069 bytes at the S10 close (`SPEC.md:244-250`).
+  The runtime code is 19822 bytes after the staged review of step 11.3 (USER pin 19237 before review) (`SPEC.md:245-251`).
 - The protocol layer (S6, Algorithms 2 and 3): `Bag`, `Bid`, the four laws, the median, `processBid` and the property checks.
   Since S9 step 9.4, local `Bag` folds that reduce to word code can reach the EVM (`test/bag.lang`); `processBid` stays off chain (R76).
-  Laws have no run-time value. `langc check` prints the axiom report (`SPEC.md:283-300`).
+  Laws have no run-time value. `langc check` prints the axiom report (`SPEC.md:284-301`).
 
 ## Remaining work
 
-`SPEC.md:316-332` gives the items open at S7 and their state at the S10 close:
+`SPEC.md:317-333` gives the items open at S7 and their state at the S10 close:
 
 1. `settle` (O7, O44): closed, not taken (9.1, R88); it refuses a caller with no deposit (8.4).
 2. `vault` (O46): closed in S8 step 8.3; `pull` credits `self env` (R74).
 3. The binding of each cm to its proof (O50, O58): PARTIAL; input 1 = cm (8.5); the circuit stays open (R87).
 4. An entry that calls `processBid` (O57): closed as off chain only (R76).
 5. The R35 refactor of `rule_hcomp` (O35): done in S8 step 8.2 (R77).
-6. The EIP-170 budget (O48): 7507 bytes are free under 24576 at the S10 close (R96).
+6. The EIP-170 budget (O48): 4754 bytes are free under 24576 after the staged review of step 11.3 (runtime 19822; USER pin 19237 before review).
 7. `od -v`: sealed-lang's 4 copies are fixed (R79); the 7 kit sites too, kit commit 0ead0b7 (R85).
 8. F15: DONE in `check` and `eval` (`family Lot`, 9.3, R86) and in EVM output for the `Lot n` state field (10.2 and 10.3, R95); no Bag state field (O84, R80).
 
@@ -53,7 +53,7 @@ The sections above `## S2` give the summary of S0 to S6; the slice records give 
   (O47, `## S5`).
 - On the EVM, a `Nat` is a uint64 word and a view returns one word of 32
   bytes. If a residual fold's seed or step can trap, its step must be
-  strict in its accumulator, else REFUSE_LOWER (`SPEC.md:132`, :239-243).
+  strict in its accumulator, else REFUSE_LOWER (`SPEC.md:132`, :240-244).
 - The `build/lowertool` arena is 32 MiB (`## S5`).
 - The property rows check fixed inputs only. They do not prove Lemma 11
   or Theorems 7 to 10 (`## S6`).
@@ -1381,3 +1381,180 @@ chain rows and M20):
   `test/precompile.sh` and this file. `docs/PLAN.md` O106 11.2 stays
   "To build" until the close; `probe/CAPABILITY.md` and `SPEC.md`
   unchanged.
+
+Step 11.3 DONE (2026-10-21; the Poseidon(2) hash, the EVM library at
+0xf5 and the deposit tree over `poseidon2`; sessions s4b to s4j):
+
+- Precondition: HEAD 21551dd (the USER commit of 11.2) on fa8e165,
+  tree 452b1332, index empty. Line counts at the start: SPEC.md 466,
+  docs/PLAN.md 865, this file 1383. The gate at the start: examples
+  30, evals 85, evm steps 48, precompile 34 steps, deposit 26
+  assertions with 0 failures, deposit EVM runtime 17069 bytes, deposit
+  EVM 44 calls with 0 failures.
+- USER rulings, each (a): the O101 root route, a native `poseidon2`;
+  the empty tree; the registration leaf; the `poseidon1` lower
+  refusal; the library at 0xf5; the OOM route; the tree level, the S5
+  4.1 form; the deposit runtime pin 19237 (2026-10-20); the dated cite
+  rule (below); stage after the gate and M21.
+- The O101 route (a): `docs/PLAN.md` O101 has the root route paragraph
+  (18 lines after :772). The chain hashes the tree with the circuit
+  hash, the circomlib Poseidon(2) over the BN254 scalar field r, thus
+  the chain root is the circuit root. `poseidon1` is eval only:
+  `langc build` refuses it (new lower refusal
+  `test/lower/poseidon1.lang`).
+- The constants: `test/poseidonfmt.c` (the `build/poseidonfmt` rule,
+  not in `build` or `check`) reads the circomlib 2.0.5
+  `poseidon_constants.circom` and writes `src/front/poseidon_const.h`
+  (665 lines; t = 2: C 72, S 168, M 4, P 4; t = 3: C 81, S 285, M 9,
+  P 9). circomlib writes `t==2` in POSEIDON_C and `t == 2` in S, M and
+  P; the parser accepts both.
+- The front end: `src/front/poseidon.{h,c}` (the field sum by carries,
+  the product by double and add, the PoseidonEx round order);
+  `OP_POSEIDON1` and `OP_POSEIDON2` (`src/front/core.h:76-77`); the
+  BUILTINS rows `src/front/check.c:161-162` (RULE_U256_2, arity 1 and
+  2; SPEC.md:156 counts 68 rows); the `eval.c` `poseidon_words`, op
+  table, `transp_data` and `reduce_op` rows; SPEC.md:175, the op row
+  with its EVM form. A scratch driver gives H(1), E[1] = H(0, 0), leafU
+  and leafU2; `langc eval examples/precompile.lang` gives H(1), E[1]
+  and leafU. Each value equals the fixture value of
+  `circuits/input-*.json` (evals 85 to 88). New check refusal
+  `test/check/poseidon-type.lang` (TYPE_MISMATCH).
+- The library at 0xf5 (a): `test/poseidonlib.c` prints the runtime of
+  the Poseidon(2) library, our own code (O104): 723 bytes of code and
+  the t = 3 tables (12288 bytes, read by CODECOPY), 13011 bytes in
+  total, under 24576. Three counted loops; the full round falls
+  through into the one mix routine; ADDMOD and MULMOD over r. The
+  Makefile `build/poseidonlib` rule is in `build`, `check` and
+  `check-clang`; `test/evmchain.sh` puts the library at 0xf5 in each
+  `step()` prestate. `poseidon2` lowers through `lower_curve` to one
+  STATICCALL to 0xf5 with one word out (`src/lower.c:845`, :881;
+  `src/ir.h:127`). A direct `evm run --code` of the library gives
+  `poseidon2 0 0` = E[1] (0x2098f5fb...4864) and `poseidon2 3 H(1)` =
+  leafU (0x20573517...4f74); one hash uses 33290 gas.
+  `examples/precompile.lang` has the view `poseidonv`;
+  `test/precompile.sh` has 2 new rows (E[1], leafU; 34 to 36 steps).
+- The tree form: `domain/domain.lang:103-155`. `zeroHash`, `treeLevel`
+  and `treePairStep` use `poseidon2`. The empty tree (a) is the 11.2
+  convention (E[0] = 0, E[i + 1] = H(E[i], E[i])). New `treeFieldMax`
+  (r - 1, :114). The tree level (a) is the S5 4.1 form
+  `flagIf b (poseidon2 cur z) (poseidon2 f cur)` (:122-127): one of
+  the two calls runs at each level. The registration leaf (a):
+  `examples/deposit.lang` registerDeposit checks
+  `u256Le cu treeFieldMax` (:89) and inserts the leaf
+  `poseidon2 (addrToU256 (caller env)) cu` (:102).
+- The share rule rows (the OOM route (a)): without them, `langc build
+  examples/deposit.lang` stops with `langc: OOM: registerDeposit: the
+  arena limit is reached` (each arm lowers the level value again, the
+  S5 R41 problem). `src/lower.c` `shareable` (:710-713) and
+  `pure_word_of` (`pure_binary`, :722) have `OP_POSEIDON2`;
+  `lower_expr` (:854) skips its memo hit for a `poseidon2`, because
+  the memo entry is the `lower_curve` output block. A scratch measure
+  after the rows (the lowertool regression source at depth 1 to 6, hex
+  digits of the build output): the 4.1 form is linear (492, 774, 1064,
+  1356, 1648, 1940, about 146 bytes for each level); the Node switch
+  form `poseidon2 (flagIf b cur f) (flagIf b z cur)` still doubles (490
+  to 18456), because cur is in an arm of two different IFs. Thus the
+  USER ruled the 4.1 form. The docs name `poseidon2` in the share rule:
+  `docs/PLAN.md` O41 (:470-474), `formers/FORMERS.md:304`,
+  `formers/tcc-evm-contract.md:89` and `docs/host/README.md:316`.
+  `formers/tcc-evm-contract.md:91` (the share rule row) lists no value
+  kinds: no change.
+- The rows: `test/deposit.lang` testLeafOf, testFirstRoot and
+  testSecondRoot on the new leaves, testCircuitRoot (address 0x..03
+  with cu = H(1), then address 0x..05 with cu = H(7), slot 1) and
+  testFieldDeposit (cu = r reverts): 26 to 28 assertions. H(7) =
+  70619493934919578136577768564583685745018178714215262141971397953
+  07327923534. `test/deposit.sh`: a 5th deployment block (two
+  deposits, then `rootOf 1`; a deposit with cu = r reverts): 44 to 48
+  calls. `test/lowertool.c:274-283`: the row insert-depth-32 uses the
+  4.1 form over `poseidon2`.
+- The root row: the eval row testCircuitRoot and the EVM row `rootOf 1`
+  give the root of the three 11.2 proofs,
+  0x1efb9d39eb45e39697c03d8c7236557e ba62ac405c584d59b5b96d1c18938d3a.
+- The run row: `langc run examples/deposit.lang
+  test/run/deposit.script` exits 0. Its output changed only at line 13
+  (`11 rootOf`) and in the root map and the filled map of the line 27
+  state: the keccak tree values became `poseidon2` tree values. The
+  new `rootOf 1` is 24168308888571930927940106664795248038020798722
+  75591539139895448670221616736 =
+  0x557e0b7fb30378e78c86700a326e67edd50a4ed870dcac008a4649dc453c660.
+  The cross-check: a scratch EVM run (a new deployment;
+  registerDeposit 0xbb 7u 100u at t 10, then 0xcc 8u 100u at t 11;
+  `rootOf 1`) gives the same root from the library at 0xf5, the
+  library that gives the circuit root in `test/deposit.sh`.
+  `test/run/deposit.out` (a test file) has the new output.
+- The deposit runtime: `langc build examples/deposit.lang` (no OOM, 59
+  s) gives 19237 bytes, past the pin 17069. The USER ruled the new pin
+  19237 (2026-10-20; 5339 bytes free under EIP-170 24576).
+- The gas (geth `evm` 1.14.12 `run --statdump`, execution gas only,
+  the `step()` limit 30,000,000 from the prestate gasLimit 0x1c9c380):
+  registerDeposit 1929582 (the empty tree) and 1345576 (the second
+  deposit). insert-depth-32: runtime 4794 bytes; insert 1104561 (idx
+  0), 1104470 (idx 1) and 1087370 (idx 1 after idx 0): one hash for
+  each level.
+- M21 (`src/front/poseidon_const.h:270`, the first `poseidon_c3`
+  constant, the last digit e to f; `make -B build`): KILLED. FAIL
+  deposit testCircuitRoot (eval), FAIL deposit EVM `rootOf` (got
+  0xf720659c...), FAIL precompile `poseidonv` 2 rows (E[1], leafU).
+  The file was restored (cmp: identical to the backup); `make -B
+  build` rc 0.
+- The cite rule (a) (USER input, applied on a blank in s4i; the USER
+  confirms after): the table
+  `lang-template-work/sealed-lang-S11-s4i-cite-table.txt` (from the
+  shift maps of `git diff -U0 HEAD`). 53 cite rows changed: the 49
+  rows of the current-state docs and this file :27, :30, :34 and :56.
+  The 159 cites in the dated records of this file stay: a dated record
+  gives the lines at its own step.
+- The docs: the pin 19237 in `probe/CAPABILITY.md:115`, SPEC.md:248,
+  :327-328, :421, :466-467, `docs/PLAN.md:507-508` and :846 (O105),
+  `formers/tcc-evm-contract.md:92`, this file :27 and :41, and
+  `docs/host/README.md:316`. The 0xf5 library in the precompile rows
+  `docs/PLAN.md:122`, `docs/host/README.md:296`,
+  `formers/FORMERS.md:301` and `formers/tcc-evm-contract.md:89`.
+  SPEC.md:251 has the gas.
+- The gate at the end (the full gate after the run row update; only
+  docs changed after its start): GREEN. examples 30/0, parse refusals
+  15, check refusals 88, evals 88, runs 6, run refusals 10, asmtool
+  8/8, builds 3, lower refusals 15, checks 34, dispatch 20, evm steps
+  48, precompile 36 steps, deposit 28/0, deposit EVM runtime 19237
+  bytes, deposit EVM 48/0, mock 13/0, diff 16/0, 8 regression lines
+  passed, no FAIL.
+- Files: new `src/front/poseidon.{h,c}`, `src/front/poseidon_const.h`,
+  `test/poseidonfmt.c`, `test/poseidonlib.c`,
+  `test/check/poseidon-type.lang` and `test/lower/poseidon1.lang`;
+  changed `Makefile`, `src/front/core.h`, `check.c`, `eval.c`,
+  `src/ir.h`, `src/lower.c`, `domain/domain.lang`,
+  `examples/deposit.lang`, `examples/precompile.lang`,
+  `test/deposit.lang`, `test/deposit.sh`, `test/evmchain.sh`,
+  `test/lowertool.c`, `test/precompile.sh`, the expected files
+  `test/{check,eval,lower}/expect.txt` and `test/run/deposit.out`, and
+  the docs SPEC.md, `docs/PLAN.md`, `docs/host/README.md`,
+  `formers/FORMERS.md`, `formers/tcc-evm-contract.md`,
+  `probe/CAPABILITY.md` and this file. `docs/PLAN.md` O106 11.3 stays
+  "To build" until the close.
+
+Staged review of step 11.3 (2026-10-21):
+
+- CI coverage blocker fixed: the staged Poseidon depth-32 case had replaced
+  the Keccak case. `test/lowertool.c:279` now checks both `hash` and
+  `poseidon2`. Removing only Keccak from `pure_binary` passes the Poseidon
+  case but fails the restored Keccak case, so the lost coverage is exercised.
+- HIGH fixed: a STATICCALL to an absent library at 0xf5 succeeds with no
+  return bytes. The old emitter accepted that as the zero hash, corrupting
+  the deposit tree. `src/evm.c:374-379` now requires exactly 32 return bytes
+  from Poseidon or reverts. `test/emittool.c:112` reproduces the old zero
+  result and verifies the revert; a second case preserves ecrecover's
+  specified empty-result zero.
+- Runtime after the fix: 19822 bytes, 4754 free under EIP-170 (24576).
+  The original 19237-byte USER pin above records the tree before this
+  review. Current measurements and the emitter regression cite are updated;
+  the kit's `evmchain.sh:14` cite is retained at its actual kit location.
+- Validation: the full gate passed with an optimized compiler driver
+  (`make -W src/main.c 'TCC=cc -O2' check`). Deposit: 28 assertions and 48
+  chain calls, no failures; runtime 19822. Precompile: 36 steps; mock: 13
+  rows; diff: 16 rows; all regression tools passed, including 26 emitter
+  executions. TinyCC builds and strict Clang checks passed. TinyCC and the
+  optimized compiler produced byte-identical deposit runtime code.
+- The constants regenerated from the local circomlib 2.0.5 source are
+  byte-identical. A C driver compared native Poseidon(2) with the EVM library
+  on all 36 pairs from {0, 1, r - 1, r, r + 1, 2^256 - 1}: all passed.

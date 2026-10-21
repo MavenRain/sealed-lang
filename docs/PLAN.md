@@ -119,7 +119,7 @@ operations (14 kept from the kit, 8 new in S2):
   eval`, `hash` computes (the kit has keccak); the four curve operations
   are opaque: a closed application stays a stuck term. On the EVM each
   lowered curve statement executes one STATICCALL to its precompile
-  (1, 6, 7, 8). Call sharing and fold execution are described in
+  (1, 6, 7, 8; a `poseidon2` calls the Poseidon(2) library at 0xf5). Call sharing and fold execution are described in
   `docs/host/README.md`, section `The base span (slice S2)`. The result of
   `ecAdd` and `ecMul` is a heap block of two words read by `first` and `second`. A
   failed STATICCALL reverts. An empty `ecrecover` return reads as address
@@ -468,10 +468,10 @@ existing program:
   `domain/domain.lang` below Quot. `examples/merkle.lang`,
   `examples/groth16.lang` and `examples/deposit.lang` use them.
 - O41 (R41): the share rule in `src/lower.c`. A residual word value that
-  cannot trap (a `hash`, a word `flagIf` over such values, a load, a
-  local) and that both arms of a word `flagIf` use is lowered once into a
-  local before the IF (`share_arms`, the R17 memo rule for pure words).
-  The insert is then linear in the depth. The lowertool row
+  cannot trap (a `hash`, a `poseidon2`, a word `flagIf` over such values,
+  a load, a local) and that both arms of a word `flagIf` use is lowered
+  once into a local before the IF (`share_arms`, the R17 memo rule for
+  pure words). The insert is then linear in the depth. The lowertool row
   `insert-depth-32` checks a depth-32 insert under EIP-170. No expected
   output of an existing program changed.
 - O42 (R42): `treeDepth` is the closed constant 32. The sketch field
@@ -504,8 +504,8 @@ existing program:
   `test/deposit.sh` (41 calls).
 - O48 (R48): the runtime of `examples/deposit.lang` (`langc build
   --runtime`) was measured at each step: 11725 bytes at 4.4, 17020 at
-  4.5, 17119 at the S5 close, 17103 at 8.3, 17138 at 8.4, 17069 at 8.5
-  (EIP-170 24576, 7507 free; S8 ceiling 18143, R78). No limit stopped a
+  4.5, 17119 at the S5 close, 17103 at 8.3, 17138 at 8.4, 17069 at 8.5, 19237 at 11.3, 19822 after its staged review
+  (EIP-170 24576, 7507 free at 8.5, 5339 at 11.3 before review, 4754 after; S8 ceiling 18143, R78). No limit stopped a
   step. `rootAt` comes before `filled`: the other order is EVM_SIZE (4.4).
 - O49 (R49): `regAuction` covers at most 4 slots (`tend - tstart <= 3`):
   `aucRoom` and `aucCounts` check and increment 4 offsets, counted back
@@ -618,7 +618,7 @@ names the S8 step that builds it:
   kit. BUILT in step 9.4 (RULED 2026-10-18, defaults (a)). The finding of
   the probe: the erasure `Bag A` to `List A` (bagNil to nil, bagCons to
   cons, the path cases dropped) is the evaluator's reduction of a Bag fold
-  over its constructors (`src/front/eval.c:915-928`), before `lower.c`
+  over its constructors (`src/front/eval.c:918-931`), before `lower.c`
   runs. The `lower.c` site is `lower_local_fold` (`src/lower.c:577-635`):
   the List fold over a local List value (nil, a cons chain, a flagIf tree
   of them), after `lower_fold`. A Bag stays local to an entry (no Bag
@@ -665,12 +665,12 @@ names the S8 step that builds it:
   Built in step 10.1.
 - O93 (R93): the eligibility circuit of the paper and a prover stay open
   (O50, O58 PARTIAL; O87 stays as written). The S10 survey facts
-  (2026-10-19): the paraphrase (:60-64, :287-297) does not give the
+  (2026-10-19): the paraphrase (:60-64, :288-298) does not give the
   relation of pi^m (which values are witnesses and which are public
   inputs), whether root_s is a public input, the Merkle depth in the
-  circuit, the hash (Poseidon per :288 against keccak on chain, O4), the
+  circuit, the hash (Poseidon per :289 against keccak on chain, O4), the
   encoding of hu and cm as BN254 scalars (about 81 percent of raw keccak
-  words exceed r and fail `domain/domain.lang:203-204`) or the setup
+  words exceed r and fail `domain/domain.lang:209-210`) or the setup
   provenance. circom 2.2.3 and snarkjs (a node script) are on the
   machine; no gnark. The repo has no BN254 arithmetic: a C99 prover
   under TinyCC is 10 sessions or more. BLOCKED until the USER supplies
@@ -687,9 +687,9 @@ names the S8 step that builds it:
 - O95 (R95): the `Lot n` state field (F15 EVM output, over R80 and R86
   (a)). The checker accepts a one-constructor, non-recursive family with
   closed indices and word fields as a state field
-  (`src/front/check.c:2733`). The lowering gets a form of k consecutive
+  (`src/front/check.c:2735`). The lowering gets a form of k consecutive
   slots for k constructor fields, the index dropped (`src/lower.c:29`,
-  :35, :175-188, :1208-1211). Rows: `test/lot-state.lang`, one build
+  :35, :175-188, :1214-1217). Rows: `test/lot-state.lang`, one build
   row, one evm row with `test/lot-state.script`, one check refusal row.
   Mutants M17 (the checker) and M18 (the slot offset). A Bag state field
   stays refused (O84). RULED 2026-10-19, defaults (a). Built in steps
@@ -699,7 +699,7 @@ names the S8 step that builds it:
   USER. Each step records the size in `docs/STATUS.md` `## S10`. No pin.
   RULED 2026-10-19, defaults (a). Applies to each step, 10.1 to 10.5.
 - O97 (R97): the USER confirmed with the R97 ruling that the repository
-  is public since 2026-10-18. `SPEC.md:466` says so (O90 kept the old
+  is public since 2026-10-18. `SPEC.md:467` says so (O90 kept the old
   line for lack of the confirmation). Docs only. RULED 2026-10-19,
   defaults (a). Built in step 10.1.
 - O98 (R98): the whole-repo cite audit: a scratchpad extractor over
@@ -770,9 +770,27 @@ names the S8 step that builds it:
   2026-10-20 (USER, R1); the root option is the USER's call before step
   11.3. Real-key slashing in 11.4 depends on this registry migration;
   a proof for a Poseidon root cannot verify against the old keccak root.
+  Root route RULED 2026-10-20 (USER, after the O105 stop of step 11.3):
+  a native base operation `poseidon2` replaces (a) and (d). The scratch
+  measurement stopped (a): the lowerer has no subroutine and shares a
+  word only across the two arms of a word flagIf (O41), so a chain of k
+  x^5 S-boxes lowers to 123, 383, 1683 and 8183 bytes for k = 1 to 4,
+  and past EVM_SIZE for k = 5. Poseidon(2) has 65 S-box rounds, thus one
+  guest hash cannot be lowered; (d) as a second `langc build` output has
+  the same limit. `langc eval` computes `poseidon1` (t = 2) and
+  `poseidon2` (t = 3) in C in the circomlib 2.0.5 optimized order (Ark,
+  Sigma, Mix with M[j][i], MixS, P), from `src/front/poseidon_const.h`,
+  which `test/poseidonfmt.c` generates from the circomlib numbers. The
+  lowerer emits `poseidon2` as a STATICCALL to a fixed library address,
+  as the curve precompiles. Our own generator in `test/` writes the
+  library bytecode (a round loop and one mix subroutine, no GPL code),
+  and the chain tools put it at that address. The deposit adds one call
+  per tree level. `poseidon1` has no EVM form (a lower refusal): the
+  depositor supplies C = H(rho). No guest `mulmod`. The USER confirms
+  this reading.
 - O102 (R102): the encoding, R2: a 256-bit word public input enters
   `verify` as two 128-bit limbs (high, then low), two scalars per value,
-  lossless, so the bound of `domain/domain.lang:203-204` never refuses.
+  lossless, so the bound of `domain/domain.lang:209-210` never refuses.
   Applied to root_s, hu and cm: n = 6 public inputs; the key has 7 IC
   points. For each of root_s, hu and cm, use `Num2Bits_strict` (254
   bits, including AliasCheck) on the field value and derive high and
@@ -825,7 +843,7 @@ names the S8 step that builds it:
   the USER confirms this reading. Default (a). Kickoff 2026-10-20; to
   build in steps 11.1 and 11.2.
 - O105 (R105): the runtime budget (O48, the O96 form): steps 11.1 and
-  11.2 do not change the deposit runtime (17069 bytes). 11.3 (the
+  11.2 do not change the deposit runtime (17069 bytes); 11.3 makes it 19237 bytes (USER pin 2026-10-20), 19822 after the staged review result check. 11.3 (the
   on-chain Poseidon and the address-bound leaves) and 11.4 (the
   re-keyed `slashUsr`: 7 IC points, the limb split, the slot argument)
   change it. Each of these measures the
@@ -858,8 +876,8 @@ names the S8 step that builds it:
   reverts), the split helper's boundary checks, and the canonical-limb
   rejection checks. `test/run/deposit.script` stays unchanged (O47).
   The runtime stop-and-ask (O105); mutant M22 (high and low swapped)
-  KILLED. 11.5 the docs and the close: `SPEC.md` :321-322 (the O50
-  and O58 state), :456-466 (the status line), `probe/CAPABILITY.md` (the
+  KILLED. 11.5 the docs and the close: `SPEC.md` :322-323 (the O50
+  and O58 state), :457-467 (the status line), `probe/CAPABILITY.md` (the
   new operation and the circuit record), `docs/STATUS.md`,
   `docs/VALIDATION.md`, `README.md`; the final gate. Default (a).
   Kickoff 2026-10-20.

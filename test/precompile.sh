@@ -75,6 +75,10 @@ else
   call "out $addr" recoverSum
   # keccak256 of 64 zero bytes; `langc eval examples/precompile.lang hashZero` gives the same word.
   call "out ad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5" hashv 0u 0u
+  # poseidon2 by the library at 0xf5 (S11 step 11.3, test/poseidonlib.c): E[1] = H(0, 0) and
+  # leafU = H(3, H(1)), the words of `langc eval examples/precompile.lang` poseidonZero and leafU.
+  call "out 2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864" poseidonv 0u 0u
+  call "out 20573517eb09e4a3209ddd710a4d253f4eaa1e6eaba971fde0910183910c4f74" poseidonv 3u 0x29176100eaa962bdc1fe6c654d6a3c130e96a4d1168b33848b897dc502820133u
   # leafStep i = natDiv i 2 + natMod i 2 (the parent index plus the side bit).
   call "out 4" leafStep 7
   call "out 3" leafStep 6

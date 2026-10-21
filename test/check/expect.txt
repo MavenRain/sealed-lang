@@ -56,6 +56,7 @@ event-arity.lang TYPE_ARITY
 event-arg.lang TYPE_MISMATCH
 event-state.lang REFUSE_STATE
 hash-type.lang TYPE_MISMATCH
+poseidon-type.lang TYPE_MISMATCH
 pairing-list.lang TYPE_MISMATCH
 pruned-op.lang NAME_UNKNOWN
 path-end.lang PATH_END

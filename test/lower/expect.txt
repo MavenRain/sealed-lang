@@ -12,3 +12,4 @@ emit.lang REFUSE_LOWER
 pairing-open.lang REFUSE_LOWER
 path-word.lang REFUSE_LOWER
 loop-word.lang REFUSE_LOWER
+poseidon1.lang REFUSE_LOWER

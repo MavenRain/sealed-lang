@@ -107,6 +107,23 @@ static int binary(const char *name, IrOp op, uint64_t left, uint64_t right, uint
   return expression(name, &expr, word, trap, NULL, 0);
 }
 
+/* An absent library succeeds at STATICCALL with no return bytes. Poseidon
+   must reject that result; ecrecover keeps its specified empty-result zero. */
+static int empty_precompile(const char *name, uint32_t address, int trap) {
+  Asm *a = calloc(1, sizeof *a);
+  if (a == NULL) return 0;
+  Emit e = {a, 32, 96, 0, 96, asm_label(a), asm_label(a), EVM_BUILD_IR};
+  const IrExpr zero = {.kind = IR_EXPR_CONST, .value = 0};
+  const IrExpr *fields[] = {&zero, &zero, &zero, &zero};
+  const IrStmt call = {.kind = IR_STMT_PRECOMPILE, .local = 1, .fields = fields,
+                       .field_count = address == 1u ? 4u : 2u, .address = address, .out_count = 1};
+  const IrExpr block = {.kind = IR_EXPR_LOCAL, .local = 1};
+  const IrExpr result = {.kind = IR_EXPR_LOAD, .left = &block};
+  unsigned char word[32] = {0};
+  if (!emit_stmt(&e, &call) || !emit_expr(&e, &result)) { free(a); return 0; }
+  return finish(name, a, &e, word, trap);
+}
+
 int main(void) {
   if (system("command -v evm >/dev/null 2>&1") != 0) {
     puts("emit: skipped (evm not on PATH)");
@@ -160,6 +177,8 @@ int main(void) {
   ok &= expression("nested-map-hash", &nested, nested_hash, 0, NULL, 0);
   ok &= repeat("repeat-five", 5, 15);
   ok &= repeat("repeat-zero", 0, 0);
+  ok &= empty_precompile("poseidon-missing-library", 0xf5u, 1);
+  ok &= empty_precompile("ecrecover-empty-result", 1u, 0);
   if (ok) printf("emit: %u execution regressions passed\n", executions);
   else puts("emit: failures");
   return !ok;

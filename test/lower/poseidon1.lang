@@ -1,0 +1,6 @@
+-- REFUSE_LOWER (S11 step 11.3, O101): poseidon1 has no EVM form. The EVM library has only Poseidon(2) (t = 3).
+state State := makeState (n : U256)
+def init : State := makeState 0u
+
+def one : (env : Env) -> (s : State) -> (x : U256) -> U256 :=
+  fun (env : Env) (s : State) (x : U256) => poseidon1 x

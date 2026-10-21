@@ -8,7 +8,7 @@ cat examples/deposit.lang test/deposit.lang >"$tmp/deposit.lang"
 fail=0
 rows=0
 for name in testLastLeaf testFullTree testBeyondTree testMaxAuction testMaxAuctionSpan testZeroAuction testOutsideAuction \
-  testFirstAmount testSecondIndex testFirstRoot testSecondRoot testSmallDeposit testDuplicateDeposit \
+  testFirstAmount testSecondIndex testFirstRoot testSecondRoot testCircuitRoot testFieldDeposit testSmallDeposit testDuplicateDeposit \
   testInactiveSlot testInactiveAgain testInactiveCaller testInactiveMissing testFirstSlotCount testOverlapCount \
   testLastSlotCount testAuctionLimit testAuctionCaller testAuctionReversed testAuctionLong testAuthNonce testSettleNoDeposit; do
   rows=$((rows + 1))
@@ -143,6 +143,17 @@ else
   chain ok 20 "$other" slash "$signer" 2u 28 "$r0" "$s0"
   chain 'out 0' 20 "$other" depositOf "$signer"
   chain revert 20 "$other" slash "$signer" 2u 28 "$r0" "$s0"
+fi
+if ! deploy "$prog"; then
+  echo 'FAIL deposit EVM root deployment'
+  fail=$((fail + 1))
+else
+  # S11 step 11.3: the leaves poseidon2 (u, H(1)) and poseidon2 (u', H(7)) for u = 0x..03 and
+  # u' = 0x..05 give the root of the circuit fixture in slot 1. A commitment r reverts.
+  chain ok 10 0x0000000000000000000000000000000000000003 registerDeposit 18586133768512220936620570745912940619677854269274689475585506675881198879027u 100u
+  chain ok 10 0x0000000000000000000000000000000000000005 registerDeposit 7061949393491957813657776856458368574501817871421526214197139795307327923534u 100u
+  chain 'out 1efb9d39eb45e39697c03d8c7236557eba62ac405c584d59b5b96d1c18938d3a' 10 "$user" rootOf 1
+  chain revert 10 "$user" registerDeposit 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001u 100u
 fi
 echo "deposit EVM: $chain_rows calls, $fail total failures"
 [ "$fail" -eq 0 ]

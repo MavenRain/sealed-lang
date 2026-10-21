@@ -3,7 +3,7 @@ TCC ?= tcc
 CC ?= cc
 CFLAGS = -std=c99 -Wall -Werror -Isrc
 CLANG_FLAGS = -std=c99 -Wall -Wextra -Wswitch-enum -Werror -fsyntax-only -Isrc
-FRONT = src/front/base.c src/front/u256.c src/front/lexer.c src/front/parser.c src/front/front.c src/front/contract.c src/front/eval.c src/front/check.c src/keccak.c
+FRONT = src/front/base.c src/front/u256.c src/front/poseidon.c src/front/lexer.c src/front/parser.c src/front/front.c src/front/contract.c src/front/eval.c src/front/check.c src/keccak.c
 TARGET = src/evm.c src/asm.c
 SRC = src/main.c $(FRONT) $(TARGET) src/lower.c
 TOOL = test/asmtool.c $(TARGET) src/keccak.c
@@ -19,7 +19,7 @@ HEADERS = $(wildcard src/*.h src/front/*.h)
 
 .PHONY: build check check-clang clean
 
-build: build/langc build/asmtool build/fronttool build/pathtool build/runtool build/slottool build/buildtool build/lowertool build/evmtool build/emittool
+build: build/langc build/asmtool build/fronttool build/pathtool build/runtool build/slottool build/buildtool build/lowertool build/evmtool build/emittool build/poseidonlib
 
 build/domain.c: domain/domain.lang gen/embed.c
 	mkdir -p build
@@ -62,11 +62,24 @@ build/emittool: $(EMIT_TOOL) src/evm.c $(HEADERS)
 	mkdir -p build
 	$(TCC) $(CFLAGS) -o build/emittool $(EMIT_TOOL)
 
+# The Poseidon(2) library of the deposit tree (S11 step 11.3, O101): the tool
+# prints the runtime code, and test/evmchain.sh puts it in each prestate.
+build/poseidonlib: test/poseidonlib.c src/front/poseidon_const.h
+	mkdir -p build
+	$(TCC) $(CFLAGS) -o build/poseidonlib test/poseidonlib.c
+
 # The generator of the eligibility constants (S11 step 11.2, O104). It is not in
 # `build` or `check`: `make build/vkfmt`, then circuits/gen.sh gives its inputs.
 build/vkfmt: test/vkfmt.c
 	mkdir -p build
 	$(TCC) $(CFLAGS) -o build/vkfmt test/vkfmt.c
+
+# The generator of src/front/poseidon_const.h (S11 step 11.3, O101). It is not in
+# `build` or `check`: `make build/poseidonfmt`, then run it on the circomlib 2.0.5
+# poseidon_constants.circom of the O104 scratch install.
+build/poseidonfmt: test/poseidonfmt.c
+	mkdir -p build
+	$(TCC) $(CFLAGS) -o build/poseidonfmt test/poseidonfmt.c
 
 check-clang: build/domain.c
 	$(CC) $(CLANG_FLAGS) $(SRC) build/domain.c
@@ -79,8 +92,9 @@ check-clang: build/domain.c
 	$(CC) $(CLANG_FLAGS) $(LOWER_TOOL) build/domain.c
 	$(CC) $(CLANG_FLAGS) $(EMIT_TOOL)
 	$(CC) $(CLANG_FLAGS) $(EVM_TOOL)
+	$(CC) $(CLANG_FLAGS) test/poseidonlib.c
 
-check: build/langc build/asmtool build/fronttool build/pathtool build/runtool build/slottool build/buildtool build/lowertool build/evmtool build/emittool check-clang
+check: build/langc build/asmtool build/fronttool build/pathtool build/runtool build/slottool build/buildtool build/lowertool build/evmtool build/emittool build/poseidonlib check-clang
 	sh test/gate.sh
 	sh test/run.sh
 	sh test/asm.sh

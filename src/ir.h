@@ -124,7 +124,7 @@ struct IrStmt {
   size_t arm_count;
   const char *name;      /* IR_STMT_LOG: the event name; IR_STMT_CALL: the function name */
   const IrScalar *types; /* IR_STMT_LOG and IR_STMT_CALL: the type of each field */
-  uint32_t address;      /* IR_STMT_PRECOMPILE: the precompile address (1, 6, 7 or 8) */
+  uint32_t address;      /* IR_STMT_PRECOMPILE: the precompile address (1, 6, 7 or 8), or 0xf5 (the Poseidon(2) library) */
   size_t out_count;      /* IR_STMT_PRECOMPILE: the words of the output block */
 };
 

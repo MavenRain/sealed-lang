@@ -66,6 +66,10 @@ def recoverSum : (env : Env) -> (s : State) -> U256 :=
 def hashv : (env : Env) -> (s : State) -> (a b : U256) -> U256 :=
   fun (env : Env) (s : State) (a b : U256) => hash a b
 
+-- poseidonv a b: poseidon2 on the chain, one STATICCALL to the Poseidon(2) library at 0xf5 (S11 step 11.3).
+def poseidonv : (env : Env) -> (s : State) -> (a b : U256) -> U256 :=
+  fun (env : Env) (s : State) (a b : U256) => poseidon2 a b
+
 -- leaf i: the parent index of leaf i plus its side bit (natDiv and natMod of one Nat).
 def leaf : (i : Nat) -> Nat := fun (i : Nat) => natAdd (natDiv i 2) (natMod i 2)
 
@@ -81,3 +85,11 @@ def hashZero : U256 := hash 0u 0u
 def twoG : Prod U256 U256 := ecAdd (pair 1u 2u) (pair 1u 2u)
 
 def ownerWord : U256 := addrToU256 0x00000000000000000000000000000000000000aa
+
+-- poseidon1 and poseidon2 compute (S11 step 11.3, O101): the circomlib Poseidon over the BN254 scalar field.
+-- The values are the 11.2 fixture values: H(1), E[1] = H(0, 0) and leafU = H(3, H(1)) (circuits/input-3.json).
+def poseidonOne : U256 := poseidon1 1u
+
+def poseidonZero : U256 := poseidon2 0u 0u
+
+def leafU : U256 := poseidon2 3u (poseidon1 1u)

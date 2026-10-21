@@ -25,8 +25,22 @@ def testSecondDeposit : State := testResultState
   (registerDeposit (makeEnv 20 0x00000000000000000000000000000000000000cc 0x0000000000000000000000007265636569766572) testFirstDeposit 9u 101u)
 def testFirstAmount : Flag := u256Eq (mapGet (amount testFirstDeposit) 0x00000000000000000000000000000000000000bb) 100u
 def testSecondIndex : Flag := natEq (nextLeaf testSecondDeposit) 2
-def testFirstRoot : Flag := u256Eq (mapGet (rootAt testSecondDeposit) 1) (rootOfLeaves (cons 7u nil))
-def testSecondRoot : Flag := u256Eq (mapGet (rootAt testSecondDeposit) 2) (rootOfLeaves (cons 7u (cons 9u nil)))
+def testLeafOf : (a : Addr) -> (c : U256) -> U256 := fun (a : Addr) (c : U256) => poseidon2 (addrToU256 a) c
+def testFirstRoot : Flag := u256Eq (mapGet (rootAt testSecondDeposit) 1)
+  (rootOfLeaves (cons (testLeafOf 0x00000000000000000000000000000000000000bb 7u) nil))
+def testSecondRoot : Flag := u256Eq (mapGet (rootAt testSecondDeposit) 2)
+  (rootOfLeaves (cons (testLeafOf 0x00000000000000000000000000000000000000bb 7u)
+    (cons (testLeafOf 0x00000000000000000000000000000000000000cc 9u) nil)))
+-- S11 step 11.3: u (address 3, C = H(1)) and u' (address 5, C = H(7)) deposit in slot 1, in that
+-- order. The root of slot 1 is the root of the circuit fixture (circuits/fixture.circom).
+def testCircuitFirst : State := testResultState
+  (registerDeposit (makeEnv 10 0x0000000000000000000000000000000000000003 0x0000000000000000000000007265636569766572) init (poseidon1 1u) 100u)
+def testCircuitRoot : Flag := u256Eq (mapGet (rootAt (testResultState
+  (registerDeposit (makeEnv 10 0x0000000000000000000000000000000000000005 0x0000000000000000000000007265636569766572) testCircuitFirst (poseidon1 7u) 100u))) 1)
+  0x1efb9d39eb45e39697c03d8c7236557eba62ac405c584d59b5b96d1c18938d3au
+-- A commitment cu = r is not a field element: the deposit reverts.
+def testFieldDeposit : Flag := flagIf (testAccepted
+  (registerDeposit (makeEnv 0 0x00000000000000000000000000000000000000bb 0x0000000000000000000000007265636569766572) init 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001u 100u)) flagNo flagYes
 def testSmallDeposit : Flag := flagIf (testAccepted
   (registerDeposit (makeEnv 0 0x00000000000000000000000000000000000000bb 0x0000000000000000000000007265636569766572) init 7u 99u)) flagNo flagYes
 def testDuplicateDeposit : Flag := flagIf (testAccepted
