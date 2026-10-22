@@ -20,6 +20,11 @@ a TinyCC (tcc) host that compiles a program to EVM bytecode.
   the timestamps and the bid check `processBid`. `langc check` prints the
   four laws of `domain/domain.lang` (the axiom report, `SPEC.md` section
   8).
+- `circuits/`: the eligibility circuit of the paper (`eligibility.circom`,
+  S11) and `gen.sh`, which compiles it with circom and makes the key and
+  the proofs with snarkjs. circomlib stays out of the repository, and
+  `make check` does not run `gen.sh`. `examples/eligibility.lang` checks
+  a proof on the EVM.
 
 Run `make check` in this directory. It builds `langc` and the test tools
 and runs the gate (`docs/VALIDATION.md`). It needs tcc, clang and evm

@@ -3,7 +3,7 @@
 The build implements the kit milestones M0 to M3 (`SPEC.md` section 10).
 The slices S0 to S6 built the language, the deposit contract and the
 protocol layer. S7 wrote the docs and ran the final gate (`## S7`). S8
-fixed the S7 review items (`## S8`). S9 built the open list after S8 (`## S9`). S10 built the open list after S9 (`## S10`).
+fixed the S7 review items (`## S8`). S9 built the open list after S8 (`## S9`). S10 built the open list after S9 (`## S10`). S11 built the eligibility proof of the paper and closed O50 and O58 (`## S11`).
 The sections above `## S2` give the summary of S0 to S6; the slice records give the details.
 
 ## Implemented
@@ -31,11 +31,11 @@ The sections above `## S2` give the summary of S0 to S6; the slice records give 
 
 ## Remaining work
 
-`SPEC.md:318-334` gives the items open at S7 and their state at the S10 close:
+`SPEC.md:318-334` gives the items open at S7 and their state at the S11 close:
 
 1. `settle` (O7, O44): closed, not taken (9.1, R88); it refuses a caller with no deposit (8.4).
 2. `vault` (O46): closed in S8 step 8.3; `pull` credits `self env` (R74).
-3. The binding of each cm to its proof (O50, O58): PARTIAL; input 1 = cm (8.5); the circuit stays open (R87).
+3. The binding of each cm to its proof (O50, O58): DONE in S11 (11.1 to 11.4); `eligible` checks each proof on the circuit key over the limbs of root_s, hu and cm; the setup is local (R3 (a)).
 4. An entry that calls `processBid` (O57): closed as off chain only (R76).
 5. The R35 refactor of `rule_hcomp` (O35): done in S8 step 8.2 (R77).
 6. The EIP-170 budget (O48): 2304 bytes are free under 24576 at step 11.4 (runtime 22272, USER pin 2026-10-21; 19822 after the staged review of step 11.3; USER pin 19237 before it).
@@ -1612,3 +1612,55 @@ Step 11.4 DONE (2026-10-22; the limb pair `u256High` and `u256Low`, the
   rows in SPEC.md, `docs/PLAN.md` section 4, `docs/host/README.md` and
   `formers/tcc-evm-contract.md`; the O102 limb route; the O106 row 29.
   `docs/PLAN.md` O106 stays "To build" until the close.
+
+Step 11.5 DONE (2026-10-22; the S11 close, docs only; the USER committed
+11.4 as fd69b3b):
+
+- Precondition: HEAD fd69b3b on 1d8835e, tree c561a7f2, index empty.
+  The USER commit is the staged 11.4 tree ef609aa8 plus a review of 11
+  cite lines in `SPEC.md` and `docs/PLAN.md`; the USER accepted it as
+  the base (2026-10-22). Code, tests and the Makefile are those of the
+  11.4 gate. The docs route: (a), by hand in the main loop.
+- `SPEC.md`: section 9 at the S11 state (:318 the S11 close, :323-324
+  O50 and O58 DONE, :426 and :439-440 the item rows) and section 10
+  (:458-468 the status line: S11 closed, the 5 steps with their
+  commits, the open list after S11). 468 lines kept.
+- `docs/PLAN.md`: "To build" is now "Built" with the commits in O100
+  (:740-741), O102 (:817-818), O103 (:827), O104 (:843-844) and O106
+  (:883). O106 also records where the build differs from its words:
+  the 11.2 rows are in `test/precompile.sh` (evm steps stay 48), and
+  11.3 has no guest `mulmod` (the Poseidon(2) library at 0xf5, O101
+  (a)). `rootAt` is the state field (`examples/deposit.lang:11`), as
+  O106 says; the 11.3 note "the view `rootOf`" was wrong. O101 and O105
+  stay: O105 applies to each step. 883 lines kept.
+- `probe/CAPABILITY.md` section 6: the circuit record (20166
+  constraints, 6 public outputs, 7 IC points), the S11 operations
+  (`poseidon2` at 0xf5, `u256High`, `u256Low`), the deposit EVM count
+  (53 calls) and the gas of `registerDeposit` (`SPEC.md:252`).
+- `docs/VALIDATION.md` :3-4 and :6-13: the S11 final gate header,
+  `build/langc` at fd69b3b, the 11.4 counts, ten test tools, M19 to
+  M22. 166 lines kept.
+- `README.md`: the `circuits/` entry.
+- This file: :6 (S11 in the history line), :34 (the state at the S11
+  close) and :38 (O50 and O58 DONE).
+- Cites: `lang-template-work/sealed-lang-S11-citesweep.pl` gave 97
+  rows. 53 rows are dated rows of this file (kept). Of the 44 current
+  rows, 27 are false: the sweep matches a `docs/host/README.md` cite to
+  `README.md` by the base name, and two bare cites of this file follow
+  a README name. 16 rows cite edited lines; each passed the content
+  check and stays. One row is a fix: `docs/PLAN.md:702` (O97) now cites
+  `SPEC.md:468`, the line that says the repo is public (it cited :467,
+  stale at fd69b3b).
+- Open after S11 (recorded, not built): the EIP-170 budget (O48: 22272
+  bytes, 2304 free); the setup is local, not a ceremony (R3 (a),
+  O103); no Bag state field (O84, R80). Winner selection on chain is
+  closed, not taken (R88).
+
+The S11 final gate `make -B check` is GREEN at the 11.4 baseline (rc 0,
+12455 s): examples 30, parse refusals 15, check refusals 88, evals 98,
+runs 6, run refusals 10, asmtool 8, builds 3, lower refusals 15, checks
+34, dispatch 20, evm steps 48, precompile 46 steps, deposit 29
+assertions, deposit EVM 53 calls and 0 failures, runtime 22272 bytes,
+mock 13 rows, diff 16 rows and 0 failures, emit 30, and every
+regression line passed. M19 is a hand check (step 11.1); M20 to M22
+and the SHR 127 mutant are KILLED. S11 is closed.

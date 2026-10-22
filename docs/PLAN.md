@@ -699,7 +699,7 @@ names the S8 step that builds it:
   USER. Each step records the size in `docs/STATUS.md` `## S10`. No pin.
   RULED 2026-10-19, defaults (a). Applies to each step, 10.1 to 10.5.
 - O97 (R97): the USER confirmed with the R97 ruling that the repository
-  is public since 2026-10-18. `SPEC.md:467` says so (O90 kept the old
+  is public since 2026-10-18. `SPEC.md:468` says so (O90 kept the old
   line for lack of the confirmation). Docs only. RULED 2026-10-19,
   defaults (a). Built in step 10.1.
 - O98 (R98): the whole-repo cite audit: a scratchpad extractor over
@@ -737,8 +737,8 @@ names the S8 step that builds it:
   to 2^32 bidders. Default (a): depth 32 = `treeDepth` (O42). The leaf:
   (A_u, C_u) in Algorithm 1 (registerDeposit); the section 5.2 text says
   (C_u, D). Default (a): the leaf is the hash of (addrToU256 A_u, C_u),
-  the two-word form of O16. Kickoff 2026-10-20, defaults (a). To build
-  in step 11.1.
+  the two-word form of O16. Kickoff 2026-10-20, defaults (a). Built in
+  step 11.1 (fa8e165).
 - O101 (R101): the hash, R1 (a): Poseidon in the circuit for every hash
   of the relation (C_u, hu, cm, the leaf and the Merkle nodes), as the
   paper does (section 6: Poseidon for all hash computations; arkworks,
@@ -814,8 +814,8 @@ names the S8 step that builds it:
   words); the paper's slashUsr has no slot argument and signCom
   (Algorithm 2) carries s, so default (a): one slot word per commit.
   Under ENTRY_PARAMS_MAX 32 (R23). The O50 input-order fixture goes with
-  the synthetic key. RULED 2026-10-20 (USER, R2); to build in steps
-  11.1 and 11.4. Limb route RULED 2026-10-21 (USER, after the O105 stop of step 11.4): the base pair `u256High`, `u256Low : U256 -> U256` (section 4) replaces the guest helper above, against its words "no new base operation". The scratch build of the walk of the 128 closed weights stopped on OOM and EVM_SIZE. The other option was (b), one scalar per value (n = 3). High = w / 2^128 (SHR by 128), low = w mod 2^128 (AND with 2^128 - 1). The eval and EVM checks at the five words above are the `highv` and `lowv` rows of `test/precompile.sh:82-93`.
+  the synthetic key. RULED 2026-10-20 (USER, R2); built in steps
+  11.1 and 11.4 (fa8e165, fd69b3b). Limb route RULED 2026-10-21 (USER, after the O105 stop of step 11.4): the base pair `u256High`, `u256Low : U256 -> U256` (section 4) replaces the guest helper above, against its words "no new base operation". The scratch build of the walk of the 128 closed weights stopped on OOM and EVM_SIZE. The other option was (b), one scalar per value (n = 3). High = w / 2^128 (SHR by 128), low = w mod 2^128 (AND with 2^128 - 1). The eval and EVM checks at the five words above are the `highv` and `lowv` rows of `test/precompile.sh:82-93`.
 - O103 (R103): the setup, R3 (a): a local snarkjs powers of tau
   (`snarkjs powersoftau new bn128 15`, one contribution, a beacon,
   `prepare phase2`, `groth16 setup`, one zkey contribution, `zkey export
@@ -824,7 +824,7 @@ names the S8 step that builds it:
   each), under 2^15. The setup has one contributor and is recorded as a
   test setup; a named ceremony (b) is not taken, R3. The ptau and zkey
   files stay out of the repo. Memory and time are far under the 4 GB
-  rule. RULED 2026-10-20 (USER, R3); to build in step 11.2.
+  rule. RULED 2026-10-20 (USER, R3); built in step 11.2 (21551dd).
 - O104 (R104): the tool (O94 in effect): circom 2.2.3 and snarkjs 0.7.6
   (node 23.10.0) are on the machine; no circomlib and no .ptau file (fd
   2026-10-20). The circuit source `circuits/eligibility.circom` is a
@@ -840,8 +840,8 @@ names the S8 step that builds it:
   `VerifyKey` and `VerifyProof` constants in the EIP-197 order of
   `proofOf`. The generator is a shell one-shot out of the gate, not a
   test harness (the tests stay in the guest language and the C tools);
-  the USER confirms this reading. Default (a). Kickoff 2026-10-20; to
-  build in steps 11.1 and 11.2.
+  the USER confirms this reading. Default (a). Kickoff 2026-10-20; built
+  in steps 11.1 and 11.2 (fa8e165, 21551dd).
 - O105 (R105): the runtime budget (O48, the O96 form): steps 11.1 and
   11.2 do not change the deposit runtime (17069 bytes); 11.3 makes it 19237 bytes (USER pin 2026-10-20), 19822 after the staged review result check; 11.4 makes it 22272 bytes (USER pin 2026-10-21). 11.3 (the
   on-chain Poseidon and the address-bound leaves) and 11.4 (the
@@ -880,4 +880,4 @@ names the S8 step that builds it:
   and O58 state), :458-468 (the status line), `probe/CAPABILITY.md` (the
   new operation and the circuit record), `docs/STATUS.md`,
   `docs/VALIDATION.md`, `README.md`; the final gate. Default (a).
-  Kickoff 2026-10-20.
+  Kickoff 2026-10-20. Built in steps 11.1 to 11.5 (fa8e165, 21551dd, 1d8835e, fd69b3b; 11.5 = the close, docs only). The build differs from the words above in two places. 11.2: the two chain rows are in `test/precompile.sh` (`langc run` keeps verify stuck, R17), thus evm steps stay 48 and precompile goes from 32 to 34. 11.3: no guest `mulmod`; `poseidon2` is the Poseidon(2) library at 0xf5 (O101 route (a)). `rootAt` is the state field `Map Nat U256` (`examples/deposit.lang:11`).

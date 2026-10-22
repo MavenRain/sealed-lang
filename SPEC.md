@@ -315,13 +315,13 @@ proof call (s7, O47) and `od -v` at the 4 kit `od` sites (s8, :458-460).
 "Probe-forced" marks an item that a host probe fact forced (sections 5
 and 7, `probe/CAPABILITY.md`).
 
-Open at S7, with the state of each at the S10 close (S8 closed O46, O57 and O35):
+Open at S7, with the state of each at the S11 close (S8 closed O46, O57 and O35; S11 closed O50 and O58):
 
 - O7, O44: closed, not taken (S9 step 9.1, R88). `settle` refuses a caller with no deposit (S8 step 8.4, R73) and keeps its S8 form. The paper paraphrase keeps the bids and the winner selection off chain (`docs/PLAN.md:33-35`, :66-68, :317-318), thus winner selection from the sealed bids on chain is not taken (`docs/PLAN.md:482-484`, `docs/STATUS.md:396`).
 - O46: closed in S8 step 8.3 (R74): `pull` credits `self env`, `def vault`
   is gone (`docs/PLAN.md:493-496`, `formers/tcc-evm-contract.md:107-109`).
-- O50, O58: PARTIAL. `eligible` requires input 1 = cm (S8 step 8.5, R75);
-  the circuit binding stays open at the S10 close (R50, R87 (a), R93 (a), `docs/PLAN.md:519-521`, :551-552).
+- O50, O58: DONE in S11 (steps 11.1 to 11.4, O99 to O106). `eligible` checks each proof on the key of the eligibility circuit over the 6 limbs of root_s, hu and cm (`examples/deposit.lang:166-168`, O102), and `slashUsr` uses the same key.
+  The deposit tree uses the circuit hash `poseidon2` (step 11.3, O101). The setup is local (R3 (a), O103). Before S11: input 1 = cm (S8 step 8.5, R75; R50, R87 (a), R93 (a), `docs/PLAN.md:519-521`, :551-552).
 - O57: closed in S8 step 8.1 (R76): off chain, as in the paper
   (`docs/PLAN.md:585-588`).
 - O35: closed in S8 step 8.2 (R77): `rule_hcomp` uses the shared helpers (`docs/STATUS.md:513`).
@@ -423,7 +423,7 @@ The items (PLAN line, status):
   budget is open (above). RULED 2026-10-16.
 - O49 (:510). `regAuction` writes at most 4 slots. Done in S5. RULED
   2026-10-16.
-- O50 (:513). The binding of each cm to its proof. PARTIAL (above, R87).
+- O50 (:513). The binding of each cm to its proof. DONE in S11 (above, steps 11.1 to 11.4).
   The tools on this machine are circom and snarkjs (no gnark). RULED 2026-10-16.
 - O51 (:529). `Bag` is a QIT. Done in S6 (4.1). RULED 2026-10-17.
 - O52 (:532). The axiom declaration form. Done in S6 (4.1). RULED
@@ -436,8 +436,8 @@ The items (PLAN line, status):
   2026-10-17.
 - O57 (:548). `processBid` is off chain only. Closed in S8 (R76). RULED
   2026-10-17.
-- O58 (:551). The cm binding stays out of S6. PARTIAL (above, R87). A prover
-  would be a one-shot generator out of the repo, with its output kept in the repo as constants. RULED 2026-10-17.
+- O58 (:551). The cm binding stays out of S6. DONE in S11 (above). A prover
+  would be a one-shot generator out of the repo, with its output kept in the repo as constants. RULED 2026-10-17. In S11 the generator is `circuits/gen.sh` (O104); `make check` does not run it.
 - O59 (:553). The table of property checks. Done in S6 (4.6, 4.8). RULED
   2026-10-17.
 - O60 (:558). The placement of the new rows. Done in S6 (4.2 to 4.6).
@@ -455,14 +455,14 @@ The kit milestones M0 to M3 map onto the slices S0 to S7 of
 | M2 | S5 | The deposit contract: the share rule, the Merkle tree, the Groth16 verifier, 9 entries and 10 views | 43fb213 to 4626ed3 (2026-10-16 to 2026-10-17) | DONE |
 | M3 | S6, S7 | The protocol layer (`Bag`, the four laws, the median, `processBid`, the property checks) and the docs | S6 1bc714b to 17ef85c (2026-10-17 to 2026-10-18); S7 bbe668d, b0b1b37, cf0f324, f05d6f4 and 85b76dd (2026-10-18) | DONE |
 
-Status 2026-10-19 (S10 closed): M0 to M3 are DONE. S9 closed at 05c0582
-(the S9 final gate). S10 built the open list after S9 in 5 steps: 10.1 the
-docs (58c13ca; R92, R93 (a), R97), 10.2 the checker case and the lowering
-form of the `Lot n` state field (167f580, R95, M17 KILLED), 10.3 the
-projection load, the constructor store and the `want` fix (419d5a6, M18
-KILLED), 10.4 the cite audit (23 cites including the staged review, R98) and the README Map clause, and
-10.5 the close (docs only, the S10 final gate). Open after S10 (recorded,
-not built): the eligibility circuit of the paper and a prover (O50 and O58
-stay PARTIAL; BLOCKED on the paper text and the USER rulings of the hash,
-the encoding and the setup, R93 (a), O93); the EIP-170 budget (O48: 22272
-bytes, 2304 free, step 11.4); no Bag state field (O84, R80). Winner selection on chain is closed, not taken (R88). The paper text is not local. The repo is public since 2026-10-18.
+Status 2026-10-22 (S11 closed): M0 to M3 are DONE. S10 closed at 5fd5301
+(the S10 final gate). S11 built the eligibility proof of the paper in 5
+steps: 11.1 the circuit (fa8e165; 20166 constraints, M19 by hand), 11.2
+the setup, the key and three proofs (21551dd, M20 KILLED), 11.3 the
+`poseidon2` deposit tree and the Poseidon(2) library at 0xf5 (1d8835e,
+M21 KILLED), 11.4 the limb pair `u256High`, `u256Low` and the 21-word
+`slashUsr` on the real key (fd69b3b, M22 KILLED), and 11.5 the close
+(docs only, the S11 final gate). O50 and O58 are DONE. Open after S11
+(recorded, not built): the EIP-170 budget (O48: 22272 bytes, 2304 free,
+step 11.4); the setup is local, not a ceremony (R3 (a), O103); no Bag
+state field (O84, R80). Winner selection on chain is closed, not taken (R88). The repo is public since 2026-10-18.

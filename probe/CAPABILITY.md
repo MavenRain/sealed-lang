@@ -115,13 +115,21 @@ The nearest data:
 - The deposit runtime code is 22272 bytes at 11.4 (19822 after the staged review of 11.3), 2304 bytes under the EIP-170
   limit of 24576 bytes (O48, `docs/PLAN.md:507`, `docs/STATUS.md:1593`).
 - The lowertool arena is 32 MiB (`docs/STATUS.md:331`).
-- The deposit EVM chain does 44 calls with 0 failures
-  (`docs/STATUS.md:588`). The deposit call script has 23 calls
+- The deposit EVM chain does 53 calls with 0 failures at 11.4
+  (`docs/STATUS.md:1590`; 44 at S8, :588). The deposit call script has 23 calls
   (`docs/STATUS.md:283`).
+- The eligibility circuit (11.1, `circuits/eligibility.circom`): 20166
+  constraints, 20197 wires and 6 public outputs, the limbs of root_s, hu
+  and cm (O102, `docs/STATUS.md:1250-1260`). It fits the powers of tau
+  2^15 of `circuits/gen.sh` (O103). The key has 7 IC points (11.4).
+- The S11 operations: `poseidon2` is one STATICCALL to the Poseidon(2)
+  library at 0xf5 (11.3, `SPEC.md:175`). `u256High` and `u256Low` are one
+  SHR and one AND (11.4, `SPEC.md:180`).
 - The gas of each kit chain step (`docs/host/CAPABILITY.md:31-48`,
   measured 2026-10-10 at LT 382e224): for example, a deposit with one pull
-  CALL on the mock uses 73471 gas (:46). No gas is measured for
-  `examples/deposit.lang`.
+  CALL on the mock uses 73471 gas (:46). For `examples/deposit.lang`,
+  `SPEC.md:252` gives the gas of `registerDeposit` at 11.3, before its
+  staged review.
 - The property rows of S6 check fixed inputs only (`docs/STATUS.md:386`).
 
 ## 7. Parametric families
