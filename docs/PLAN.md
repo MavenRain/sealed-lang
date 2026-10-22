@@ -130,8 +130,8 @@ operations (14 kept from the kit, 8 new in S2):
   `natMod i 2`. R13 keeps `now` as TIMESTAMP: the slot is `natDiv (natSub
   now genesis) slotLength` in the guest, with `genesis` and `slotLength`
   fixed in `init`.
-- New, the address word (S2, R20): `addrToU256 : Addr -> U256`, the one
-  conversion from `Addr`. A leaf is `hash (addrToU256 a) c`.
+- New, the address word (S2, R20): `addrToU256 : Addr -> U256`, the one conversion from `Addr`. A leaf is `hash (addrToU256 a) c`.
+- New, the limbs of a word (S11 step 11.4, O102): `u256High`, `u256Low : U256 -> U256`; high = w / 2^128 and low = w mod 2^128, no trap. `slashUsr` splits root_s, hu and cm into two limbs each.
 - New, core laws: `fold` on a QIT into `U256` needs a path for each path
   constructor. The S6 laws are `axiom` declarations in the domain (R52):
   the commutation laws `bidMaxSwap` over `bidMax` (for `bagMax`) and
@@ -504,8 +504,8 @@ existing program:
   `test/deposit.sh` (41 calls).
 - O48 (R48): the runtime of `examples/deposit.lang` (`langc build
   --runtime`) was measured at each step: 11725 bytes at 4.4, 17020 at
-  4.5, 17119 at the S5 close, 17103 at 8.3, 17138 at 8.4, 17069 at 8.5, 19237 at 11.3, 19822 after its staged review
-  (EIP-170 24576, 7507 free at 8.5, 5339 at 11.3 before review, 4754 after; S8 ceiling 18143, R78). No limit stopped a
+  4.5, 17119 at the S5 close, 17103 at 8.3, 17138 at 8.4, 17069 at 8.5, 19237 at 11.3, 19822 after its staged review, 22272 at 11.4
+  (EIP-170 24576, 7507 free at 8.5, 5339 at 11.3 before review, 4754 after, 2304 at 11.4; S8 ceiling 18143, R78). No limit stopped a
   step. `rootAt` comes before `filled`: the other order is EVM_SIZE (4.4).
 - O49 (R49): `regAuction` covers at most 4 slots (`tend - tstart <= 3`):
   `aucRoom` and `aucCounts` check and increment 4 offsets, counted back
@@ -618,8 +618,8 @@ names the S8 step that builds it:
   kit. BUILT in step 9.4 (RULED 2026-10-18, defaults (a)). The finding of
   the probe: the erasure `Bag A` to `List A` (bagNil to nil, bagCons to
   cons, the path cases dropped) is the evaluator's reduction of a Bag fold
-  over its constructors (`src/front/eval.c:918-931`), before `lower.c`
-  runs. The `lower.c` site is `lower_local_fold` (`src/lower.c:577-635`):
+  over its constructors (`src/front/eval.c:920-933`), before `lower.c`
+  runs. The `lower.c` site is `lower_local_fold` (`src/lower.c:588-646`):
   the List fold over a local List value (nil, a cons chain, a flagIf tree
   of them), after `lower_fold`. A Bag stays local to an entry (no Bag
   state field, K4c). One build row (`test/build.sh`, `bag exit`) and one
@@ -668,7 +668,7 @@ names the S8 step that builds it:
   (2026-10-19): the paraphrase (:60-64, :288-298) does not give the
   relation of pi^m (which values are witnesses and which are public
   inputs), whether root_s is a public input, the Merkle depth in the
-  circuit, the hash (Poseidon per :289 against keccak on chain, O4), the
+  circuit, the hash (Poseidon per :292 against keccak on chain, O4), the
   encoding of hu and cm as BN254 scalars (about 81 percent of raw keccak
   words exceed r and fail `domain/domain.lang:209-210`) or the setup
   provenance. circom 2.2.3 and snarkjs (a node script) are on the
@@ -687,9 +687,9 @@ names the S8 step that builds it:
 - O95 (R95): the `Lot n` state field (F15 EVM output, over R80 and R86
   (a)). The checker accepts a one-constructor, non-recursive family with
   closed indices and word fields as a state field
-  (`src/front/check.c:2735`). The lowering gets a form of k consecutive
+  (`src/front/check.c:2737`). The lowering gets a form of k consecutive
   slots for k constructor fields, the index dropped (`src/lower.c:29`,
-  :35, :175-188, :1214-1217). Rows: `test/lot-state.lang`, one build
+  :35, :175-188, :1231-1234). Rows: `test/lot-state.lang`, one build
   row, one evm row with `test/lot-state.script`, one check refusal row.
   Mutants M17 (the checker) and M18 (the slot offset). A Bag state field
   stays refused (O84). RULED 2026-10-19, defaults (a). Built in steps
@@ -815,7 +815,7 @@ names the S8 step that builds it:
   (Algorithm 2) carries s, so default (a): one slot word per commit.
   Under ENTRY_PARAMS_MAX 32 (R23). The O50 input-order fixture goes with
   the synthetic key. RULED 2026-10-20 (USER, R2); to build in steps
-  11.1 and 11.4.
+  11.1 and 11.4. Limb route RULED 2026-10-21 (USER, after the O105 stop of step 11.4): the base pair `u256High`, `u256Low : U256 -> U256` (section 4) replaces the guest helper above, against its words "no new base operation". The scratch build of the walk of the 128 closed weights stopped on OOM and EVM_SIZE. The other option was (b), one scalar per value (n = 3). High = w / 2^128 (SHR by 128), low = w mod 2^128 (AND with 2^128 - 1). The eval and EVM checks at the five words above are the `highv` and `lowv` rows of `test/precompile.sh:82-93`.
 - O103 (R103): the setup, R3 (a): a local snarkjs powers of tau
   (`snarkjs powersoftau new bn128 15`, one contribution, a beacon,
   `prepare phase2`, `groth16 setup`, one zkey contribution, `zkey export
@@ -843,7 +843,7 @@ names the S8 step that builds it:
   the USER confirms this reading. Default (a). Kickoff 2026-10-20; to
   build in steps 11.1 and 11.2.
 - O105 (R105): the runtime budget (O48, the O96 form): steps 11.1 and
-  11.2 do not change the deposit runtime (17069 bytes); 11.3 makes it 19237 bytes (USER pin 2026-10-20), 19822 after the staged review result check. 11.3 (the
+  11.2 do not change the deposit runtime (17069 bytes); 11.3 makes it 19237 bytes (USER pin 2026-10-20), 19822 after the staged review result check; 11.4 makes it 22272 bytes (USER pin 2026-10-21). 11.3 (the
   on-chain Poseidon and the address-bound leaves) and 11.4 (the
   re-keyed `slashUsr`: 7 IC points, the limb split, the slot argument)
   change it. Each of these measures the
@@ -874,10 +874,10 @@ names the S8 step that builds it:
   21-word form (O102), `slashKey` replaced, `test/deposit.sh` rows (two
   commits slash hu; the same cm twice reverts; a proof under hu'
   reverts), the split helper's boundary checks, and the canonical-limb
-  rejection checks. `test/run/deposit.script` stays unchanged (O47).
+  rejection checks. `test/run/deposit.script` row 29 takes the 21-word form (USER ruling 2026-10-21; `test/run/deposit.out` unchanged).
   The runtime stop-and-ask (O105); mutant M22 (high and low swapped)
-  KILLED. 11.5 the docs and the close: `SPEC.md` :322-323 (the O50
-  and O58 state), :457-467 (the status line), `probe/CAPABILITY.md` (the
+  KILLED. 11.5 the docs and the close: `SPEC.md` :323-324 (the O50
+  and O58 state), :458-468 (the status line), `probe/CAPABILITY.md` (the
   new operation and the circuit record), `docs/STATUS.md`,
   `docs/VALIDATION.md`, `README.md`; the final gate. Default (a).
   Kickoff 2026-10-20.

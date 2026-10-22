@@ -349,6 +349,17 @@ static const IrExpr *ir_const(Low *l, uint64_t n) {
   return e;
 }
 
+/* The word 2^128 - 1: the u256Low mask (S11 step 11.4). */
+static const IrExpr *ir_low_mask(Low *l) {
+  static const U256 mask = {{UINT64_MAX, UINT64_MAX, 0, 0}};
+  IrExpr *e = new_expr(l, IR_EXPR_WORD);
+  unsigned char *w = e != NULL ? low_alloc(l, sizeof(Word)) : NULL;
+  if (w == NULL) return NULL;
+  word_u256(w, &mask);
+  e->word = w;
+  return e;
+}
+
 static const IrExpr *ir_local(Low *l, uint32_t local) {
   IrExpr *e = new_expr(l, IR_EXPR_LOCAL);
   if (e != NULL) e->local = local;
@@ -716,8 +727,9 @@ static int pure_word(Low *l, const Value *v);
 
 /* 1 when the word value V cannot trap: a constant, a local, a load, now,
    caller or self, a hash, a poseidon2, a comparison or a subtraction of such
-   values, a natDiv or a natMod of such a value by a nonzero constant, and a
-   word flagIf over such values. Each of these lowers with no refusal. */
+   values, a natDiv or a natMod of such a value by a nonzero constant, a word
+   flagIf over such values, and a u256High or a u256Low of such a value. Each
+   of these lowers with no refusal. */
 static int pure_word_of(Low *l, const Value *v) {
   static const Op pure_binary[] = {OP_HASH,     OP_POSEIDON2, OP_NAT_SUB, OP_NAT_EQ, OP_NAT_LE,
                                    OP_U256_SUB, OP_U256_LE,   OP_U256_EQ, OP_ADDR_EQ};
@@ -729,7 +741,9 @@ static int pure_word_of(Low *l, const Value *v) {
   if (field_of(v, 0u, &f))
     return l->env != NULL && f < l->env->field_count &&
       (strcmp(l->env->fields[f].name, "now") == 0 || strcmp(l->env->fields[f].name, "caller") == 0 || strcmp(l->env->fields[f].name, "self") == 0);
-  if ((is_op(v, OP_TO_U256) || is_op(v, OP_ADDR_TO_U256)) && v->argc == 1) return pure_word(l, v->args[0]);
+  if ((is_op(v, OP_TO_U256) || is_op(v, OP_ADDR_TO_U256) || is_op(v, OP_U256_HIGH) || is_op(v, OP_U256_LOW)) &&
+      v->argc == 1)
+    return pure_word(l, v->args[0]);
   if (is_op(v, OP_KMAP_GET) && v->argc == 3 && field_of(v->args[1], 1u, &f) && form_at(l, f) == FORM_MAP)
     return pure_word(l, v->args[2]);
   if (is_op(v, OP_FLAG_IF) && v->argc == 3)
@@ -877,6 +891,9 @@ static const IrExpr *lower_expr(Low *l, Stmts *b, const Value *v) {
   }
   if (is_op(v, OP_TO_U256) && v->argc == 1) return lower_expr(l, b, v->args[0]);
   if (is_op(v, OP_ADDR_TO_U256) && v->argc == 1) return lower_expr(l, b, v->args[0]);
+  if (is_op(v, OP_U256_HIGH) && v->argc == 1)
+    return ir_binary(l, IR_OP_SHR, ir_const(l, 128u), lower_expr(l, b, v->args[0]));
+  if (is_op(v, OP_U256_LOW) && v->argc == 1) return ir_binary(l, IR_OP_AND, ir_low_mask(l), lower_expr(l, b, v->args[0]));
   if ((is_op(v, OP_ECRECOVER) || is_op(v, OP_EC_PAIRING)) && v->argc >= 1) return ir_load(l, lower_curve(l, b, v), 0);
   if (is_op(v, OP_POSEIDON2) && v->argc == 2) return ir_load(l, lower_curve(l, b, v), 0);
   if ((is_op(v, OP_FIRST) || is_op(v, OP_SECOND)) && v->argc == 1 && is_curve(v->args[0]))

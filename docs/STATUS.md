@@ -24,21 +24,21 @@ The sections above `## S2` give the summary of S0 to S6; the slice records give 
 - The deposit contract (S5, Algorithm 1 of the paper):
   `examples/deposit.lang` with 9 entries and 10 views, the share rule, and
   the Merkle tree library and the Groth16 verifier as guest definitions.
-  The runtime code is 19822 bytes after the staged review of step 11.3 (USER pin 19237 before review) (`SPEC.md:245-251`).
+  The runtime code is 22272 bytes at step 11.4 (USER pin 2026-10-21; 19822 after the staged review of step 11.3, USER pin 19237 before it) (`SPEC.md:246-252`).
 - The protocol layer (S6, Algorithms 2 and 3): `Bag`, `Bid`, the four laws, the median, `processBid` and the property checks.
   Since S9 step 9.4, local `Bag` folds that reduce to word code can reach the EVM (`test/bag.lang`); `processBid` stays off chain (R76).
-  Laws have no run-time value. `langc check` prints the axiom report (`SPEC.md:284-301`).
+  Laws have no run-time value. `langc check` prints the axiom report (`SPEC.md:285-302`).
 
 ## Remaining work
 
-`SPEC.md:317-333` gives the items open at S7 and their state at the S10 close:
+`SPEC.md:318-334` gives the items open at S7 and their state at the S10 close:
 
 1. `settle` (O7, O44): closed, not taken (9.1, R88); it refuses a caller with no deposit (8.4).
 2. `vault` (O46): closed in S8 step 8.3; `pull` credits `self env` (R74).
 3. The binding of each cm to its proof (O50, O58): PARTIAL; input 1 = cm (8.5); the circuit stays open (R87).
 4. An entry that calls `processBid` (O57): closed as off chain only (R76).
 5. The R35 refactor of `rule_hcomp` (O35): done in S8 step 8.2 (R77).
-6. The EIP-170 budget (O48): 4754 bytes are free under 24576 after the staged review of step 11.3 (runtime 19822; USER pin 19237 before review).
+6. The EIP-170 budget (O48): 2304 bytes are free under 24576 at step 11.4 (runtime 22272, USER pin 2026-10-21; 19822 after the staged review of step 11.3; USER pin 19237 before it).
 7. `od -v`: sealed-lang's 4 copies are fixed (R79); the 7 kit sites too, kit commit 0ead0b7 (R85).
 8. F15: DONE in `check` and `eval` (`family Lot`, 9.3, R86) and in EVM output for the `Lot n` state field (10.2 and 10.3, R95); no Bag state field (O84, R80).
 
@@ -78,7 +78,7 @@ the assembler. `slottool` is a helper of the chain scripts.
 codes: for example a family (REFUSE_DATA) and an axiom (REFUSE_AXIOM).
 Only `domain/domain.lang` declares the families, the HITs, the QITs and
 the four laws. A path, a path constructor, a formal `hcomp` and a law have
-no run-time form (`SPEC.md:252-262`).
+no run-time form (`SPEC.md:253-263`).
 
 ## S2
 
@@ -1558,3 +1558,57 @@ Staged review of step 11.3 (2026-10-21):
 - The constants regenerated from the local circomlib 2.0.5 source are
   byte-identical. A C driver compared native Poseidon(2) with the EVM library
   on all 36 pairs from {0, 1, r - 1, r, r + 1, 2^256 - 1}: all passed.
+
+Step 11.4 DONE (2026-10-22; the limb pair `u256High` and `u256Low`, the
+21-word `slashUsr` on the real key and run row 29; sessions s5 to s5f):
+
+- Precondition: HEAD 1d8835e (the USER commit of 11.3), tree cef0b844,
+  index empty. The gate at the start: evals 88, precompile 36 steps,
+  emit 26, deposit 28 assertions, deposit EVM runtime 19822 bytes,
+  deposit EVM 48 calls, 0 failures.
+- USER rulings (2026-10-21): the limb route (a), the base pair (s5c,
+  after the O105 stop of s5b: the O102 walk of the 128 closed weights
+  gave OOM and EVM_SIZE; (b) was n = 3); the runtime pin 22272; stage
+  (a); the cite rule (a) of 11.3; the O47 row (a): row 29 of
+  `test/run/deposit.script` takes the 21-word form and
+  `test/run/deposit.out` does not change; the docs by hand (s5f).
+- Design: `u256High`, `u256Low : U256 -> U256`. High = w / 2^128, low =
+  w mod 2^128, no trap. The BUILTINS rows `src/front/check.c:168-169`
+  (RULE_U256_2, arity 1; 70 rows). `OP_U256_HIGH` and `OP_U256_LOW` at
+  the enum end of `src/front/core.h`; eval `u256_half`
+  (`src/front/eval.c`). `src/lower.c:895-896` (`lower_expr`, also
+  `pure_word_of`) gives `IR_OP_SHR` by 128 and `IR_OP_AND` with
+  `ir_low_mask` (2^128 - 1); `src/evm.c` emits SHR and AND.
+- The deposit: `limbs` (`examples/deposit.lang:151-154`) gives the high
+  and the low limb of a word. `slashUsr` takes 21 words and checks each
+  proof on the real key (7 IC points) over the 6 limbs of root_s, hu
+  and cm (O102).
+- Rows: evals 88 -> 98 (`highZero` to `lowMax`,
+  `test/eval/expect.txt`); precompile 36 -> 46 (the views `highv` and
+  `lowv`, `test/precompile.sh:82-93`, at 0, 2^128 - 1, 2^128, r - 1
+  and 2^256 - 1); emit 26 -> 30 (`test/emittool.c:189-192`); deposit
+  28 -> 29 (`testRootLimbs`); deposit EVM 48 -> 53 calls (the slash
+  block, 16 rows); `test/run/deposit.script:29`, the 21-word row (23
+  calls stay).
+- Runtime: 22272 bytes (USER pin 2026-10-21), 2304 free under EIP-170
+  (24576); 19822 after the 11.3 review.
+- Mutants: SHR by 127 (`src/lower.c:895`) KILLED by 4 precompile
+  `highv` rows; the emittool rows build the IR by hand and cannot see
+  it. M22 (`limbs` := `pair (u256Low w) (u256High w)`) KILLED: FAIL
+  deposit `testRootLimbs` and 4 EVM rows (`slashUsr` revert,
+  `isSlashed` out 0, `slash` revert, `depositOf` out 64). Each file
+  restored, `cmp` equal, `make -B build` rc 0.
+- The gate at the end (`make -B check`, rc 0, 12455 s; only docs
+  changed after its start): GREEN. examples 30/0, parse refusals 15,
+  check refusals 88, evals 98, runs 6, run refusals 10, asmtool 8/8,
+  builds 3, lower refusals 15, checks 34, dispatch 20, evm steps 48,
+  precompile 46 steps, deposit 29/0, deposit EVM runtime 22272 bytes,
+  deposit EVM 53/0, mock 13/0, diff 16/0, emit 30, the regression lines
+  passed, no FAIL.
+- The docs (s5f): cite rule (a) with
+  `lang-template-work/sealed-lang-S11-citesweep.pl`: 44 code cite rows
+  and 51 doc-to-doc rows in the current-state docs; the dated records
+  of this file stay. The pin 22272 at the pin sites of 11.3. The pair
+  rows in SPEC.md, `docs/PLAN.md` section 4, `docs/host/README.md` and
+  `formers/tcc-evm-contract.md`; the O102 limb route; the O106 row 29.
+  `docs/PLAN.md` O106 stays "To build" until the close.

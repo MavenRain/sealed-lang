@@ -164,7 +164,9 @@ static const Builtin BUILTINS[] = {
   {"ecAdd", 2, RULE_FIXED, OP_EC_ADD, OP_PROD, 0},
   {"ecMul", 2, RULE_FIXED, OP_EC_MUL, OP_PROD, 0},
   {"ecPairing", 1, RULE_FIXED, OP_EC_PAIRING, OP_FLAG, 0},
-  {"addrToU256", 1, RULE_ADDR2, OP_ADDR_TO_U256, OP_U256, 0}
+  {"addrToU256", 1, RULE_ADDR2, OP_ADDR_TO_U256, OP_U256, 0},
+  {"u256High", 1, RULE_U256_2, OP_U256_HIGH, OP_U256, 0},
+  {"u256Low", 1, RULE_U256_2, OP_U256_LOW, OP_U256, 0}
 };
 
 #define BUILTIN_COUNT ((uint32_t)(sizeof BUILTINS / sizeof BUILTINS[0]))

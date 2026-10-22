@@ -229,6 +229,8 @@ static int emit_binary(Emit *e, const IrExpr *x) {
     asm_push(a, e->scratch);
     asm_op(a, EVM_OP_SHA3);
     return 1;
+  case IR_OP_SHR: asm_op(a, EVM_OP_SHR); return 1;
+  case IR_OP_AND: asm_op(a, EVM_OP_AND); return 1;
   case IR_OP_DIV:
   case IR_OP_MOD: return 0;
   }

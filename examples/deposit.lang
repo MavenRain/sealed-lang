@@ -118,30 +118,54 @@ def makeInactive : (env : Env) -> (s : State) -> (au : Addr) -> Option (Prod Sta
           none))
       none
 
--- The slash key: the synthetic R39 (a) key of examples/groth16.lang (2 inputs; a copy, R40), with
--- IC0' = IC0 + 3 IC2 = 46 G1 and IC2' = (0, 0), the point at infinity (R75 (a)). Thus vk_x does not
--- change with input 1. G1 = (1, 2) and each G2 point is G2. A deployment sets the real circuit key.
-def slashG1 : G1Point := pair 1u 2u
-def slashG2 : G2Point :=
-  pair
-    (pair 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2u
-          0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6edu)
-    (pair 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975bu
-          0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daau)
+-- The slash key: the key of the S11 step 11.2 circuit (nPublic 6, 7 IC points), a copy of
+-- eligibilityKey of examples/eligibility.lang (O75). Its statement is six words: the high and low
+-- limbs of root_s, hu and cm (O102).
 def slashKey : VerifyKey :=
-  pair (pair (ecMul slashG1 5u) slashG2)
-    (pair (pair slashG2 slashG2)
-      (cons (ecMul slashG1 46u) (cons (ecMul slashG1 11u) (cons (pair 0u 0u) nil))))
+  pair (pair (pair 12962472810847328862681166675356924786482643690306772407395845704307709270950u 14849431703584766185029115912612931396674724928921180485971275583634840555528u)
+    (pair
+      (pair 12510900244906728807260948159751313293082689549380345155138142474888282075212u
+            11473510195392991197323514962506057974640493596528387644804646687997828870541u)
+      (pair 13593227441453905390032753475574262314268555519759296981836868877633521079195u
+            18772277189576224808021799027560231598787209303031536849561758477271449690434u)))
+  (pair (pair
+    (pair
+      (pair 11559732032986387107991004021392285783925812861821192530917403151452391805634u
+            10857046999023057135944570762232829481370756359578518086990519993285655852781u)
+      (pair 4082367875863433681332203403145435568316851327593401208105741076214120093531u
+            8495653923123431417604973247489272438418190587263600148770280649306958101930u))
+    (pair
+      (pair 6285277606810534055159180489932937030691304595924113184963772555818926670778u
+            7306072971163868827338519478850018419311625773098591355647912278982619621920u)
+      (pair 3505764543436974975947619928408744509158662125785635081022157115251520562872u
+            15467324372396933353584728332279401467528652610739321696577682613567814797409u)))
+    (cons (pair 5409949555974070580761551561433228467671166044694968597757672212418670213612u 19909732077297329306109232027722531700624376165108417560218381523630914147011u)
+    (cons (pair 411318208877111901217786951313566781394840980964863093821480730666652462097u 13451528052960814486521565946190669298084416363882400439915721216510638383468u)
+    (cons (pair 12130865916387721672116322620708630998920542811025105823583923651500622280122u 17169520745841110817785814664560832467932105377006357008359489029749396548755u)
+    (cons (pair 12201085412382777870566169854613734713843289267738292800381730482418527319089u 13191923392657789878977497984149592505731907793854416146390134022188108531136u)
+    (cons (pair 18285746832539543562801562604785547537850400465352126930719340122597546834991u 17756052289846329033293060111783011037129293478925413771376284450686542509115u)
+    (cons (pair 7729753440233121792489610458265028348230217781800646456274651781405251769798u 9668723062340395285594044208888785324434280102668935424237592029207254894010u)
+    (cons (pair 6528434847121470296264158796465819210808587768750099671749803722012393313430u 6184937288556808568955481315757766388643200264690254042243857962949581819393u)
+    nil))))))))
+
+-- The limbs (high, low) of the word w: w = high * 2^128 + low and low < 2^128 (O102). The base
+-- pair u256High and u256Low (S11 step 11.4) is SHR by 128 and AND with 2^128 - 1 on the EVM.
+def limbs : (w : U256) -> Prod U256 U256 :=
+  fun (w : U256) => pair (u256High w) (u256Low w)
+-- The limbs of p (high, then low) before rest.
+def limbsThen : (p : Prod U256 U256) -> (rest : List U256) -> List U256 :=
+  fun (p : Prod U256 U256) (rest : List U256) => cons (first p) (cons (second p) rest)
 
 -- The proof (A, (B, C)) of 8 call words. A and C are G1 points. B is a G2 point in the EIP-197 order.
 def proofOf : (ax ay bxi bxr byi byr cx cy : U256) -> VerifyProof :=
   fun (ax ay bxi bxr byi byr cx cy : U256) =>
     pair (pair ax ay) (pair (pair (pair bxi bxr) (pair byi byr)) (pair cx cy))
 
--- flagYes when input 0 is the handle hu (R50 (a)), input 1 is cm (R75 (a)) and the proof is valid.
-def eligible : (hu cm : U256) -> (p : VerifyProof) -> (i0 i1 : U256) -> Flag :=
-  fun (hu cm : U256) (p : VerifyProof) (i0 i1 : U256) =>
-    flagIf (u256Eq i0 hu) (flagIf (u256Eq i1 cm) (verify slashKey (cons i0 (cons i1 nil)) p) flagNo) flagNo
+-- flagYes when p is a valid proof for the statement of (the root of slot, hu, cm). The contract
+-- makes the six limb words (O102), thus the caller gives no input words.
+def eligible : (s : State) -> (hu : U256) -> (slot : Nat) -> (cm : U256) -> (p : VerifyProof) -> Flag :=
+  fun (s : State) (hu : U256) (slot : Nat) (cm : U256) (p : VerifyProof) =>
+    verify slashKey (limbsThen (limbs (mapGet (rootAt s) slot)) (limbsThen (limbs hu) (limbsThen (limbs cm) nil))) p
 
 -- flagYes when the caller is the user au or a proposer.
 def byUserOrProposer : (env : Env) -> (s : State) -> (au : Addr) -> Flag :=
@@ -198,19 +222,19 @@ def updateActivity : (env : Env) -> (s : State) -> (au : Addr) -> (v : Nat) -> (
           none))
       none
 
--- Entry: mark the handle hu as slashed. Two valid proofs with input 0 = hu (R50 (a)) and two
--- different commitments cm1 and cm2, each input 1 of its proof (R75 (a)), show a double commit.
--- Each proof is 8 words, then its 2 inputs: 1 + 2 (1 + 8 + 2) = 23 words. Any caller (R44 (a)). The
--- circuit of the paper binds cm to the proof; the fixture key does not (O50).
-def slashUsr : (env : Env) -> (s : State) ->
-  (hu cm1 a1x a1y b1xi b1xr b1yi b1yr c1x c1y i1a i1b cm2 a2x a2y b2xi b2xr b2yi b2yr c2x c2y i2a i2b : U256) ->
+-- Entry: mark the handle hu as slashed. Two valid proofs for hu (R50 (a)) with two different
+-- commitments cm1 and cm2 (R75 (a)) show a double commit. Each commit is its slot (the slot of
+-- root_s), its cm and its proof of 8 words: 1 + 2 (1 + 1 + 8) = 21 words (O102). Any caller (R44 (a)).
+def slashUsr : (env : Env) -> (s : State) -> (hu : U256) ->
+  (slot1 : Nat) -> (cm1 a1x a1y b1xi b1xr b1yi b1yr c1x c1y : U256) ->
+  (slot2 : Nat) -> (cm2 a2x a2y b2xi b2xr b2yi b2yr c2x c2y : U256) ->
   Option (Prod State (List Out)) :=
-  fun (env : Env) (s : State)
-    (hu cm1 a1x a1y b1xi b1xr b1yi b1yr c1x c1y i1a i1b cm2 a2x a2y b2xi b2xr b2yi b2yr c2x c2y i2a i2b : U256) =>
+  fun (env : Env) (s : State) (hu : U256) (slot1 : Nat) (cm1 a1x a1y b1xi b1xr b1yi b1yr c1x c1y : U256)
+    (slot2 : Nat) (cm2 a2x a2y b2xi b2xr b2yi b2yr c2x c2y : U256) =>
     flagIf (u256Eq cm1 cm2)
       none
-      (flagIf (eligible hu cm1 (proofOf a1x a1y b1xi b1xr b1yi b1yr c1x c1y) i1a i1b)
-        (flagIf (eligible hu cm2 (proofOf a2x a2y b2xi b2xr b2yi b2yr c2x c2y) i2a i2b)
+      (flagIf (eligible s hu slot1 cm1 (proofOf a1x a1y b1xi b1xr b1yi b1yr c1x c1y))
+        (flagIf (eligible s hu slot2 cm2 (proofOf a2x a2y b2xi b2xr b2yi b2yr c2x c2y))
           (some (pair
             (makeState (ctr s) (minDeposit s) (nA s) (genesis s) (slotLength s)
               (aucsPerSlot s) (aucItem s) (aucStart s) (aucEnd s) (amount s) (leaf s) (nextLeaf s)

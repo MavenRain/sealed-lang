@@ -85,6 +85,11 @@ def testAuthNonce : Flag :=
 -- Auction 0 of testFirstAuction ends in slot 3. A caller with no deposit cannot settle it in slot 4.
 def testSettleNoDeposit : Flag := flagIf (testAccepted
   (settle (makeEnv 40 0x00000000000000000000000000000000000000cc 0x0000000000000000000000007265636569766572) testFirstAuction 0u 50u)) flagNo flagYes
+-- S11 step 11.4: limbs gives the (high, low) words of the fixture root, the first two words of
+-- statement1 (examples/eligibility.lang).
+def testRootLimbs : Flag :=
+  flagIf (u256Eq (first (limbs 0x1efb9d39eb45e39697c03d8c7236557eba62ac405c584d59b5b96d1c18938d3au)) 0x1efb9d39eb45e39697c03d8c7236557eu)
+    (u256Eq (second (limbs 0x1efb9d39eb45e39697c03d8c7236557eba62ac405c584d59b5b96d1c18938d3au)) 0xba62ac405c584d59b5b96d1c18938d3au) flagNo
 
 -- These views run on the EVM because ecrecover is opaque to langc eval.
 def testSignature0 : (env : Env) -> (s : State) -> Flag :=

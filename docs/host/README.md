@@ -54,6 +54,8 @@ Prelude names:
 | `u256Sub` | `U256 -> U256 -> U256` | The difference. The result stops at 0. |
 | `u256Le` | `U256 -> U256 -> Flag` | `flagYes` when the first is less than or equal to the second. |
 | `u256Eq` | `U256 -> U256 -> Flag` | `flagYes` when the two are equal. |
+| `u256High` | `U256 -> U256` | The high 128 bits: the word divided by 2^128. |
+| `u256Low` | `U256 -> U256` | The low 128 bits: the word mod 2^128. |
 | `toU256` | `Nat -> U256` | The same number as a U256. This is the only conversion. |
 | `addrEq` | `Addr -> Addr -> Flag` | `flagYes` when the two addresses are equal. |
 
@@ -313,7 +315,7 @@ Slice S5 of sealed-lang adds the deposit contract of the paper (`examples/deposi
 
 The S5 example uses a synthetic verifier fixture. `slashUsr` requires input 1 of each proof = its cm (R75, S8 step 8.5). The fixture key has IC2 = 0, thus one proof is valid with inputs (2, 5) and (2, 6) for cm1 = 5 and cm2 = 6; the key does not bind cm, the circuit of the paper does (O50). `settle` accepts a caller with a deposit (R73, S8 step 8.4) and a supplied price after the auction ends; winner selection from sealed bids is S6 (`processBid`, O7/O44). Set `asset` to the token. S8 removes `vault`: `pull` credits `self env` (ADDRESS), and `pay` spends the executing contract's balance (R74, O46).
 
-Share rule (R41): `src/lower.c` lowers a residual word value that cannot trap (a `hash`, a `poseidon2`, a word `flagIf` over such values, a load, a local) and that both arms of a word `flagIf` use once into a local before the IF (`share_arms`). Without it an unrolled tree insert doubles its code at each level. With it a depth-32 insert is linear in the depth: the lowertool row `insert-depth-32` checks it under EIP-170. No expected output of an existing program changed. The runtime of `examples/deposit.lang` is 19822 bytes after the staged review of step 11.3 (19237 before review; 17069 at the S9 close; `langc build --runtime`, EIP-170 24576).
+Share rule (R41): `src/lower.c` lowers a residual word value that cannot trap (a `hash`, a `poseidon2`, a word `flagIf` over such values, a load, a local) and that both arms of a word `flagIf` use once into a local before the IF (`share_arms`). Without it an unrolled tree insert doubles its code at each level. With it a depth-32 insert is linear in the depth: the lowertool row `insert-depth-32` checks it under EIP-170. No expected output of an existing program changed. The runtime of `examples/deposit.lang` is 22272 bytes at step 11.4 (19822 after the staged review of step 11.3, 19237 before it; 17069 at the S9 close; `langc build --runtime`, EIP-170 24576).
 
 Run time: `langc eval` keeps `ecrecover` and the curve operations stuck, so `langc run` stops with EVAL_ENTRY at a successful signed or proof call. `test/run/deposit.script` holds the 23 calls that eval can step, and `test/diff.sh` replays it on `evm` with the mock token (diff 15 -> 16, runs 5 -> 6). The signed and proof calls are chain rows in `test/deposit.sh` (44 calls). `test/evmchain.sh`, `test/dispatch.sh`, `test/mock.sh` and `test/diff.sh` call `od -v`: without `-v`, `od` writes `*` for a repeated 16-byte row, so the hex of a signature with 6 or more uint256 arguments, and thus its selector, is wrong.
 

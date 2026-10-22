@@ -48,7 +48,9 @@ typedef enum {
   IR_OP_MIN,       /* the smaller operand */
   IR_OP_KECCAK,    /* keccak256(left . right), each a 32-byte word */
   IR_OP_WORD_ADD,  /* the sum modulo 2^256 (a List word slot, C-c9-1) */
-  IR_OP_MOD        /* left modulo right; traps when right is 0 (sealed-lang S2) */
+  IR_OP_MOD,       /* left modulo right; traps when right is 0 (sealed-lang S2) */
+  IR_OP_SHR,       /* right shifted right by left bits (EVM SHR, LEFT on top; S11 11.4) */
+  IR_OP_AND        /* bitwise and (S11 step 11.4) */
 } IrOp;
 
 /* The call data that IR_EXPR_ENV reads (C-K4-12). */

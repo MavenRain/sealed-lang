@@ -70,6 +70,13 @@ def hashv : (env : Env) -> (s : State) -> (a b : U256) -> U256 :=
 def poseidonv : (env : Env) -> (s : State) -> (a b : U256) -> U256 :=
   fun (env : Env) (s : State) (a b : U256) => poseidon2 a b
 
+-- highv w and lowv w: the base pair u256High and u256Low on the chain (S11 step 11.4): PUSH1 0x80 SHR and AND with 2^128 - 1.
+def highv : (env : Env) -> (s : State) -> (w : U256) -> U256 :=
+  fun (env : Env) (s : State) (w : U256) => u256High w
+
+def lowv : (env : Env) -> (s : State) -> (w : U256) -> U256 :=
+  fun (env : Env) (s : State) (w : U256) => u256Low w
+
 -- leaf i: the parent index of leaf i plus its side bit (natDiv and natMod of one Nat).
 def leaf : (i : Nat) -> Nat := fun (i : Nat) => natAdd (natDiv i 2) (natMod i 2)
 
@@ -93,3 +100,24 @@ def poseidonOne : U256 := poseidon1 1u
 def poseidonZero : U256 := poseidon2 0u 0u
 
 def leafU : U256 := poseidon2 3u (poseidon1 1u)
+
+-- u256High and u256Low compute (S11 step 11.4): the limbs of 0, 2^128 - 1, 2^128, r - 1 and 2^256 - 1.
+def highZero : U256 := u256High 0u
+
+def lowZero : U256 := u256Low 0u
+
+def highHalf : U256 := u256High 340282366920938463463374607431768211455u
+
+def lowHalf : U256 := u256Low 340282366920938463463374607431768211455u
+
+def highCarry : U256 := u256High 340282366920938463463374607431768211456u
+
+def lowCarry : U256 := u256Low 340282366920938463463374607431768211456u
+
+def highField : U256 := u256High 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000u
+
+def lowField : U256 := u256Low 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000u
+
+def highMax : U256 := u256High 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffu
+
+def lowMax : U256 := u256Low 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffu

@@ -79,6 +79,18 @@ else
   # leafU = H(3, H(1)), the words of `langc eval examples/precompile.lang` poseidonZero and leafU.
   call "out 2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864" poseidonv 0u 0u
   call "out 20573517eb09e4a3209ddd710a4d253f4eaa1e6eaba971fde0910183910c4f74" poseidonv 3u 0x29176100eaa962bdc1fe6c654d6a3c130e96a4d1168b33848b897dc502820133u
+  # highv and lowv: u256High and u256Low on the chain (S11 step 11.4) of 0, 2^128 - 1, 2^128, r - 1 and
+  # 2^256 - 1, the words of `langc eval examples/precompile.lang` highZero to lowMax.
+  call "out 0" highv 0u
+  call "out 0" lowv 0u
+  call "out 0" highv 0xffffffffffffffffffffffffffffffffu
+  call "out ffffffffffffffffffffffffffffffff" lowv 0xffffffffffffffffffffffffffffffffu
+  call "out 1" highv 0x100000000000000000000000000000000u
+  call "out 0" lowv 0x100000000000000000000000000000000u
+  call "out 30644e72e131a029b85045b68181585d" highv 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000u
+  call "out 2833e84879b9709143e1f593f0000000" lowv 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000u
+  call "out ffffffffffffffffffffffffffffffff" highv 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffu
+  call "out ffffffffffffffffffffffffffffffff" lowv 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffu
   # leafStep i = natDiv i 2 + natMod i 2 (the parent index plus the side bit).
   call "out 4" leafStep 7
   call "out 3" leafStep 6

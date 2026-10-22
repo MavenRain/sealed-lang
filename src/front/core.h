@@ -90,7 +90,10 @@ typedef enum {
   OP_INTERVAL, /* the sort I: never a type, only the type of an interval term */
   OP_TRANSP,   /* transp L phi a: L a line (a path value in U), phi a face */
   OP_SYSTEM,   /* a system: key0, branch0, key1, branch1, ...; each branch a PLAM */
-  OP_HCOMP     /* hcomp A phi sys u0: phi a face, sys an OP_SYSTEM value */
+  OP_HCOMP,    /* hcomp A phi sys u0: phi a face, sys an OP_SYSTEM value */
+  /* S11 step 11.4 (O102): the high and the low 128 bits of a word. */
+  OP_U256_HIGH,
+  OP_U256_LOW
 } Op;
 
 /* The instance of pure, map, bind and filter (formers F5 and F8). */

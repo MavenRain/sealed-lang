@@ -32,7 +32,8 @@ static const char *const OP_NAMES[] = {
   [OP_ADDR_EQ] = "addrEq", [OP_PROJ] = "?", [OP_KMAP] = "Map", [OP_KMAP_OF] = "mapOf",
   [OP_KMAP_GET] = "mapGet", [OP_KMAP_SET] = "mapSet",
   [OP_INTERVAL] = "I", [OP_TRANSP] = "transp",
-  [OP_SYSTEM] = "system", [OP_HCOMP] = "hcomp"
+  [OP_SYSTEM] = "system", [OP_HCOMP] = "hcomp",
+  [OP_U256_HIGH] = "u256High", [OP_U256_LOW] = "u256Low"
 };
 
 /* The number of arguments of each operation. VARIES: it comes from the
@@ -55,7 +56,8 @@ static const unsigned char OP_ARITY[] = {
   [OP_EC_ADD] = 2, [OP_EC_MUL] = 2, [OP_EC_PAIRING] = 1, [OP_ADDR_TO_U256] = 1,
   [OP_PROJ] = 1, [OP_KMAP] = 2, [OP_KMAP_OF] = VARIES, [OP_KMAP_GET] = 3, [OP_KMAP_SET] = 4,
   [OP_INTERVAL] = 0, [OP_TRANSP] = 3,
-  [OP_SYSTEM] = VARIES, [OP_HCOMP] = 4
+  [OP_SYSTEM] = VARIES, [OP_HCOMP] = 4,
+  [OP_U256_HIGH] = 1, [OP_U256_LOW] = 1
 };
 
 typedef enum {
@@ -1242,6 +1244,18 @@ static const Value *addr_to_u256(Machine *m, const Value *const *a, uint32_t n) 
   return word_value(m, a[0]->word);
 }
 
+/* u256High w and u256Low w (S11 step 11.4, O102): the high and the low 128
+   bits of w, each a word below 2^128. */
+static const Value *u256_half(Machine *m, Op op, const Value *const *a, uint32_t n) {
+  const Value *out;
+  U256 r = {{0, 0, 0, 0}};
+  if (!word_args(m, op, VAL_WORD, a, n, &out))
+    return out;
+  r.limb[0] = a[0]->word->limb[op == OP_U256_HIGH ? 2 : 0];
+  r.limb[1] = a[0]->word->limb[op == OP_U256_HIGH ? 3 : 1];
+  return word_value(m, &r);
+}
+
 /* The curve ops (S2, R17): a trap argument gives the trap; else the
    application is stuck, closed arguments included. The chain test is the
    differential gate (O5). */
@@ -1820,6 +1834,8 @@ static const Value *transp_data(Machine *m, const Value *head, const Value *line
   case OP_EC_MUL:
   case OP_EC_PAIRING:
   case OP_ADDR_TO_U256:
+  case OP_U256_HIGH:
+  case OP_U256_LOW:
   case OP_PROJ:
   case OP_KMAP_OF:
   case OP_KMAP_GET:
@@ -2307,6 +2323,9 @@ static const Value *reduce_op(Machine *m, Op op, uint32_t inst, uint32_t field, 
     return poseidon_words(m, op, a, n);
   case OP_ADDR_TO_U256:
     return addr_to_u256(m, a, n);
+  case OP_U256_HIGH:
+  case OP_U256_LOW:
+    return u256_half(m, op, a, n);
   case OP_ECRECOVER:
   case OP_EC_ADD:
   case OP_EC_MUL:

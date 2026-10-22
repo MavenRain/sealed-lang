@@ -72,9 +72,9 @@ contract prelude `src/front/contract.c`, then the program
 
 A definition can use only earlier definitions (rule R3). `def rec` gives
 REFUSE_REC with the line `def rec is refused (rule R3); use fold or
-unfold` (`src/front/check.c:2804`). A reference to the definition itself
+unfold` (`src/front/check.c:2806`). A reference to the definition itself
 or to a later name gives REFUSE_REC with the line `NAME is this definition
-or a later one; a definition can use only earlier ones (rule R3)` (:1819).
+or a later one; a definition can use only earlier ones (rule R3)` (:1821).
 Recursion is `fold` over a family (F6) and `unfold` into `List` with a
 `Nat` step limit (F7, `SPEC.md` section 3).
 
@@ -84,9 +84,9 @@ The primitives are the `Nat` rows of `SPEC.md` section 6: `natAdd` and
 `natSub` (`src/front/check.c:143-144`), the kit comparisons, and `natDiv`
 and `natMod` (S2), which trap on 0. S2 pruned `natMul` (O19). A definition
 recurses on a `Nat` only through `fold` (section 3). On the EVM a `Nat` is
-a uint64 word (`docs/host/README.md:218-219`). `natSub` saturates at zero:
-`natSub 4 9` is 0 in `langc eval` (`src/front/eval.c:1120`) and in the
-EVM output (`src/lower.c:442`, `src/evm.c:187`). The existing emitter
+a uint64 word (`docs/host/README.md:220-221`). `natSub` saturates at zero:
+`natSub 4 9` is 0 in `langc eval` (`src/front/eval.c:1122`) and in the
+EVM output (`src/lower.c:453`, `src/evm.c:187`). The existing emitter
 regression `sub-saturates` checks 4 minus 9 gives 0
 (`test/emittool.c:146`).
 
@@ -112,8 +112,8 @@ a check, a build or a run at N bids.
 
 The nearest data:
 
-- The deposit runtime code is 19822 bytes after the staged review of 11.3, 4754 bytes under the EIP-170
-  limit of 24576 bytes (O48, `docs/PLAN.md:507`, `docs/STATUS.md:1536`).
+- The deposit runtime code is 22272 bytes at 11.4 (19822 after the staged review of 11.3), 2304 bytes under the EIP-170
+  limit of 24576 bytes (O48, `docs/PLAN.md:507`, `docs/STATUS.md:1593`).
 - The lowertool arena is 32 MiB (`docs/STATUS.md:331`).
 - The deposit EVM chain does 44 calls with 0 failures
   (`docs/STATUS.md:588`). The deposit call script has 23 calls
@@ -127,7 +127,7 @@ The nearest data:
 ## 7. Parametric families
 
 Only `domain/domain.lang` declares a family. A family in a program gives
-REFUSE_DATA (`src/front/check.c:2800`, rule R1). The domain families
+REFUSE_DATA (`src/front/check.c:2802`, rule R1). The domain families
 `Trunc1`, `Trunc0` and `Quot` take a type parameter (O32,
 `docs/PLAN.md:424-426`), and so does `Bag A` (`domain/domain.lang:51-61`,
 O51). Their constructors appear in terms in `check` and `eval`. F15 is
@@ -162,13 +162,13 @@ so one family serves each index type.
 
 `build/langc check FILE` prints one line `axiom NAME` for each law of
 `domain/domain.lang`, in the order of the domain file, then `ok`
-(`report_axioms`, `src/front/check.c:2846`, called at `src/main.c:183`).
+(`report_axioms`, `src/front/check.c:2848`, called at `src/main.c:183`).
 Each program loads the domain, so a program with no axiom prints the four
 lines `axiom bidMaxSwap`, `axiom bidSet`, `axiom insSwap` and `axiom
 listNatSet`, then `ok` (`SPEC.md` section 8). `test/gate.sh` compares this
 report for each example. A program with one axiom gives REFUSE_AXIOM
-(`src/front/check.c:2780`). A domain axiom whose type is not a Path or a
-PathP after its Pi binders gives REFUSE_AXIOM_TYPE (:2778). The 7.1 row of
+(`src/front/check.c:2782`). A domain axiom whose type is not a Path or a
+PathP after its Pi binders gives REFUSE_AXIOM_TYPE (:2780). The 7.1 row of
 `test/fronttool.c` checks it (R61 (a)).
 
 ## Consequences for M0
